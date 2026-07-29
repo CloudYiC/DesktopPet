@@ -47,6 +47,8 @@ std::wstring Utf8ToWide(const std::string& value) {
 }
 
 std::wstring ExecutableDirectory() {
+  // Windows does not expose the required buffer length up front, so grow until
+  // GetModuleFileNameW returns an untruncated path.
   std::vector<wchar_t> buffer(512);
   for (;;) {
     const DWORD length = GetModuleFileNameW(nullptr, buffer.data(),
@@ -79,8 +81,11 @@ std::wstring AppDataDirectory() {
   CoTaskMemFree(rawPath);
   std::filesystem::create_directories(path);
 
-  const auto migrateFile = [&path, &legacyPath](const wchar_t* legacyName,
-                                                const wchar_t* currentName) {
+  // Migration is intentionally copy-only: an interrupted upgrade must not
+  // destroy data that an older installed version can still read.
+  const auto copyIfMissing = [&path, &legacyPath](
+                                 const wchar_t* legacyName,
+                                 const wchar_t* currentName) {
     std::error_code error;
     const std::filesystem::path source = legacyPath / legacyName;
     const std::filesystem::path destination = path / currentName;
@@ -91,10 +96,20 @@ std::wstring AppDataDirectory() {
                                  error);
     }
   };
-  migrateFile(L"milo.db", L"yiyi.db");
-  migrateFile(L"milo.db-wal", L"yiyi.db-wal");
-  migrateFile(L"milo.db-shm", L"yiyi.db-shm");
-  migrateFile(L"onboarding.complete", L"onboarding.complete");
+
+  // A SQLite database and its WAL belong to the same snapshot. Only migrate
+  // the legacy pair when the current database has never been created.
+  // Copying an old WAL later (for example after a clean checkpoint removes the
+  // current WAL) can replay stale settings over newly saved values.
+  std::error_code databaseError;
+  const std::filesystem::path currentDatabase = path / L"yiyi.db";
+  const std::filesystem::path legacyDatabase = legacyPath / L"milo.db";
+  if (!std::filesystem::exists(currentDatabase, databaseError) &&
+      std::filesystem::exists(legacyDatabase, databaseError)) {
+    copyIfMissing(L"milo.db", L"yiyi.db");
+    copyIfMissing(L"milo.db-wal", L"yiyi.db-wal");
+  }
+  copyIfMissing(L"onboarding.complete", L"onboarding.complete");
 
   return path.wstring();
 }

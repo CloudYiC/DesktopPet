@@ -1,11 +1,18 @@
 import type {
   AppState,
+  CharacterLayout,
   HostMessage,
   Reminder,
   ReminderPriority,
   RepeatRule,
 } from '../types';
 
+/**
+ * Minimal WebView2 bridge surface consumed by this application.
+ *
+ * Declaring only the members used here keeps browser preview builds independent
+ * from the full WebView2 type package.
+ */
 interface WebViewBridge {
   postMessage(message: unknown): void;
   addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
@@ -25,6 +32,10 @@ type Listener = (message: HostMessage) => void;
 const listeners = new Set<Listener>();
 const nativeBridge = window.chrome?.webview;
 
+/*
+ * Vite's browser preview has no native process. This in-memory state implements
+ * the same message protocol so the UI remains testable with `npm run dev`.
+ */
 let mockState: AppState = {
   reminders: [
     {
@@ -41,6 +52,18 @@ let mockState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
+  autoHideEnabled: true,
+  autoHideMinutes: 10,
+  characters: [
+    {
+      id: 'builtin',
+      name: '经典小鼠',
+      imageUrl: '/assets/milo-sprite.png',
+      layout: 'sheet',
+      builtIn: true,
+    },
+  ],
+  activeCharacterId: 'builtin',
 };
 
 function emit(message: HostMessage) {
@@ -52,6 +75,7 @@ function emitMockState() {
 }
 
 function announceMockReminder(reminder: Reminder) {
+  // Mirror the native alert closely enough to exercise sound/speech settings.
   if (mockState.soundEnabled) {
     const AudioContextType = window.AudioContext;
     if (AudioContextType) {
@@ -120,6 +144,7 @@ function handleMockMessage(message: HostMessage<Record<string, unknown>>) {
         reminders: mockState.reminders.flatMap((reminder) => {
           if (reminder.id !== completedId) return [reminder];
           if (reminder.repeatRule === 'none') return [];
+          // Advance from the prior occurrence to preserve the user's local time.
           const dayCount = reminder.repeatRule === 'weekly' ? 7 : 1;
           const next = new Date(reminder.dueAt);
           do {
@@ -161,12 +186,66 @@ function handleMockMessage(message: HostMessage<Record<string, unknown>>) {
     case 'pet.action':
       emit(message);
       break;
+    case 'character.upload': {
+      const dataUrl = String(payload.dataUrl ?? '');
+      const character = {
+        id: `mock-${Date.now()}`,
+        name: String(payload.name ?? '新角色'),
+        imageUrl: dataUrl,
+        layout: String(payload.layout ?? 'single') as CharacterLayout,
+        builtIn: false,
+      };
+      mockState = {
+        ...mockState,
+        characters: [...mockState.characters, character],
+        activeCharacterId: character.id,
+      };
+      emitMockState();
+      break;
+    }
+    case 'character.activate':
+      if (mockState.characters.some((character) => character.id === String(payload.id))) {
+        mockState = { ...mockState, activeCharacterId: String(payload.id) };
+        emitMockState();
+      }
+      break;
+    case 'character.rename':
+      mockState = {
+        ...mockState,
+        characters: mockState.characters.map((character) =>
+          character.id === String(payload.id)
+            ? { ...character, name: String(payload.name ?? character.name) }
+            : character,
+        ),
+      };
+      emitMockState();
+      break;
+    case 'character.delete': {
+      const id = String(payload.id);
+      mockState = {
+        ...mockState,
+        characters: mockState.characters.filter(
+          (character) => character.builtIn || character.id !== id,
+        ),
+        activeCharacterId: mockState.activeCharacterId === id
+          ? 'builtin'
+          : mockState.activeCharacterId,
+      };
+      emitMockState();
+      break;
+    }
     case 'settings.update':
       mockState = {
         ...mockState,
         petName: String(payload.petName ?? mockState.petName),
         soundEnabled: Boolean(payload.soundEnabled ?? mockState.soundEnabled),
         speechEnabled: Boolean(payload.speechEnabled ?? mockState.speechEnabled),
+        autoHideEnabled: Boolean(
+          payload.autoHideEnabled ?? mockState.autoHideEnabled,
+        ),
+        autoHideMinutes: Number(
+          payload.autoHideMinutes ?? mockState.autoHideMinutes,
+        ),
       };
       emitMockState();
       break;
@@ -176,11 +255,18 @@ function handleMockMessage(message: HostMessage<Record<string, unknown>>) {
 }
 
 if (nativeBridge) {
+  // WebView2 raises a DOM-style event for messages posted by the C++ host.
   nativeBridge.addEventListener('message', (event) => {
     emit(event.data as HostMessage);
   });
 }
 
+/**
+ * Posts a typed command to C++ or routes it to the browser-preview mock.
+ *
+ * @param type Protocol command name, such as `reminder.create`.
+ * @param payload JSON-serializable command data.
+ */
 export function postHostMessage<T extends Record<string, unknown>>(
   type: string,
   payload?: T,
@@ -193,6 +279,11 @@ export function postHostMessage<T extends Record<string, unknown>>(
   }
 }
 
+/**
+ * Registers a host-message listener.
+ *
+ * @returns A cleanup callback suitable for a React effect.
+ */
 export function subscribeHost(listener: Listener) {
   listeners.add(listener);
   return () => {
@@ -200,4 +291,5 @@ export function subscribeHost(listener: Listener) {
   };
 }
 
+/** Indicates whether the current page is hosted by the native WebView2 process. */
 export const isNativeHost = Boolean(nativeBridge);

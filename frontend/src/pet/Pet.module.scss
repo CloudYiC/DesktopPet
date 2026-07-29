@@ -80,10 +80,12 @@ $cream: #fffaf0;
   }
 
   .spriteShell {
-    right: calc(50% - 140px);
-    bottom: -22px;
-    width: 280px;
-    height: 373px;
+    z-index: 4;
+    right: auto;
+    bottom: -6px;
+    left: 8px;
+    width: 238px;
+    height: 317px;
     cursor: default;
     filter: drop-shadow(0 18px 10px rgba(72, 48, 31, 0.2));
   }
@@ -140,7 +142,7 @@ $cream: #fffaf0;
 
 .presentation {
   position: absolute;
-  z-index: 3;
+  z-index: 5;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
@@ -167,15 +169,16 @@ $cream: #fffaf0;
 .urgencyRing {
   position: absolute;
   z-index: 2;
-  top: 12px;
-  left: 50%;
+  right: 8px;
+  bottom: 72px;
+  left: auto;
   display: none;
-  width: min(88%, 410px);
-  height: 205px;
+  width: min(60%, 310px);
+  height: 218px;
   border: 3px solid rgba(224, 138, 49, 0.45);
   border-radius: 32px;
-  transform: translateX(-50%);
-  animation: urgencyPulse 1.15s ease-out infinite;
+  transform: none;
+  animation: urgencyPulseSide 1.15s ease-out infinite;
 }
 
 .priorityImportant .urgencyRing,
@@ -191,7 +194,7 @@ $cream: #fffaf0;
 .alertRay {
   position: absolute;
   z-index: 4;
-  top: 82px;
+  bottom: 178px;
   display: none;
   width: 44px;
   height: 5px;
@@ -219,13 +222,14 @@ $cream: #fffaf0;
 .signBoard {
   position: absolute;
   z-index: 7;
-  top: 28px;
-  left: 50%;
+  right: 18px;
+  bottom: 88px;
+  left: auto;
   display: flex;
-  width: calc(100% - 68px);
-  max-width: 360px;
-  min-height: 166px;
-  padding: 18px 22px 16px;
+  width: min(56%, 292px);
+  max-width: none;
+  min-height: 190px;
+  padding: 18px 18px 16px;
   box-sizing: border-box;
   flex-direction: column;
   align-items: center;
@@ -240,32 +244,14 @@ $cream: #fffaf0;
     0 7px 0 #70452f,
     0 20px 34px rgba(86, 50, 25, 0.22);
   text-align: center;
-  transform: translateX(-50%);
-  transform-origin: 50% 100%;
+  transform: none;
+  transform-origin: 0 75%;
   animation: signArrival 720ms 520ms cubic-bezier(0.2, 1.2, 0.3, 1) both;
 
   &::before,
   &::after {
-    position: absolute;
-    width: 42px;
-    height: 12px;
-    content: '';
-    background: #c99062;
-    border: 3px solid #70452f;
-    border-radius: 999px;
-    box-shadow: inset 0 2px rgba(255, 255, 255, 0.28);
-  }
-
-  &::before {
-    bottom: -16px;
-    left: 34px;
-    transform: rotate(10deg);
-  }
-
-  &::after {
-    right: 34px;
-    bottom: -16px;
-    transform: rotate(-10deg);
+    display: none;
+    content: none;
   }
 
   strong {
@@ -327,18 +313,7 @@ $cream: #fffaf0;
 }
 
 .signPost {
-  position: absolute;
-  z-index: 1;
-  top: 175px;
-  left: 50%;
-  width: 15px;
-  height: 178px;
-  background: linear-gradient(90deg, #75472f, #c78c5e 45%, #8b5438);
-  border: 2px solid #70452f;
-  border-radius: 0 0 8px 8px;
-  box-shadow: 5px 6px 9px rgba(72, 48, 31, 0.16);
-  transform: translateX(-50%);
-  animation: postArrival 620ms 600ms cubic-bezier(0.2, 1, 0.3, 1) both;
+  display: none;
 }
 
 .autoReturnHint {
@@ -368,18 +343,18 @@ $cream: #fffaf0;
 }
 
 .sparkleOne {
-  top: 51px;
+  bottom: 206px;
   left: 24px;
 }
 
 .sparkleTwo {
-  top: 137px;
   right: 22px;
+  bottom: 89px;
   animation-delay: 420ms;
 }
 
 .sparkleThree {
-  top: 206px;
+  bottom: 61px;
   left: 47px;
   color: $teal;
   font-size: 10px;
@@ -431,6 +406,17 @@ $cream: #fffaf0;
   padding-right: 16px;
   background: rgba(255, 248, 230, 0.98);
   border-color: rgba(235, 143, 68, 0.32);
+}
+
+.bubbleSingleCharacter {
+  top: 28px;
+
+  &::after {
+    right: 96px;
+    bottom: -13px;
+    width: 23px;
+    height: 23px;
+  }
 }
 
 .bubbleEyebrow {
@@ -568,6 +554,40 @@ $cream: #fffaf0;
 
   &.petted {
     background-position: 0 0;
+  }
+}
+
+.singleSprite {
+  background-position: center bottom !important;
+  background-size: contain !important;
+  transform-origin: 58% 70%;
+
+  &.idle {
+    animation: singleCharacterBreath 3.4s ease-in-out infinite;
+  }
+
+  &.wave {
+    animation: singleCharacterWave 360ms ease-in-out 4;
+  }
+
+  &.walkLeft {
+    transform: scaleX(-1);
+  }
+
+  &.sleepy {
+    filter: brightness(0.92) saturate(0.82);
+    animation: singleCharacterSleep 3.8s ease-in-out infinite;
+  }
+
+  &.petted {
+    animation: singleCharacterPetted 720ms ease-in-out 2;
+  }
+}
+
+.customCharacter {
+  .cheek,
+  .outfit {
+    display: none;
   }
 }
 
@@ -823,6 +843,26 @@ $cream: #fffaf0;
   50% { transform: translateY(-5px) rotate(0.5deg); }
 }
 
+@keyframes singleCharacterBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.012, 0.99) translateY(2px); }
+}
+
+@keyframes singleCharacterWave {
+  0%, 100% { transform: rotate(0); }
+  50% { transform: rotate(-4deg) translateY(-3px); }
+}
+
+@keyframes singleCharacterSleep {
+  0%, 100% { transform: scale(1, 0.985) translateY(4px); }
+  50% { transform: scale(0.985, 1.005) translateY(7px); }
+}
+
+@keyframes singleCharacterPetted {
+  0%, 100% { transform: rotate(0) scale(1); }
+  45% { transform: rotate(-2deg) scale(0.98, 1.015); }
+}
+
 @keyframes friendlyWave {
   0%, 100% { transform: rotate(0); }
   45% { transform: rotate(-3deg) translateY(-4px); }
@@ -877,24 +917,24 @@ $cream: #fffaf0;
 }
 
 @keyframes signArrival {
-  from { opacity: 0; transform: translate(-50%, 68px) rotate(-5deg) scale(0.72); }
-  72% { opacity: 1; transform: translate(-50%, -7px) rotate(1.5deg) scale(1.03); }
-  to { opacity: 1; transform: translate(-50%, 0) rotate(0) scale(1); }
+  from { opacity: 0; transform: translate(72px, 28px) rotate(5deg) scale(0.78); }
+  72% { opacity: 1; transform: translate(-7px, -3px) rotate(-1.5deg) scale(1.03); }
+  to { opacity: 1; transform: translate(0) rotate(0) scale(1); }
 }
 
 @keyframes signImportantArrival {
-  from { opacity: 0; transform: translate(-50%, 82px) rotate(-7deg) scale(0.66); }
-  58% { opacity: 1; transform: translate(-50%, -13px) rotate(3deg) scale(1.06); }
-  78% { transform: translate(-50%, 6px) rotate(-1.5deg) scale(0.99); }
-  to { opacity: 1; transform: translate(-50%, 0) rotate(0) scale(1); }
+  from { opacity: 0; transform: translate(86px, 34px) rotate(7deg) scale(0.7); }
+  58% { opacity: 1; transform: translate(-12px, -5px) rotate(-3deg) scale(1.06); }
+  78% { transform: translate(5px, 3px) rotate(1.5deg) scale(0.99); }
+  to { opacity: 1; transform: translate(0) rotate(0) scale(1); }
 }
 
 @keyframes signUrgentArrival {
-  0% { opacity: 0; transform: translate(-50%, -55px) scale(1.18); }
-  42% { opacity: 1; transform: translate(-47%, 6px) rotate(2deg) scale(0.97); }
-  58% { transform: translate(-53%, -3px) rotate(-2deg) scale(1.02); }
-  76% { transform: translate(-49%, 2px) rotate(1deg) scale(0.995); }
-  100% { opacity: 1; transform: translate(-50%, 0) rotate(0) scale(1); }
+  0% { opacity: 0; transform: translate(58px, -28px) scale(1.16); }
+  42% { opacity: 1; transform: translate(-8px, 6px) rotate(-2deg) scale(0.97); }
+  58% { transform: translate(7px, -3px) rotate(2deg) scale(1.02); }
+  76% { transform: translate(-3px, 2px) rotate(-1deg) scale(0.995); }
+  100% { opacity: 1; transform: translate(0) rotate(0) scale(1); }
 }
 
 @keyframes urgentHop {
@@ -903,9 +943,9 @@ $cream: #fffaf0;
   68% { transform: translateY(4px) scale(0.98, 1.02); }
 }
 
-@keyframes urgencyPulse {
-  0% { opacity: 0.72; transform: translateX(-50%) scale(0.9); }
-  100% { opacity: 0; transform: translateX(-50%) scale(1.09); }
+@keyframes urgencyPulseSide {
+  0% { opacity: 0.72; transform: scale(0.9); }
+  100% { opacity: 0; transform: scale(1.09); }
 }
 
 @keyframes alertRayFlash {

@@ -1,9 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
-import type { AppState, HostMessage, Reminder, ReminderPriority } from '../types';
+import type {
+  AppState,
+  CharacterProfile,
+  HostMessage,
+  Reminder,
+  ReminderPriority,
+} from '../types';
 import styles from './Pet.module.scss';
 
 type PetAction = 'idle' | 'walkLeft' | 'walkRight' | 'wave' | 'hop' | 'sleepy' | 'petted';
+
+/** Fallback shown before the first native state snapshot arrives. */
+const builtInCharacter: CharacterProfile = {
+  id: 'builtin',
+  name: '经典小鼠',
+  imageUrl: '/assets/milo-sprite.png',
+  layout: 'sheet',
+  builtIn: true,
+};
 
 const emptyState: AppState = {
   reminders: [],
@@ -11,12 +26,26 @@ const emptyState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
+  autoHideEnabled: true,
+  autoHideMinutes: 10,
+  characters: [builtInCharacter],
+  activeCharacterId: 'builtin',
 };
 
 const priorityClassNames: Record<ReminderPriority, string> = {
   normal: styles.priorityNormal,
   important: styles.priorityImportant,
   urgent: styles.priorityUrgent,
+};
+
+const actionMessages: Record<PetAction, string> = {
+  idle: '我在这里陪着你。',
+  walkLeft: '左边有什么好玩的呢？',
+  walkRight: '出发，散一小会儿步！',
+  wave: '看到你啦，挥挥手！',
+  hop: '跳一下，打起精神！',
+  sleepy: '先眯一小会儿，记得也要休息。',
+  petted: '嘿嘿，谢谢你摸摸我，脸都红啦。',
 };
 
 function formatShortTime(timestamp: number) {
@@ -27,6 +56,8 @@ function formatShortTime(timestamp: number) {
 }
 
 export function Pet() {
+  // The development-only demo makes the full-screen presentation reproducible
+  // without waiting for a real native reminder.
   const isPresentationDemo =
     import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('demo') === 'reminder';
@@ -43,6 +74,7 @@ export function Pet() {
     : null;
   const [state, setState] = useState<AppState>(emptyState);
   const [action, setAction] = useState<PetAction>(isPresentationDemo ? 'hop' : 'idle');
+  const [actionCycle, setActionCycle] = useState(0);
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(demoReminder);
   const activeReminderRef = useRef<Reminder | null>(demoReminder);
   const [isPresenting, setIsPresenting] = useState(isPresentationDemo);
@@ -51,6 +83,7 @@ export function Pet() {
   const [celebrating, setCelebrating] = useState(false);
   const celebrationTimer = useRef<number>();
 
+  /** Restarts the short completion-confetti animation. */
   const triggerCelebration = () => {
     setCelebrating(true);
     window.clearTimeout(celebrationTimer.current);
@@ -63,6 +96,7 @@ export function Pet() {
   );
 
   useEffect(() => {
+    // One subscription owns all cross-window state and animation commands.
     const unsubscribe = subscribeHost((hostMessage: HostMessage) => {
       if (hostMessage.type === 'state.sync') {
         const nextState = hostMessage.payload as AppState;
@@ -93,9 +127,8 @@ export function Pet() {
         const requested = (hostMessage.payload as { action?: PetAction })?.action;
         if (requested) {
           setAction(requested);
-          if (requested === 'petted') {
-            setMessage('嘿嘿，谢谢你摸摸我，脸都红啦。');
-          }
+          setActionCycle((cycle) => cycle + 1);
+          setMessage(actionMessages[requested]);
         }
       }
       if (hostMessage.type === 'reminder.completed') {
@@ -121,6 +154,7 @@ export function Pet() {
   }, []);
 
   useEffect(() => {
+    // Autonomous actions are suppressed while a reminder owns the character.
     if (activeReminder) return;
     const timer = window.setInterval(() => {
       const hour = new Date().getHours();
@@ -141,7 +175,7 @@ export function Pet() {
     if (action === 'idle' || action === 'sleepy' || activeReminder) return;
     const timer = window.setTimeout(() => setAction('idle'), 2_200);
     return () => window.clearTimeout(timer);
-  }, [action, activeReminder]);
+  }, [action, actionCycle, activeReminder]);
 
   const completeReminder = () => {
     if (!activeReminder) return;
@@ -164,6 +198,14 @@ export function Pet() {
     ? priorityClassNames[activeReminder.priority]
     : styles.priorityNormal;
   const isNight = hour >= 21 || hour < 7;
+  const activeCharacter = state.characters?.find(
+    (character) => character.id === state.activeCharacterId,
+  ) ?? state.characters?.[0] ?? builtInCharacter;
+  const isSingleCharacter = activeCharacter.layout === 'single';
+  // JSON string escaping prevents quotes in generated file URLs from breaking CSS.
+  const characterImageStyle = {
+    backgroundImage: `url(${JSON.stringify(activeCharacter.imageUrl)})`,
+  };
 
   return (
     <section
@@ -181,7 +223,11 @@ export function Pet() {
         </div>
       )}
       {!isPresenting && (
-        <div className={`${styles.bubble} ${activeReminder ? styles.bubbleUrgent : ''}`}>
+        <div
+          className={`${styles.bubble} ${
+            isSingleCharacter ? styles.bubbleSingleCharacter : ''
+          } ${activeReminder ? styles.bubbleUrgent : ''}`}
+        >
           <span className={styles.bubbleEyebrow}>
             {activeReminder
               ? activeReminder.repeatRule === 'none'
@@ -237,14 +283,22 @@ export function Pet() {
       </button>
 
       <div
-        className={`${styles.spriteShell} ${styles[action]}`}
+        key={`${activeCharacter.id}-${actionCycle}`}
+        className={`${styles.spriteShell} ${styles[action]} ${
+          activeCharacter.builtIn ? '' : styles.customCharacter
+        }`}
         onPointerDown={(event) => {
           if (event.button === 0 && !isPresenting) postHostMessage('window.drag');
         }}
         role="img"
         aria-label={`可爱的桌面小鼠${state.petName}`}
       >
-        <div className={`${styles.sprite} ${styles[action]}`} />
+        <div
+          className={`${styles.sprite} ${styles[action]} ${
+            isSingleCharacter ? styles.singleSprite : ''
+          }`}
+          style={characterImageStyle}
+        />
         <span className={`${styles.cheek} ${styles.cheekLeft}`} aria-hidden="true" />
         <span className={`${styles.cheek} ${styles.cheekRight}`} aria-hidden="true" />
         <div className={`${styles.outfit} ${isNight ? styles.nightOutfit : styles.dayOutfit}`} aria-hidden="true">
@@ -264,7 +318,11 @@ export function Pet() {
         />
       )}
 
-      <div className={`${styles.actionEffects} ${styles[action]}`} aria-hidden="true">
+      <div
+        key={`effects-${actionCycle}`}
+        className={`${styles.actionEffects} ${styles[action]}`}
+        aria-hidden="true"
+      >
         <span className={`${styles.heartFx} ${styles.heartOne}`}>♥</span>
         <span className={`${styles.heartFx} ${styles.heartTwo}`}>♥</span>
         <span className={`${styles.heartFx} ${styles.heartThree}`}>♥</span>

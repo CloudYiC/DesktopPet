@@ -11,6 +11,12 @@
 namespace milo {
 namespace {
 
+/**
+ * RAII wrapper for a prepared SQLite statement.
+ *
+ * Preparation errors are raised at construction time and finalization is
+ * guaranteed on every return path.
+ */
 class Statement final {
  public:
   Statement(sqlite3* database, const char* sql) : database_(database) {
@@ -55,6 +61,10 @@ Reminder ReadReminder(sqlite3_stmt* statement) {
   return reminder;
 }
 
+/**
+ * Adds local calendar days instead of fixed 24-hour periods so recurring
+ * reminders keep the same wall-clock time across daylight-saving transitions.
+ */
 std::int64_t AddCalendarDays(std::int64_t timestamp, int days) {
   const std::time_t seconds = static_cast<std::time_t>(timestamp / 1000);
   std::tm local{};
@@ -117,6 +127,7 @@ void ReminderStore::Open(const std::wstring& databasePath) {
     throw std::runtime_error(message);
   }
 
+  // WAL permits UI reads while the scheduler marks due reminders as notified.
   Execute("PRAGMA journal_mode=WAL;");
   Execute("PRAGMA foreign_keys=ON;");
   Execute(
@@ -130,6 +141,7 @@ void ReminderStore::Open(const std::wstring& databasePath) {
       "priority TEXT NOT NULL DEFAULT 'normal',"
       "created_at INTEGER NOT NULL"
       ");");
+  // These additive migrations keep databases created by early releases valid.
   if (!ColumnExists("reminders", "repeat_rule")) {
     Execute("ALTER TABLE reminders ADD COLUMN repeat_rule TEXT NOT NULL "
             "DEFAULT 'none';");
@@ -266,6 +278,8 @@ void ReminderStore::Snooze(std::int64_t id, std::int64_t dueAt) {
 
 std::vector<Reminder> ReminderStore::TakeDue(std::int64_t now) {
   std::lock_guard<std::mutex> lock(mutex_);
+  // Selecting and marking rows in one write transaction guarantees that a
+  // reminder is presented at most once, even if timer ticks overlap.
   Execute("BEGIN IMMEDIATE TRANSACTION;");
   try {
     Statement select(

@@ -6,12 +6,14 @@
 #include "Milo/Utils.h"
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
+  // A named per-user-session mutex enforces one scheduler and one tray icon.
   HANDLE instanceMutex =
       CreateMutexW(nullptr, TRUE, L"Local\\MiloDesktopPet.Singleton.v1");
   if (instanceMutex == nullptr) {
     return 1;
   }
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    // Treat a second launch as "show the existing app" instead of an error.
     constexpr UINT trayMessage = WM_APP + 42;
     if (HWND existing = FindWindowW(L"MiloDesktopPet.WebViewWindow", nullptr);
         existing != nullptr) {
@@ -21,6 +23,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     return 0;
   }
 
+  // WebView2 and SAPI both require COM on the UI thread.
   const HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if (FAILED(comResult)) {
     MessageBoxW(nullptr, L"无法初始化 Windows COM 环境。", L"可爱依依桌面宠物",

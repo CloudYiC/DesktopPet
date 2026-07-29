@@ -3,6 +3,7 @@ out/
 frontend/node_modules/
 frontend/dist/
 third_party/
+artifacts/
 .vs/
 .vscode/
 *.user

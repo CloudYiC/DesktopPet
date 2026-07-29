@@ -28,8 +28,10 @@ add_library(milo_json INTERFACE)
 target_include_directories(milo_json INTERFACE "${MILO_JSON_INCLUDE}")
 
 add_executable(MiloDesktopPet WIN32
+  resources/CuteYiyiDesktopPet.rc
   src/main.cpp
   src/Application.cpp
+  src/CharacterImage.cpp
   src/ReminderStore.cpp
   src/Utils.cpp
   src/WebViewWindow.cpp
@@ -39,7 +41,7 @@ set_target_properties(MiloDesktopPet PROPERTIES
   OUTPUT_NAME "CuteYiyiDesktopPet"
 )
 
-target_include_directories(MiloDesktopPet PRIVATE include)
+target_include_directories(MiloDesktopPet PRIVATE include resources)
 
 target_compile_definitions(MiloDesktopPet PRIVATE
   UNICODE
@@ -57,6 +59,7 @@ target_link_libraries(MiloDesktopPet PRIVATE
   milo_sqlite
   milo_webview2
   comctl32
+  crypt32
   dwmapi
   ole32
   sapi
@@ -80,6 +83,24 @@ set_property(TARGET MiloDesktopPet PROPERTY
 )
 
 if(BUILD_TESTING)
+  add_executable(MiloCharacterImageTests
+    tests/CharacterImageTests.cpp
+    src/CharacterImage.cpp
+  )
+  target_include_directories(MiloCharacterImageTests PRIVATE include)
+  target_compile_definitions(MiloCharacterImageTests PRIVATE
+    UNICODE
+    _UNICODE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+  )
+  target_link_libraries(MiloCharacterImageTests PRIVATE crypt32)
+  if(MSVC)
+    target_compile_options(MiloCharacterImageTests PRIVATE
+      /W4 /permissive- /utf-8)
+  endif()
+  add_test(NAME MiloCharacterImageTests COMMAND MiloCharacterImageTests)
+
   add_executable(MiloReminderStoreTests
     tests/ReminderStoreTests.cpp
     src/ReminderStore.cpp

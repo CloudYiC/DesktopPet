@@ -12,6 +12,7 @@
 
 #include "Milo/Application.h"
 #include "Milo/Utils.h"
+#include "resource.h"
 
 namespace milo {
 namespace {
@@ -19,10 +20,12 @@ namespace {
 constexpr wchar_t kWindowClassName[] = L"MiloDesktopPet.WebViewWindow";
 constexpr UINT kReminderTimerId = 1;
 constexpr UINT kPresentationTimerId = 2;
+constexpr UINT kAutoTuckTimerId = 3;
 constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr ULONGLONG kHoldDurationMs = 12000;
 constexpr ULONGLONG kMoveOutDurationMs = 850;
 
+/** Higher-priority reminders reach the center more quickly. */
 ULONGLONG MoveInDuration(const std::string& priority) {
   if (priority == "urgent") {
     return 760;
@@ -77,8 +80,20 @@ bool WebViewWindow::Create(HINSTANCE instance) {
     windowClass.lpfnWndProc = &WebViewWindow::WindowProc;
     windowClass.hInstance = instance;
     windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    windowClass.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-    windowClass.hIconSm = LoadIconW(nullptr, IDI_APPLICATION);
+    windowClass.hIcon = static_cast<HICON>(LoadImageW(
+        instance, MAKEINTRESOURCEW(IDI_CUTE_YIYI_APP), IMAGE_ICON,
+        GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON),
+        LR_DEFAULTCOLOR | LR_SHARED));
+    windowClass.hIconSm = static_cast<HICON>(LoadImageW(
+        instance, MAKEINTRESOURCEW(IDI_CUTE_YIYI_APP), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+        LR_DEFAULTCOLOR | LR_SHARED));
+    if (windowClass.hIcon == nullptr) {
+      windowClass.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    }
+    if (windowClass.hIconSm == nullptr) {
+      windowClass.hIconSm = windowClass.hIcon;
+    }
     windowClass.lpszClassName = kWindowClassName;
     if (RegisterClassExW(&windowClass) == 0) {
       return false;
@@ -89,6 +104,8 @@ bool WebViewWindow::Create(HINSTANCE instance) {
   DWORD extendedStyle = WS_EX_APPWINDOW;
   RECT bounds{};
 
+  // The pet is an always-on-top transparent tool window; the dashboard is a
+  // conventional taskbar window with resize/minimize behavior.
   if (kind_ == WindowKind::Pet) {
     style = WS_POPUP;
     extendedStyle = WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
@@ -140,6 +157,7 @@ void WebViewWindow::Show() {
     return;
   }
   if (kind_ == WindowKind::Pet) {
+    ResetAutoTuck(true);
     ShowWindow(window_, SW_SHOWNOACTIVATE);
     SetWindowPos(window_, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
@@ -151,6 +169,7 @@ void WebViewWindow::Show() {
 
 void WebViewWindow::Hide() {
   if (window_ != nullptr) {
+    ResetAutoTuck(true);
     ShowWindow(window_, SW_HIDE);
   }
 }
@@ -163,7 +182,8 @@ void WebViewWindow::SetTitle(const std::wstring& title) {
 
 void WebViewWindow::BeginDrag() {
   if (window_ == nullptr || kind_ != WindowKind::Pet ||
-      presentationState_ != PresentationState::Idle) {
+      presentationState_ != PresentationState::Idle ||
+      autoTuckState_ != AutoTuckState::Visible) {
     return;
   }
   POINT cursor{};
@@ -178,6 +198,7 @@ void WebViewWindow::BeginReminderPresentation(const std::string& priority) {
     return;
   }
 
+  ResetAutoTuck(true);
   RECT current{};
   if (!GetWindowRect(window_, &current)) {
     return;
@@ -194,6 +215,8 @@ void WebViewWindow::BeginReminderPresentation(const std::string& priority) {
     return;
   }
 
+  // Center within the monitor work area so the reminder never covers the
+  // taskbar and remains correct on multi-monitor desktops.
   const int workWidth = monitorInfo.rcWork.right - monitorInfo.rcWork.left;
   const int workHeight = monitorInfo.rcWork.bottom - monitorInfo.rcWork.top;
   const int preferredWidth = priority == "urgent" ? 500
@@ -225,6 +248,64 @@ void WebViewWindow::EndReminderPresentation() {
   StartPresentationReturn(false);
 }
 
+void WebViewWindow::SetAutoTucked(bool tucked) {
+  if (window_ == nullptr || kind_ != WindowKind::Pet ||
+      presentationState_ != PresentationState::Idle ||
+      !IsWindowVisible(window_)) {
+    return;
+  }
+  if (tucked && (autoTuckState_ == AutoTuckState::MovingOut ||
+                 autoTuckState_ == AutoTuckState::Tucked)) {
+    return;
+  }
+  if (!tucked && (autoTuckState_ == AutoTuckState::Visible ||
+                  autoTuckState_ == AutoTuckState::MovingIn)) {
+    return;
+  }
+
+  RECT current{};
+  if (!GetWindowRect(window_, &current)) {
+    return;
+  }
+
+  if (tucked) {
+    autoTuckRestBounds_ = current;
+    const HMONITOR monitor =
+        MonitorFromWindow(window_, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO monitorInfo{sizeof(monitorInfo)};
+    if (!GetMonitorInfoW(monitor, &monitorInfo)) {
+      return;
+    }
+    // Leave a narrow visible strip so the pet can still be discovered while
+    // inactive. Choose the nearest horizontal edge to avoid crossing the screen.
+    constexpr LONG kVisibleStrip = 42;
+    const LONG width = current.right - current.left;
+    const LONG height = current.bottom - current.top;
+    const LONG leftDistance =
+        std::abs(current.left - monitorInfo.rcWork.left);
+    const LONG rightDistance =
+        std::abs(monitorInfo.rcWork.right - current.right);
+    const LONG targetX =
+        leftDistance <= rightDistance
+            ? monitorInfo.rcWork.left - width + kVisibleStrip
+            : monitorInfo.rcWork.right - kVisibleStrip;
+    const LONG targetY = std::clamp(
+        current.top, monitorInfo.rcWork.top,
+        monitorInfo.rcWork.bottom - height);
+    autoTuckFrom_ = current;
+    autoTuckTo_ = {targetX, targetY, targetX + width, targetY + height};
+    autoTuckState_ = AutoTuckState::MovingOut;
+  } else {
+    autoTuckFrom_ = current;
+    autoTuckTo_ = autoTuckRestBounds_;
+    autoTuckState_ = AutoTuckState::MovingIn;
+  }
+
+  autoTuckStarted_ = GetTickCount64();
+  KillTimer(window_, kAutoTuckTimerId);
+  SetTimer(window_, kAutoTuckTimerId, 16, nullptr);
+}
+
 void WebViewWindow::PostJson(const std::string& json) {
   if (webView_ == nullptr) {
     return;
@@ -238,6 +319,8 @@ LRESULT CALLBACK WebViewWindow::WindowProc(HWND window, UINT message,
   WebViewWindow* self = reinterpret_cast<WebViewWindow*>(
       GetWindowLongPtrW(window, GWLP_USERDATA));
 
+  // WM_NCCREATE is the earliest point at which the C++ instance can be attached
+  // to the HWND for subsequent static-window-procedure dispatch.
   if (message == WM_NCCREATE) {
     const auto* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
     self = static_cast<WebViewWindow*>(create->lpCreateParams);
@@ -308,6 +391,9 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
       } else if (kind_ == WindowKind::Pet &&
                  wParam == kPresentationTimerId) {
         UpdatePresentationAnimation();
+      } else if (kind_ == WindowKind::Pet &&
+                 wParam == kAutoTuckTimerId) {
+        UpdateAutoTuckAnimation();
       }
       return 0;
 
@@ -330,6 +416,7 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
       if (kind_ == WindowKind::Pet) {
         KillTimer(window_, kReminderTimerId);
         KillTimer(window_, kPresentationTimerId);
+        KillTimer(window_, kAutoTuckTimerId);
         PostQuitMessage(0);
       }
       return 0;
@@ -340,6 +427,8 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
 }
 
 void WebViewWindow::InitializeWebView() {
+  // WebView2 initialization is asynchronous; COM smart pointers keep every
+  // object alive across the nested completion callbacks.
   const HRESULT result = CreateCoreWebView2EnvironmentWithOptions(
       nullptr, application_.WebViewDataDirectory().c_str(), nullptr,
       Microsoft::WRL::Callback<
@@ -370,6 +459,8 @@ void WebViewWindow::InitializeWebView() {
                   return S_OK;
                 });
 
+            // Newer runtimes support transparency at controller creation time.
+            // ConfigureWebView applies a compatible fallback after creation.
             if (kind_ == WindowKind::Pet) {
               Microsoft::WRL::ComPtr<ICoreWebView2Environment10> environment10;
               Microsoft::WRL::ComPtr<ICoreWebView2ControllerOptions> options;
@@ -434,9 +525,14 @@ void WebViewWindow::ConfigureWebView() {
 
   Microsoft::WRL::ComPtr<ICoreWebView2_3> webView3;
   if (SUCCEEDED(webView_.As(&webView3)) && webView3 != nullptr) {
+    // Virtual HTTPS hosts give local assets a stable origin without running an
+    // HTTP server. User characters receive a separate, read-only folder mapping.
     webView3->SetVirtualHostNameToFolderMapping(
         L"milo.local", application_.UiDirectory().c_str(),
         COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_DENY_CORS);
+    webView3->SetVirtualHostNameToFolderMapping(
+        L"characters.local", application_.CharacterDirectory().c_str(),
+        COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
   }
 
   EventRegistrationToken messageToken{};
@@ -515,6 +611,56 @@ void WebViewWindow::SnapPetToWorkArea() {
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+void WebViewWindow::UpdateAutoTuckAnimation() {
+  if (window_ == nullptr ||
+      (autoTuckState_ != AutoTuckState::MovingOut &&
+       autoTuckState_ != AutoTuckState::MovingIn)) {
+    KillTimer(window_, kAutoTuckTimerId);
+    return;
+  }
+
+  const ULONGLONG duration =
+      autoTuckState_ == AutoTuckState::MovingOut ? 620 : 480;
+  const double rawProgress = std::clamp(
+      static_cast<double>(GetTickCount64() - autoTuckStarted_) /
+          static_cast<double>(duration),
+      0.0, 1.0);
+  const double progress = EaseInOutCubic(rawProgress);
+  const LONG x =
+      Interpolate(autoTuckFrom_.left, autoTuckTo_.left, progress);
+  const LONG y = Interpolate(autoTuckFrom_.top, autoTuckTo_.top, progress);
+  SetWindowPos(window_, HWND_TOPMOST, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+
+  if (rawProgress < 1.0) {
+    return;
+  }
+  SetWindowPos(window_, HWND_TOPMOST, autoTuckTo_.left, autoTuckTo_.top,
+               0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+  autoTuckState_ = autoTuckState_ == AutoTuckState::MovingOut
+                       ? AutoTuckState::Tucked
+                       : AutoTuckState::Visible;
+  KillTimer(window_, kAutoTuckTimerId);
+}
+
+void WebViewWindow::ResetAutoTuck(bool restorePosition) {
+  if (window_ == nullptr || kind_ != WindowKind::Pet ||
+      autoTuckState_ == AutoTuckState::Visible) {
+    return;
+  }
+  KillTimer(window_, kAutoTuckTimerId);
+  if (restorePosition) {
+    const LONG width =
+        autoTuckRestBounds_.right - autoTuckRestBounds_.left;
+    const LONG height =
+        autoTuckRestBounds_.bottom - autoTuckRestBounds_.top;
+    SetWindowPos(window_, nullptr, autoTuckRestBounds_.left,
+                 autoTuckRestBounds_.top, width, height,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+  }
+  autoTuckState_ = AutoTuckState::Visible;
+}
+
 void WebViewWindow::UpdatePresentationAnimation() {
   if (presentationState_ == PresentationState::Idle || window_ == nullptr) {
     KillTimer(window_, kPresentationTimerId);
@@ -522,6 +668,8 @@ void WebViewWindow::UpdatePresentationAnimation() {
   }
 
   const ULONGLONG now = GetTickCount64();
+  // MovingIn -> Holding -> MovingOut -> Idle is the complete presentation
+  // lifecycle. The lower-rate holding timer avoids unnecessary 60 FPS wakeups.
   if (presentationState_ == PresentationState::Holding) {
     if (now - presentationPhaseStarted_ >= kHoldDurationMs) {
       StartPresentationReturn(true);
@@ -548,6 +696,8 @@ void WebViewWindow::UpdatePresentationAnimation() {
   LONG x = Interpolate(animationFrom_.left, animationTo_.left, progress);
   LONG y = Interpolate(animationFrom_.top, animationTo_.top, progress);
   if (presentationState_ == PresentationState::MovingIn) {
+    // The small arc gives normal/important reminders a playful hop. Urgent
+    // reminders use a decaying horizontal shake for stronger visual emphasis.
     const double arcHeight = presentationPriority_ == "important" ? 42.0
                              : presentationPriority_ == "urgent" ? 18.0
                                                                   : 26.0;

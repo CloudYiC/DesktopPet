@@ -1,3 +1,11 @@
+<#
+.SYNOPSIS
+Downloads the pinned native SDK and header-only dependencies.
+
+.DESCRIPTION
+Populates third_party from fixed upstream versions. Existing artifacts are
+reused so regular builds remain fast and do not require repeated downloads.
+#>
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -18,6 +26,7 @@ function Get-DependencyArchive {
     }
 }
 
+# Keep these versions aligned with the paths validated in native/CMakeLists.txt.
 $webViewVersion = '1.0.4078.44'
 $webViewRoot = Join-Path $dependenciesRoot 'webview2'
 $webViewHeader = Join-Path $webViewRoot 'build\native\include\WebView2.h'

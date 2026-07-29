@@ -9,8 +9,11 @@
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <utility>
 
+#include "Milo/CharacterImage.h"
 #include "Milo/Utils.h"
+#include "resource.h"
 
 namespace milo {
 namespace {
@@ -20,7 +23,9 @@ constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr UINT kOpenDashboardCommand = 1001;
 constexpr UINT kHidePetCommand = 1002;
 constexpr UINT kQuitCommand = 1003;
+constexpr int kAutoHideMinuteOptions[] = {1, 2, 5, 10, 20, 30, 60};
 
+/** Converts the persistence model to the protocol shape consumed by React. */
 nlohmann::json ReminderToJson(const Reminder& reminder) {
   return {{"id", reminder.id},
           {"title", reminder.title},
@@ -31,12 +36,14 @@ nlohmann::json ReminderToJson(const Reminder& reminder) {
           {"priority", reminder.priority}};
 }
 
-bool IsValidPetName(const std::string& name) {
+bool IsValidLabel(const std::string& name, std::size_t maximumCharacters) {
   if (name.empty() || name.size() > 64) {
     return false;
   }
   bool hasVisibleCharacter = false;
   std::size_t characterCount = 0;
+  // Count UTF-8 code points by counting non-continuation bytes. This is a
+  // compact display-length guard, not a general Unicode grapheme algorithm.
   for (const unsigned char character : name) {
     if (character < 0x20 || character == 0x7f) {
       return false;
@@ -48,7 +55,29 @@ bool IsValidPetName(const std::string& name) {
       ++characterCount;
     }
   }
-  return hasVisibleCharacter && characterCount <= 16;
+  return hasVisibleCharacter && characterCount <= maximumCharacters;
+}
+
+bool IsValidPetName(const std::string& name) {
+  return IsValidLabel(name, 16);
+}
+
+bool IsValidCharacterName(const std::string& name) {
+  return IsValidLabel(name, 20);
+}
+
+bool IsValidAutoHideMinutes(int minutes) {
+  return std::find(std::begin(kAutoHideMinuteOptions),
+                   std::end(kAutoHideMinuteOptions),
+                   minutes) != std::end(kAutoHideMinuteOptions);
+}
+
+bool IsSafeCharacterId(const std::string& value) {
+  // Character ids are later embedded in filenames, so allow a strict subset.
+  return !value.empty() && value.size() <= 64 &&
+         std::all_of(value.begin(), value.end(), [](const unsigned char value) {
+           return std::isalnum(value) || value == '-' || value == '_';
+         });
 }
 
 }  // namespace
@@ -59,10 +88,14 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
 
   const std::filesystem::path appData = AppDataDirectory();
   webViewDataDirectory_ = (appData / L"WebView2").wstring();
+  characterDirectory_ = (appData / L"Characters").wstring();
   onboardingMarker_ = (appData / L"onboarding.complete").wstring();
   showDashboardOnStart_ = !std::filesystem::exists(onboardingMarker_);
   std::filesystem::create_directories(webViewDataDirectory_);
+  std::filesystem::create_directories(characterDirectory_);
   reminders_.Open((appData / L"yiyi.db").wstring());
+  // User preferences are recoverable. A malformed legacy setting must not keep
+  // the application from starting with safe defaults.
   try {
     if (const auto savedName = reminders_.GetSetting("pet.name");
         savedName.has_value() && IsValidPetName(*savedName)) {
@@ -76,13 +109,28 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
         speech.has_value()) {
       speechEnabled_ = *speech == "1";
     }
+    if (const auto autoHide = reminders_.GetSetting("pet.autoHide");
+        autoHide.has_value()) {
+      autoHideEnabled_ = *autoHide != "0";
+    }
+    if (const auto autoHideMinutes =
+            reminders_.GetSetting("pet.autoHideMinutes");
+        autoHideMinutes.has_value()) {
+      const int savedMinutes = std::stoi(*autoHideMinutes);
+      if (IsValidAutoHideMinutes(savedMinutes)) {
+        autoHideMinutes_ = savedMinutes;
+      }
+    }
     const auto x = reminders_.GetSetting("pet.x");
     const auto y = reminders_.GetSetting("pet.y");
     if (x.has_value() && y.has_value()) {
       petPosition_ = POINT{std::stoi(*x), std::stoi(*y)};
     }
+    LoadCharacters();
   } catch (const std::exception&) {
     petPosition_.reset();
+    characters_.clear();
+    activeCharacterId_ = "builtin";
   }
 }
 
@@ -107,7 +155,7 @@ int Application::Run(int) {
     ShowDashboard();
     std::ofstream marker(std::filesystem::path(onboardingMarker_),
                          std::ios::binary | std::ios::trunc);
-    marker << "CuteYiyiDesktopPet 0.5.0";
+    marker << "CuteYiyiDesktopPet 0.8.0";
   }
 
   MSG message{};
@@ -121,6 +169,8 @@ int Application::Run(int) {
 void Application::HandleWebMessage(WebViewWindow& source,
                                    const std::string& rawMessage) {
   try {
+    // The WebView is a trust boundary: every message is parsed and validated
+    // before it reaches persistence, the filesystem, or native window APIs.
     const nlohmann::json message = nlohmann::json::parse(rawMessage);
     const std::string type = message.value("type", "");
     const nlohmann::json payload =
@@ -169,18 +219,174 @@ void Application::HandleWebMessage(WebViewWindow& source,
                  {"payload", {{"action", action}}}});
       return;
     }
+    if (type == "character.upload") {
+      if (characters_.size() >= 12) {
+        SendError(source, "角色衣柜最多保存 12 个自定义角色。");
+        return;
+      }
+      const std::string name = payload.value("name", "");
+      const std::string layout = payload.value("layout", "single");
+      const std::string dataUrl = payload.value("dataUrl", "");
+      if (!IsValidCharacterName(name)) {
+        SendError(source, "角色名称需要是 1 到 20 个左右的可见字符。");
+        return;
+      }
+      if (layout != "single" && layout != "sheet") {
+        SendError(source, "请选择单图或 4×2 动作精灵图。");
+        return;
+      }
+
+      DecodedCharacterImage image = DecodeCharacterImage(dataUrl);
+      std::string id = "character-" + std::to_string(UnixTimeMilliseconds());
+      int suffix = 1;
+      while (HasCharacter(id)) {
+        id = "character-" + std::to_string(UnixTimeMilliseconds()) + "-" +
+             std::to_string(suffix++);
+      }
+      const std::string fileName = id + image.extension;
+      const std::filesystem::path imagePath =
+          std::filesystem::path(characterDirectory_) / Utf8ToWide(fileName);
+      const std::filesystem::path temporaryPath =
+          imagePath.wstring() + L".uploading";
+
+      // Write-then-rename prevents half-written character files from appearing
+      // in the virtual host if the process is interrupted.
+      {
+        std::ofstream stream(temporaryPath,
+                             std::ios::binary | std::ios::trunc);
+        if (!stream) {
+          throw std::runtime_error("无法创建角色图片文件。");
+        }
+        stream.write(reinterpret_cast<const char*>(image.bytes.data()),
+                     static_cast<std::streamsize>(image.bytes.size()));
+        if (!stream) {
+          throw std::runtime_error("保存角色图片时发生错误。");
+        }
+      }
+
+      std::error_code fileError;
+      std::filesystem::rename(temporaryPath, imagePath, fileError);
+      if (fileError) {
+        std::filesystem::remove(temporaryPath, fileError);
+        throw std::runtime_error("无法完成角色图片保存。");
+      }
+
+      // Keep the in-memory wardrobe and persisted JSON transaction-like: revert
+      // both metadata and image file when saving the settings fails.
+      const std::vector<CharacterProfile> previousCharacters = characters_;
+      const std::string previousActiveId = activeCharacterId_;
+      characters_.push_back({id, name, fileName, layout});
+      activeCharacterId_ = id;
+      try {
+        SaveCharacters();
+      } catch (...) {
+        characters_ = previousCharacters;
+        activeCharacterId_ = previousActiveId;
+        std::filesystem::remove(imagePath, fileError);
+        throw;
+      }
+      SendState();
+      return;
+    }
+    if (type == "character.activate") {
+      const std::string id = payload.value("id", "");
+      if (!HasCharacter(id)) {
+        SendError(source, "找不到这个角色，可能已经被删除。");
+        return;
+      }
+      activeCharacterId_ = id;
+      SaveCharacters();
+      SendState();
+      Broadcast({{"type", "pet.action"},
+                 {"payload", {{"action", "wave"}}}});
+      return;
+    }
+    if (type == "character.rename") {
+      const std::string id = payload.value("id", "");
+      const std::string name = payload.value("name", "");
+      if (!IsValidCharacterName(name)) {
+        SendError(source, "角色名称需要是 1 到 20 个左右的可见字符。");
+        return;
+      }
+      auto character = std::find_if(
+          characters_.begin(), characters_.end(),
+          [&id](const CharacterProfile& item) { return item.id == id; });
+      if (character == characters_.end()) {
+        SendError(source, "内置角色不能改名，或角色已经不存在。");
+        return;
+      }
+      const std::string previousName = character->name;
+      character->name = name;
+      try {
+        SaveCharacters();
+      } catch (...) {
+        character->name = previousName;
+        throw;
+      }
+      SendState();
+      return;
+    }
+    if (type == "character.delete") {
+      const std::string id = payload.value("id", "");
+      auto character = std::find_if(
+          characters_.begin(), characters_.end(),
+          [&id](const CharacterProfile& item) { return item.id == id; });
+      if (character == characters_.end()) {
+        SendError(source, "内置角色不能删除，或角色已经不存在。");
+        return;
+      }
+      const CharacterProfile removed = *character;
+      const std::size_t removedIndex =
+          static_cast<std::size_t>(std::distance(characters_.begin(), character));
+      const std::string previousActiveId = activeCharacterId_;
+      characters_.erase(character);
+      if (activeCharacterId_ == id) {
+        activeCharacterId_ = "builtin";
+      }
+      try {
+        SaveCharacters();
+      } catch (...) {
+        characters_.insert(characters_.begin() +
+                               static_cast<std::ptrdiff_t>(removedIndex),
+                           removed);
+        activeCharacterId_ = previousActiveId;
+        throw;
+      }
+      std::error_code removeError;
+      std::filesystem::remove(
+          std::filesystem::path(characterDirectory_) /
+              Utf8ToWide(removed.fileName),
+          removeError);
+      SendState();
+      return;
+    }
     if (type == "settings.update") {
       const std::string petName = payload.value("petName", petName_);
       if (!IsValidPetName(petName)) {
         SendError(source, "名字需要是 1 到 16 个左右的可见字符。");
         return;
       }
+      const int autoHideMinutes =
+          payload.value("autoHideMinutes", autoHideMinutes_);
+      if (!IsValidAutoHideMinutes(autoHideMinutes)) {
+        SendError(source, "自动收起时间只支持 1、2、5、10、20、30 或 60 分钟。");
+        return;
+      }
       petName_ = petName;
       soundEnabled_ = payload.value("soundEnabled", soundEnabled_);
       speechEnabled_ = payload.value("speechEnabled", speechEnabled_);
+      autoHideEnabled_ =
+          payload.value("autoHideEnabled", autoHideEnabled_);
+      autoHideMinutes_ = autoHideMinutes;
       reminders_.SetSetting("pet.name", petName_);
       reminders_.SetSetting("audio.sound", soundEnabled_ ? "1" : "0");
       reminders_.SetSetting("audio.speech", speechEnabled_ ? "1" : "0");
+      reminders_.SetSetting("pet.autoHide", autoHideEnabled_ ? "1" : "0");
+      reminders_.SetSetting("pet.autoHideMinutes",
+                            std::to_string(autoHideMinutes_));
+      if (!autoHideEnabled_) {
+        petWindow_->SetAutoTucked(false);
+      }
       UpdateBranding();
       SendState();
       return;
@@ -259,6 +465,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
 
 void Application::HandleTimer() {
   try {
+    // TakeDue atomically claims occurrences before any UI or audio side effect.
     const std::vector<Reminder> due =
         reminders_.TakeDue(UnixTimeMilliseconds());
     for (const Reminder& reminder : due) {
@@ -272,6 +479,22 @@ void Application::HandleTimer() {
     }
     if (!due.empty()) {
       SendState();
+    }
+
+    // Windows' system-wide last-input tick includes activity outside this app,
+    // matching the user's expectation of "no computer operation".
+    LASTINPUTINFO lastInput{sizeof(lastInput)};
+    const bool dashboardVisible =
+        dashboardWindow_ != nullptr &&
+        IsWindowVisible(dashboardWindow_->Handle());
+    if (GetLastInputInfo(&lastInput)) {
+      const DWORD idleMilliseconds = GetTickCount() - lastInput.dwTime;
+      const bool shouldTuck =
+          autoHideEnabled_ && !presentedReminderId_.has_value() &&
+          !dashboardVisible &&
+          idleMilliseconds >=
+              static_cast<DWORD>(autoHideMinutes_ * 60 * 1000);
+      petWindow_->SetAutoTucked(shouldTuck);
     }
   } catch (const std::exception& error) {
     Broadcast({{"type", "app.error"},
@@ -324,7 +547,15 @@ void Application::AddTrayIcon() {
   trayIcon_.uID = kTrayIconId;
   trayIcon_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
   trayIcon_.uCallbackMessage = kTrayMessage;
-  trayIcon_.hIcon = LoadIconW(nullptr, IDI_INFORMATION);
+  // Load the small resource explicitly so Windows does not downscale the
+  // executable's largest frame for the notification area.
+  trayIcon_.hIcon = static_cast<HICON>(LoadImageW(
+      instance_, MAKEINTRESOURCEW(IDI_CUTE_YIYI_APP), IMAGE_ICON,
+      GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON),
+      LR_DEFAULTCOLOR | LR_SHARED));
+  if (trayIcon_.hIcon == nullptr) {
+    trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+  }
   const std::wstring tooltip = Utf8ToWide(petName_) + L"桌面宠物";
   StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                  tooltip.c_str());
@@ -385,6 +616,8 @@ void Application::ShowNativeNotification(const Reminder& reminder) {
   if (!trayIconAdded_) {
     return;
   }
+  // Audio is handled centrally by PlayReminderAlert to avoid two overlapping
+  // sounds when Windows displays the tray notification.
   trayIcon_.uFlags = NIF_INFO;
   trayIcon_.dwInfoFlags =
       NIIF_INFO | NIIF_RESPECT_QUIET_TIME | NIIF_NOSOUND;
@@ -470,11 +703,97 @@ nlohmann::json Application::BuildState() {
   for (const Reminder& reminder : reminders_.List()) {
     items.push_back(ReminderToJson(reminder));
   }
+  nlohmann::json characters = nlohmann::json::array(
+      {{{"id", "builtin"},
+        {"name", "经典小鼠"},
+        {"imageUrl", "https://milo.local/assets/milo-sprite.png"},
+        {"layout", "sheet"},
+        {"builtIn", true}}});
+  for (const CharacterProfile& character : characters_) {
+    characters.push_back(
+        {{"id", character.id},
+         {"name", character.name},
+         {"imageUrl", "https://characters.local/" + character.fileName},
+         {"layout", character.layout},
+         {"builtIn", false}});
+  }
+
   return {{"reminders", std::move(items)},
           {"now", UnixTimeMilliseconds()},
           {"petName", petName_},
           {"soundEnabled", soundEnabled_},
-          {"speechEnabled", speechEnabled_}};
+          {"speechEnabled", speechEnabled_},
+          {"autoHideEnabled", autoHideEnabled_},
+          {"autoHideMinutes", autoHideMinutes_},
+          {"characters", std::move(characters)},
+          {"activeCharacterId", activeCharacterId_}};
+}
+
+void Application::LoadCharacters() {
+  characters_.clear();
+  const auto serialized = reminders_.GetSetting("characters.list");
+  if (serialized.has_value() && !serialized->empty()) {
+    const nlohmann::json saved = nlohmann::json::parse(*serialized);
+    if (saved.is_array()) {
+      for (const nlohmann::json& item : saved) {
+        if (!item.is_object()) {
+          continue;
+        }
+        const CharacterProfile character{
+            item.value("id", ""),
+            item.value("name", ""),
+            item.value("fileName", ""),
+            item.value("layout", "single")};
+        if (!IsSafeCharacterId(character.id) ||
+            !IsValidCharacterName(character.name) ||
+            (character.layout != "single" && character.layout != "sheet") ||
+            character.fileName.empty()) {
+          continue;
+        }
+        // Reject absolute paths and traversal before mapping a saved filename
+        // into the character directory.
+        const std::filesystem::path relativeName =
+            Utf8ToWide(character.fileName);
+        if (relativeName.filename() != relativeName ||
+            !std::filesystem::exists(
+                std::filesystem::path(characterDirectory_) / relativeName)) {
+          continue;
+        }
+        characters_.push_back(character);
+        if (characters_.size() >= 12) {
+          break;
+        }
+      }
+    }
+  }
+
+  if (const auto active = reminders_.GetSetting("characters.active");
+      active.has_value() && HasCharacter(*active)) {
+    activeCharacterId_ = *active;
+  } else {
+    activeCharacterId_ = "builtin";
+  }
+}
+
+void Application::SaveCharacters() {
+  nlohmann::json saved = nlohmann::json::array();
+  for (const CharacterProfile& character : characters_) {
+    saved.push_back({{"id", character.id},
+                     {"name", character.name},
+                     {"fileName", character.fileName},
+                     {"layout", character.layout}});
+  }
+  reminders_.SetSetting("characters.list", saved.dump());
+  reminders_.SetSetting("characters.active", activeCharacterId_);
+}
+
+bool Application::HasCharacter(const std::string& id) const {
+  if (id == "builtin") {
+    return true;
+  }
+  return std::any_of(
+      characters_.begin(), characters_.end(),
+      [&id](const CharacterProfile& character) { return character.id == id; });
 }
 
 void Application::SendError(WebViewWindow& target,

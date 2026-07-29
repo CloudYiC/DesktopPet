@@ -10,6 +10,7 @@
 
 namespace {
 
+/** Throws with a focused test failure message when a condition is false. */
 void Expect(bool condition, const char* message) {
   if (!condition) {
     throw std::runtime_error(message);
@@ -17,6 +18,7 @@ void Expect(bool condition, const char* message) {
 }
 
 std::filesystem::path TestDatabasePath() {
+  // A process/time suffix allows parallel test runs without database collisions.
   const auto unique = std::to_wstring(GetCurrentProcessId()) + L"-" +
                       std::to_wstring(milo::UnixTimeMilliseconds());
   return std::filesystem::temp_directory_path() /
@@ -29,6 +31,8 @@ int main() {
   const std::filesystem::path databasePath = TestDatabasePath();
   try {
     {
+      // Exercise create/claim/snooze/complete/recur/delete and settings through
+      // the same public API used by Application.
       milo::ReminderStore store;
       store.Open(databasePath.wstring());
 

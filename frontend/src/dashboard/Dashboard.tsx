@@ -1,7 +1,16 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
 import type {
   AppState,
+  CharacterLayout,
+  CharacterProfile,
   HostMessage,
   Reminder,
   ReminderPriority,
@@ -9,8 +18,17 @@ import type {
 } from '../types';
 import styles from './Dashboard.module.scss';
 
-type DashboardView = 'today' | 'all' | 'status';
+type DashboardView = 'today' | 'all' | 'status' | 'settings';
 type PetAction = 'wave' | 'hop' | 'walkRight' | 'sleepy' | 'petted';
+type PetPreviewAction = PetAction | 'idle';
+
+const builtInCharacter: CharacterProfile = {
+  id: 'builtin',
+  name: '经典小鼠',
+  imageUrl: '/assets/milo-sprite.png',
+  layout: 'sheet',
+  builtIn: true,
+};
 
 const initialState: AppState = {
   reminders: [],
@@ -18,6 +36,10 @@ const initialState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
+  autoHideEnabled: true,
+  autoHideMinutes: 10,
+  characters: [builtInCharacter],
+  activeCharacterId: 'builtin',
 };
 
 const repeatLabels: Record<RepeatRule, string> = {
@@ -39,6 +61,26 @@ const priorityClassNames: Record<ReminderPriority, string> = {
   urgent: styles.priorityUrgent,
 };
 
+const statusActionClassNames: Record<PetPreviewAction, string> = {
+  idle: styles.statusIdle,
+  wave: styles.statusWaveAction,
+  hop: styles.statusHopAction,
+  walkRight: styles.statusWalkAction,
+  sleepy: styles.statusSleepAction,
+  petted: styles.statusPettedAction,
+};
+
+const statusActionGlyphs: Record<PetAction, string> = {
+  wave: '♥',
+  hop: '✦',
+  walkRight: '➜',
+  sleepy: 'zZ',
+  petted: '♡',
+};
+
+const autoHideMinuteOptions = [1, 2, 5, 10, 20, 30, 60];
+
+/** Converts epoch milliseconds to the local format expected by datetime-local. */
 function toDateTimeInput(timestamp: number) {
   const date = new Date(timestamp);
   const timezoneOffset = date.getTimezoneOffset() * 60_000;
@@ -76,6 +118,21 @@ function greetingForHour(hour: number) {
   return '晚上好';
 }
 
+function readImageAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('图片读取失败。'));
+      }
+    });
+    reader.addEventListener('error', () => reject(new Error('图片读取失败。')));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function Dashboard() {
   const [state, setState] = useState<AppState>(initialState);
   const [activeView, setActiveView] = useState<DashboardView>('today');
@@ -87,10 +144,17 @@ export function Dashboard() {
   const [lastAction, setLastAction] = useState('正在陪你安静待机');
   const [draftName, setDraftName] = useState(initialState.petName);
   const [settingsSaved, setSettingsSaved] = useState('');
+  const [characterName, setCharacterName] = useState('新朋友');
+  const [characterLayout, setCharacterLayout] = useState<CharacterLayout>('single');
+  const [isUploadingCharacter, setIsUploadingCharacter] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
+  const [previewAction, setPreviewAction] = useState<PetPreviewAction>('idle');
+  const [actionSequence, setActionSequence] = useState(0);
   const celebrationTimer = useRef<number>();
+  const actionPreviewTimer = useRef<number>();
 
   useEffect(() => {
+    // Native state snapshots are authoritative; local state only drives form UI.
     const unsubscribe = subscribeHost((message: HostMessage) => {
       if (message.type === 'state.sync') {
         setState(message.payload as AppState);
@@ -109,6 +173,7 @@ export function Dashboard() {
     return () => {
       unsubscribe();
       window.clearTimeout(celebrationTimer.current);
+      window.clearTimeout(actionPreviewTimer.current);
     };
   }, []);
 
@@ -131,6 +196,14 @@ export function Dashboard() {
   const repeatingCount = reminders.filter((reminder) => reminder.repeatRule !== 'none').length;
   const hour = new Date().getHours();
   const petMood = hour >= 23 || hour < 7 ? '有一点困啦' : '精神满满';
+  const characters = state.characters?.length ? state.characters : [builtInCharacter];
+  const activeCharacter = characters.find(
+    (character) => character.id === state.activeCharacterId,
+  ) ?? characters[0];
+  const characterImageStyle = {
+    // Encode the URL as a CSS string so paths with quotes remain valid.
+    backgroundImage: `url(${JSON.stringify(activeCharacter.imageUrl)})`,
+  };
 
   const submitReminder = (event: FormEvent) => {
     event.preventDefault();
@@ -165,15 +238,35 @@ export function Dashboard() {
   };
 
   const askYiyiTo = (action: PetAction, description: string) => {
+    // The native host broadcasts the action to the detached pet WebView while
+    // this window runs a matching preview animation.
     postHostMessage('pet.action', { action });
     setLastAction(description);
+    setPreviewAction(action);
+    setActionSequence((sequence) => sequence + 1);
+    window.clearTimeout(actionPreviewTimer.current);
+    actionPreviewTimer.current = window.setTimeout(
+      () => setPreviewAction('idle'),
+      action === 'sleepy' ? 3_600 : 2_400,
+    );
   };
 
-  const updateSettings = (patch: Partial<Pick<AppState, 'petName' | 'soundEnabled' | 'speechEnabled'>>) => {
+  const updateSettings = (patch: Partial<Pick<
+    AppState,
+    | 'petName'
+    | 'soundEnabled'
+    | 'speechEnabled'
+    | 'autoHideEnabled'
+    | 'autoHideMinutes'
+  >>) => {
+    // Send a complete settings record so older native hosts never need to merge
+    // a partially defined payload.
     postHostMessage('settings.update', {
       petName: patch.petName ?? state.petName,
       soundEnabled: patch.soundEnabled ?? state.soundEnabled,
       speechEnabled: patch.speechEnabled ?? state.speechEnabled,
+      autoHideEnabled: patch.autoHideEnabled ?? state.autoHideEnabled,
+      autoHideMinutes: patch.autoHideMinutes ?? state.autoHideMinutes,
     });
     setSettingsSaved('设置已保存');
     window.setTimeout(() => setSettingsSaved(''), 1600);
@@ -189,17 +282,70 @@ export function Dashboard() {
     updateSettings({ petName: nextName });
   };
 
+  const uploadCharacter = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/png', 'image/webp'].includes(file.type)) {
+      setError('角色图片只支持 PNG 或 WebP。');
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      setError('角色图片不能超过 4 MB。');
+      return;
+    }
+    const nextName = characterName.trim();
+    if (!nextName) {
+      setError('请先填写角色名称。');
+      return;
+    }
+
+    try {
+      setIsUploadingCharacter(true);
+      setError('');
+      const dataUrl = await readImageAsDataUrl(file);
+      // C++ validates the decoded signature and persists the binary outside the UI.
+      postHostMessage('character.upload', {
+        name: nextName,
+        layout: characterLayout,
+        dataUrl,
+      });
+      setSettingsSaved(`“${nextName}”已加入衣柜并启用`);
+      window.setTimeout(() => setSettingsSaved(''), 2200);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : '角色上传失败。');
+    } finally {
+      setIsUploadingCharacter(false);
+    }
+  };
+
+  const renameCharacter = (character: CharacterProfile) => {
+    const nextName = window.prompt('给这个角色换个名称', character.name)?.trim();
+    if (!nextName || nextName === character.name) return;
+    postHostMessage('character.rename', { id: character.id, name: nextName });
+  };
+
+  const deleteCharacter = (character: CharacterProfile) => {
+    if (character.builtIn) return;
+    if (!window.confirm(`确定从衣柜删除“${character.name}”吗？`)) return;
+    postHostMessage('character.delete', { id: character.id });
+  };
+
   const brandInitial = Array.from(state.petName.trim())[0] ?? '依';
 
   const viewHeading = activeView === 'all'
       ? '所有小事，都在这里。'
     : activeView === 'status'
       ? `${state.petName}，今天也在陪你。`
+    : activeView === 'settings'
+      ? '把陪伴方式调成你喜欢的样子。'
       : `${greetingForHour(hour)}，慢慢来就好。`;
   const viewDescription = activeView === 'all'
     ? '一次看看所有待办和重复提醒。'
     : activeView === 'status'
       ? `看看${state.petName}的状态，也可以叫她做个小动作。`
+    : activeView === 'settings'
+      ? '角色、名字、声音和自动收起都集中在这里。'
       : `${state.petName}会帮你看着时间，不让重要的小事溜走。`;
 
   return (
@@ -248,6 +394,14 @@ export function Dashboard() {
           >
             <span>✦</span>{state.petName}状态
           </button>
+          <button
+            className={activeView === 'settings' ? styles.activeNav : undefined}
+            type="button"
+            aria-pressed={activeView === 'settings'}
+            onClick={() => setActiveView('settings')}
+          >
+            <span>⚙</span>设置
+          </button>
         </nav>
 
         <button
@@ -255,7 +409,12 @@ export function Dashboard() {
           type="button"
           onClick={() => setActiveView('status')}
         >
-          <div className={styles.petPortrait} />
+          <div
+            className={`${styles.petPortrait} ${
+              activeCharacter.layout === 'single' ? styles.singlePortrait : ''
+            }`}
+            style={characterImageStyle}
+          />
           <div>
             <span>{state.petName}现在</span>
             <strong>{petMood}</strong>
@@ -285,12 +444,42 @@ export function Dashboard() {
           </button>
         </header>
 
-        {activeView === 'status' ? (
-          <section className={styles.statusView}>
+        {error && activeView === 'settings' && (
+          <div className={styles.errorMessage}>{error}</div>
+        )}
+
+        {activeView === 'status' || activeView === 'settings' ? (
+          <section
+            className={
+              activeView === 'settings' ? styles.settingsView : styles.statusView
+            }
+          >
+            {activeView === 'status' && (
+              <>
             <article className={styles.statusHero}>
-              <div className={styles.statusPortrait}>
-                <div />
-                <span aria-hidden="true">♥</span>
+              <div
+                className={`${styles.statusPortrait} ${
+                  statusActionClassNames[previewAction]
+                }`}
+                aria-live="polite"
+              >
+                <div
+                  key={`${activeCharacter.id}-${actionSequence}`}
+                  className={`${styles.statusCharacter} ${
+                    activeCharacter.layout === 'single' ? styles.singlePortrait : ''
+                  }`}
+                  style={characterImageStyle}
+                />
+                <span className={styles.statusHeart} aria-hidden="true">♥</span>
+                {previewAction !== 'idle' && (
+                  <span
+                    key={`effect-${actionSequence}`}
+                    className={styles.statusActionFx}
+                    aria-hidden="true"
+                  >
+                    {statusActionGlyphs[previewAction]}
+                  </span>
+                )}
               </div>
               <div className={styles.statusCopy}>
                 <span>{state.petName} IS HERE</span>
@@ -309,24 +498,137 @@ export function Dashboard() {
             <section className={styles.interactionPanel}>
               <div className={styles.sectionHeading}>
                 <div><span>INTERACTIONS</span><h2>和{state.petName}互动</h2></div>
-                <em>动作会立刻显示在桌面上</em>
+                <em>状态卡和桌面角色会同步响应</em>
               </div>
               <div className={styles.actionGrid}>
-                <button type="button" onClick={() => askYiyiTo('wave', `${state.petName}刚刚开心地向你挥了挥手`)}>
+                <button
+                  className={previewAction === 'wave' ? styles.actionButtonActive : ''}
+                  type="button"
+                  aria-pressed={previewAction === 'wave'}
+                  onClick={() => askYiyiTo('wave', `${state.petName}刚刚开心地向你挥了挥手`)}
+                >
                   <span>♥</span><strong>挥挥手</strong><small>飘出小爱心</small>
                 </button>
-                <button type="button" onClick={() => askYiyiTo('hop', `${state.petName}刚刚为你活力满满地跳了一下`)}>
+                <button
+                  className={previewAction === 'hop' ? styles.actionButtonActive : ''}
+                  type="button"
+                  aria-pressed={previewAction === 'hop'}
+                  onClick={() => askYiyiTo('hop', `${state.petName}刚刚为你活力满满地跳了一下`)}
+                >
                   <span>✦</span><strong>跳一下</strong><small>闪亮登场</small>
                 </button>
-                <button type="button" onClick={() => askYiyiTo('walkRight', `${state.petName}正在桌面上散一小会儿步`)}>
+                <button
+                  className={previewAction === 'walkRight' ? styles.actionButtonActive : ''}
+                  type="button"
+                  aria-pressed={previewAction === 'walkRight'}
+                  onClick={() => askYiyiTo('walkRight', `${state.petName}正在桌面上散一小会儿步`)}
+                >
                   <span>➜</span><strong>去散步</strong><small>带起小尘埃</small>
                 </button>
-                <button type="button" onClick={() => askYiyiTo('sleepy', `${state.petName}打了个哈欠，准备休息一下`)}>
+                <button
+                  className={previewAction === 'sleepy' ? styles.actionButtonActive : ''}
+                  type="button"
+                  aria-pressed={previewAction === 'sleepy'}
+                  onClick={() => askYiyiTo('sleepy', `${state.petName}打了个哈欠，准备休息一下`)}
+                >
                   <span>zZ</span><strong>休息一下</strong><small>冒出瞌睡泡泡</small>
                 </button>
-                <button type="button" onClick={() => askYiyiTo('petted', `刚刚摸了摸${state.petName}的头，脸都红啦`)}>
+                <button
+                  className={previewAction === 'petted' ? styles.actionButtonActive : ''}
+                  type="button"
+                  aria-pressed={previewAction === 'petted'}
+                  onClick={() => askYiyiTo('petted', `刚刚摸了摸${state.petName}的头，脸都红啦`)}
+                >
                   <span>♡</span><strong>摸摸头</strong><small>害羞脸红</small>
                 </button>
+              </div>
+            </section>
+              </>
+            )}
+
+            {activeView === 'settings' && (
+              <>
+            <section className={styles.characterPanel}>
+              <div className={styles.sectionHeading}>
+                <div><span>CHARACTER CLOSET</span><h2>角色衣柜</h2></div>
+                <em>当前：{activeCharacter.name}</em>
+              </div>
+
+              <div className={styles.characterUpload}>
+                <label>
+                  <span>角色名称</span>
+                  <input
+                    value={characterName}
+                    maxLength={20}
+                    onChange={(event) => setCharacterName(event.target.value)}
+                    placeholder="例如：小蓝、团团"
+                  />
+                </label>
+                <label>
+                  <span>图片类型</span>
+                  <select
+                    value={characterLayout}
+                    onChange={(event) => setCharacterLayout(
+                      event.target.value as CharacterLayout,
+                    )}
+                  >
+                    <option value="single">单张透明角色图</option>
+                    <option value="sheet">4×2 动作精灵图</option>
+                  </select>
+                </label>
+                <label className={styles.uploadButton}>
+                  <input
+                    type="file"
+                    accept="image/png,image/webp"
+                    disabled={isUploadingCharacter}
+                    onChange={uploadCharacter}
+                  />
+                  {isUploadingCharacter ? '正在加入…' : '上传并启用'}
+                </label>
+              </div>
+              <p className={styles.characterHint}>
+                支持 PNG/WebP，最大 4 MB。透明背景效果最好；单图会自动模拟动作，
+                4×2 精灵图可使用专门的挥手、走路、跳跃与睡觉帧。
+              </p>
+
+              <div className={styles.characterGrid}>
+                {characters.map((character) => (
+                  <article
+                    key={character.id}
+                    className={
+                      character.id === activeCharacter.id ? styles.activeCharacter : undefined
+                    }
+                  >
+                    <div
+                      className={character.layout === 'single' ? styles.singlePortrait : ''}
+                      style={{ backgroundImage: `url(${JSON.stringify(character.imageUrl)})` }}
+                    />
+                    <span>{character.layout === 'sheet' ? '4×2 动作' : '单图动画'}</span>
+                    <strong>{character.name}</strong>
+                    <div className={styles.characterActions}>
+                      <button
+                        type="button"
+                        disabled={character.id === activeCharacter.id}
+                        onClick={() => postHostMessage(
+                          'character.activate',
+                          { id: character.id },
+                        )}
+                      >
+                        {character.id === activeCharacter.id ? '使用中' : '换成她'}
+                      </button>
+                      {!character.builtIn && (
+                        <>
+                          <button type="button" onClick={() => renameCharacter(character)}>
+                            改名
+                          </button>
+                          <button type="button" onClick={() => deleteCharacter(character)}>
+                            删除
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                ))}
               </div>
             </section>
 
@@ -372,10 +674,55 @@ export function Dashboard() {
               </div>
             </section>
 
+            <section className={styles.autoHidePanel}>
+              <div className={styles.sectionHeading}>
+                <div><span>DESKTOP BEHAVIOR</span><h2>自动收起</h2></div>
+                <em>{state.autoHideEnabled ? `${state.autoHideMinutes} 分钟后` : '已关闭'}</em>
+              </div>
+              <div className={styles.autoHideControls}>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={state.autoHideEnabled}
+                  className={state.autoHideEnabled ? styles.toggleActive : undefined}
+                  onClick={() => updateSettings({
+                    autoHideEnabled: !state.autoHideEnabled,
+                  })}
+                >
+                  <i />
+                  <span>
+                    <strong>无人操作时缩到屏幕边缘</strong>
+                    <small>恢复鼠标或键盘操作后会自动回来，提醒到点也会立即出现</small>
+                  </span>
+                </button>
+                <label>
+                  <span>等待时间</span>
+                  <select
+                    value={state.autoHideMinutes}
+                    disabled={!state.autoHideEnabled}
+                    onChange={(event) => updateSettings({
+                      autoHideMinutes: Number(event.target.value),
+                    })}
+                    aria-label="自动收起等待时间"
+                  >
+                    {autoHideMinuteOptions.map((minutes) => (
+                      <option key={minutes} value={minutes}>
+                        {minutes} 分钟
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+              </>
+            )}
+
+            {activeView === 'status' && (
             <article className={styles.statusTip}>
               <span>{state.petName}的小建议</span>
               <strong>{nextReminder ? `下一件事是“${nextReminder.title}”` : '今天没有紧急的事，记得喝水和伸展一下。'}</strong>
             </article>
+            )}
           </section>
         ) : (
           <>

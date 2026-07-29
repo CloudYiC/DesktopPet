@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(MiloDesktopPet VERSION 0.5.0 LANGUAGES C CXX)
+project(MiloDesktopPet VERSION 0.8.0 LANGUAGES C CXX)
 
 include(CTest)
 

@@ -221,6 +221,11 @@ $peach: #eaa06e;
   border-radius: 14px;
 }
 
+.singlePortrait {
+  background-position: center bottom !important;
+  background-size: contain !important;
+}
+
 .testButton {
   margin-top: 10px;
   padding: 10px;
@@ -676,6 +681,12 @@ $peach: #eaa06e;
   gap: 13px;
 }
 
+.settingsView {
+  display: grid;
+  margin-top: 24px;
+  gap: 13px;
+}
+
 .statusHero {
   position: relative;
   display: grid;
@@ -701,7 +712,7 @@ $peach: #eaa06e;
   border: 1px solid rgba(255, 255, 255, 0.17);
   border-radius: 38px 38px 22px 38px;
 
-  div {
+  .statusCharacter {
     position: absolute;
     inset: -15px -1px -2px;
     background-image: url('/assets/milo-sprite.png');
@@ -709,10 +720,10 @@ $peach: #eaa06e;
     background-position: 33.333% 100%;
     background-size: 400% 200%;
     filter: drop-shadow(0 9px 7px rgba(39, 59, 45, 0.18));
-    animation: statusWave 1.5s ease-in-out infinite;
+    transform-origin: center bottom;
   }
 
-  > span {
+  .statusHeart {
     position: absolute;
     top: 8px;
     right: 8px;
@@ -726,6 +737,76 @@ $peach: #eaa06e;
     box-shadow: 0 6px 12px rgba(31, 89, 78, 0.2);
     animation: heartBeat 1.2s ease-in-out infinite;
   }
+}
+
+.statusIdle .statusCharacter {
+  animation: statusWave 1.5s ease-in-out infinite;
+}
+
+.statusWaveAction .statusCharacter {
+  animation: statusActionWave 760ms ease-in-out 3;
+}
+
+.statusHopAction .statusCharacter {
+  animation: statusActionHop 620ms cubic-bezier(0.3, 0.82, 0.36, 1) 3;
+}
+
+.statusWalkAction .statusCharacter {
+  animation: statusActionWalk 1.8s ease-in-out both;
+}
+
+.statusSleepAction .statusCharacter {
+  animation: statusActionSleep 3.4s ease-in-out infinite;
+}
+
+.statusPettedAction .statusCharacter {
+  animation: statusActionPetted 720ms ease-in-out 3;
+}
+
+.statusWaveAction .statusCharacter:not(.singlePortrait) {
+  background-position: 33.333% 100%;
+}
+
+.statusHopAction .statusCharacter:not(.singlePortrait) {
+  background-position: 66.667% 100%;
+}
+
+.statusWalkAction .statusCharacter:not(.singlePortrait) {
+  background-position: 100% 0;
+}
+
+.statusSleepAction .statusCharacter:not(.singlePortrait) {
+  background-position: 100% 100%;
+}
+
+.statusPettedAction .statusCharacter:not(.singlePortrait) {
+  background-position: 0 0;
+}
+
+.statusActionFx {
+  position: absolute;
+  z-index: 3;
+  top: 13px;
+  left: 10px;
+  display: grid;
+  min-width: 27px;
+  height: 27px;
+  padding: 0 5px;
+  place-items: center;
+  color: #fff;
+  background: #e87972;
+  border-radius: 999px;
+  box-shadow: 0 7px 15px rgba(39, 59, 45, 0.2);
+  font-family: Georgia, serif;
+  font-size: 15px;
+  font-weight: 800;
+  animation: statusActionFxPop 1.1s ease-out 2;
+}
+
+.statusSleepAction .statusActionFx {
+  color: $teal-dark;
+  background: #fff8e9;
+  animation: statusSleepFx 2s ease-in-out infinite;
 }
 
 .statusCopy {
@@ -806,6 +887,156 @@ $peach: #eaa06e;
   box-shadow: 0 13px 30px rgba(83, 63, 49, 0.05);
 }
 
+.characterPanel {
+  padding: 18px 20px 20px;
+  background: rgba(255, 253, 249, 0.86);
+  border: 1px solid rgba(83, 63, 49, 0.08);
+  border-radius: 21px;
+  box-shadow: 0 13px 30px rgba(83, 63, 49, 0.05);
+}
+
+.characterUpload {
+  display: grid;
+  margin-top: 14px;
+  align-items: end;
+  grid-template-columns: minmax(150px, 1fr) minmax(170px, 1fr) auto;
+  gap: 9px;
+
+  label {
+    display: grid;
+    gap: 6px;
+    color: $muted;
+    font-size: 9px;
+    font-weight: 700;
+  }
+
+  input,
+  select {
+    width: 100%;
+    height: 39px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    color: $ink;
+    outline: none;
+    background: #f5efe7;
+    border: 1px solid rgba(22, 139, 133, 0.12);
+    border-radius: 11px;
+    font: inherit;
+  }
+
+  input:focus,
+  select:focus {
+    border-color: rgba(22, 139, 133, 0.5);
+    box-shadow: 0 0 0 3px rgba(22, 139, 133, 0.08);
+  }
+}
+
+.uploadButton {
+  display: grid !important;
+  min-width: 104px;
+  height: 39px;
+  box-sizing: border-box;
+  place-items: center;
+  color: #fff !important;
+  cursor: pointer;
+  background: $teal;
+  border-radius: 11px;
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.characterHint {
+  margin: 9px 0 0;
+  color: $muted;
+  font-size: 8px;
+  line-height: 1.65;
+}
+
+.characterGrid {
+  display: grid;
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+
+  > article {
+    display: grid;
+    min-width: 0;
+    padding: 9px;
+    background: #f6efe7;
+    border: 1px solid transparent;
+    border-radius: 15px;
+    transition: border-color 160ms ease, transform 160ms ease;
+
+    > div:first-child {
+      width: 82px;
+      height: 92px;
+      margin: 0 auto;
+      background-repeat: no-repeat;
+      background-position: 0 0;
+      background-size: 400% 200%;
+      border-radius: 10px;
+      filter: drop-shadow(0 6px 5px rgba(72, 48, 31, 0.13));
+    }
+
+    > span {
+      margin-top: 7px;
+      color: $teal;
+      font-size: 7px;
+      font-weight: 800;
+    }
+
+    > strong {
+      margin-top: 2px;
+      overflow: hidden;
+      color: $ink;
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .activeCharacter {
+    background: #e8f4f1;
+    border-color: rgba(22, 139, 133, 0.34);
+    transform: translateY(-2px);
+  }
+}
+
+.characterActions {
+  display: flex;
+  margin-top: 7px;
+  gap: 4px;
+
+  button {
+    min-width: 0;
+    padding: 5px 6px;
+    flex: 1;
+    color: $teal-dark;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.8);
+    border: 0;
+    border-radius: 7px;
+    font-size: 7px;
+    font-weight: 750;
+
+    &:disabled {
+      color: #fff;
+      cursor: default;
+      background: $teal;
+    }
+
+    &:last-child:not(:disabled) {
+      color: #a65f56;
+    }
+  }
+}
+
 .actionGrid {
   display: grid;
   margin-top: 14px;
@@ -831,6 +1062,15 @@ $peach: #eaa06e;
     }
   }
 
+  button.actionButtonActive {
+    color: $teal-dark;
+    background: #e4f3ef;
+    border-color: rgba(22, 139, 133, 0.38);
+    box-shadow: 0 8px 18px rgba(22, 139, 133, 0.12);
+    transform: translateY(-3px);
+    animation: actionButtonPulse 620ms ease-in-out 2;
+  }
+
   span {
     color: $teal;
     font-family: Georgia, serif;
@@ -854,6 +1094,107 @@ $peach: #eaa06e;
   border: 1px solid rgba(83, 63, 49, 0.08);
   border-radius: 21px;
   box-shadow: 0 13px 30px rgba(83, 63, 49, 0.05);
+}
+
+.autoHidePanel {
+  padding: 18px 20px 20px;
+  background: rgba(255, 253, 249, 0.86);
+  border: 1px solid rgba(83, 63, 49, 0.08);
+  border-radius: 21px;
+  box-shadow: 0 13px 30px rgba(83, 63, 49, 0.05);
+}
+
+.autoHideControls {
+  display: grid;
+  margin-top: 14px;
+  align-items: stretch;
+  grid-template-columns: minmax(260px, 1.7fr) minmax(150px, 0.7fr);
+  gap: 9px;
+
+  > button {
+    display: grid;
+    min-height: 58px;
+    padding: 9px 11px;
+    align-items: center;
+    grid-template-columns: 34px 1fr;
+    gap: 10px;
+    color: $ink;
+    cursor: pointer;
+    background: #f6efe7;
+    border: 1px solid transparent;
+    border-radius: 13px;
+    text-align: left;
+
+    > i {
+      position: relative;
+      width: 32px;
+      height: 19px;
+      background: #cfc3b9;
+      border-radius: 999px;
+      transition: background 160ms ease;
+
+      &::after {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 13px;
+        height: 13px;
+        content: '';
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 0 2px 5px rgba(63, 52, 46, 0.2);
+        transition: transform 160ms ease;
+      }
+    }
+
+    span,
+    strong,
+    small {
+      display: block;
+    }
+
+    strong { font-size: 10px; }
+    small { margin-top: 3px; color: $muted; font-size: 8px; }
+  }
+
+  > button.toggleActive {
+    background: #e7f3f0;
+    border-color: rgba(22, 139, 133, 0.15);
+
+    > i {
+      background: $teal;
+
+      &::after { transform: translateX(13px); }
+    }
+  }
+
+  > label {
+    display: grid;
+    padding: 9px 11px;
+    align-content: center;
+    gap: 6px;
+    color: $muted;
+    background: #f6efe7;
+    border-radius: 13px;
+    font-size: 8px;
+    font-weight: 700;
+
+    select {
+      height: 29px;
+      padding: 0 8px;
+      color: $ink;
+      outline: none;
+      background: #fff;
+      border: 1px solid rgba(22, 139, 133, 0.14);
+      border-radius: 8px;
+      font-size: 9px;
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+    }
+  }
 }
 
 .preferencesGrid {
@@ -999,6 +1340,53 @@ $peach: #eaa06e;
   45% { transform: rotate(-2deg) translateY(-4px); }
 }
 
+@keyframes statusActionWave {
+  0%, 100% { transform: rotate(0) translateY(0); }
+  34% { transform: rotate(-7deg) translate(-2px, -4px); }
+  68% { transform: rotate(4deg) translate(2px, -2px); }
+}
+
+@keyframes statusActionHop {
+  0%, 100% { transform: translateY(0) scale(1); }
+  42% { transform: translateY(-22px) scale(1.035); }
+  76% { transform: translateY(3px) scale(0.98, 1.02); }
+}
+
+@keyframes statusActionWalk {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  24% { transform: translateX(14px) rotate(2deg); }
+  52% { transform: translateX(-11px) rotate(-2deg); }
+  78% { transform: translateX(9px) rotate(1deg); }
+}
+
+@keyframes statusActionSleep {
+  0%, 100% { opacity: 0.96; transform: translateY(4px) scale(1, 0.985); }
+  50% { opacity: 0.82; transform: translateY(8px) scale(0.985, 1.01); }
+}
+
+@keyframes statusActionPetted {
+  0%, 100% { transform: rotate(0) scale(1); }
+  38% { transform: rotate(-3deg) translateY(4px) scale(0.98, 1.02); }
+  70% { transform: rotate(2deg) translateY(-2px) scale(1.01); }
+}
+
+@keyframes statusActionFxPop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.55); }
+  25%, 64% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translate(12px, -24px) scale(1.16); }
+}
+
+@keyframes statusSleepFx {
+  0% { opacity: 0; transform: translate(0, 8px) scale(0.72); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translate(14px, -22px) scale(1.08); }
+}
+
+@keyframes actionButtonPulse {
+  0%, 100% { box-shadow: 0 8px 18px rgba(22, 139, 133, 0.12); }
+  50% { box-shadow: 0 8px 24px rgba(22, 139, 133, 0.28); }
+}
+
 @keyframes heartBeat {
   0%, 100% { transform: scale(0.92); }
   45% { transform: scale(1.12); }
@@ -1051,6 +1439,10 @@ $peach: #eaa06e;
   }
 
   .preferencesGrid { grid-template-columns: 1fr; }
+  .autoHideControls { grid-template-columns: 1fr; }
+  .characterUpload { grid-template-columns: 1fr 1fr; }
+  .uploadButton { grid-column: 1 / -1; }
+  .characterGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
