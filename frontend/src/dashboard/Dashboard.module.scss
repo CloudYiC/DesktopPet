@@ -961,7 +961,8 @@ $peach: #eaa06e;
 .characterGrid {
   display: grid;
   margin-top: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  // Keep enough horizontal room for the three actions on custom characters.
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 9px;
 
   > article {
@@ -1015,7 +1016,8 @@ $peach: #eaa06e;
 
   button {
     min-width: 0;
-    padding: 5px 6px;
+    min-height: 27px;
+    padding: 5px 7px;
     flex: 1;
     color: $teal-dark;
     cursor: pointer;
@@ -1024,6 +1026,7 @@ $peach: #eaa06e;
     border-radius: 7px;
     font-size: 7px;
     font-weight: 750;
+    white-space: nowrap;
 
     &:disabled {
       color: #fff;
