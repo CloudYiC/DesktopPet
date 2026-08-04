@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Tool launch deck">
+  <rect width="64" height="64" rx="12" fill="#06090c"/>
+  <path d="M32 10l15 16-8 4-9 19-4-15-15-4 19-9 2-11z" fill="#5cf0d2"/>
+  <path d="M25 40l-9 9m15-4l-5 10" fill="none" stroke="#f6c45f" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="41" cy="23" r="4" fill="#06090c"/>
+</svg>

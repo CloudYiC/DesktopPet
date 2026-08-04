@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(MiloDesktopPet VERSION 0.8.0 LANGUAGES C CXX)
+project(MiloDesktopPet VERSION 0.11.1 LANGUAGES C CXX)
 
 include(CTest)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

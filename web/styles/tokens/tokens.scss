@@ -1,0 +1,21 @@
+// =============================================================================
+// CloudYiCFAW / Yun Yi Hui Er design tokens
+//
+// Single source of truth for the design system. Colors, typography, spacing,
+// radii, shadows, and motion are all defined here.
+//
+// Usage:
+//   @use './tokens/tokens.scss';
+//
+// Theme switching:
+//   <html data-theme="light">  // or "dark"
+//   no data-theme attribute -> follows prefers-color-scheme
+// =============================================================================
+
+@forward 'colors';
+@forward 'typography';
+@forward 'spacing';
+@forward 'radius';
+@forward 'shadow';
+@forward 'motion';
+@forward 'reset';

@@ -1,18 +1,24 @@
 #include "Milo/Application.h"
 
 #include <shellapi.h>
+#include <shlobj.h>
+#include <shobjidl.h>
 #include <strsafe.h>
 
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
-#include <fstream>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
 
 #include "Milo/CharacterImage.h"
+#include "Milo/DatabaseService.h"
+#include "Milo/ImageService.h"
+#include "Milo/SystemService.h"
+#include "Milo/ToolService.h"
 #include "Milo/Utils.h"
+#include "cloudyi/file_dialog.h"
+#include "cloudyi/icon_file.h"
 #include "resource.h"
 
 namespace milo {
@@ -36,8 +42,162 @@ nlohmann::json ReminderToJson(const Reminder& reminder) {
           {"priority", reminder.priority}};
 }
 
+nlohmann::json SystemSnapshotToJson(const SystemSnapshot& snapshot) {
+  return {{"operatingSystem", snapshot.operatingSystem},
+          {"osEdition", snapshot.osEdition},
+          {"osDisplayVersion", snapshot.osDisplayVersion},
+          {"osBuild", snapshot.osBuild},
+          {"architecture", snapshot.architecture},
+          {"computerName", snapshot.computerName},
+          {"userName", snapshot.userName},
+          {"processorName", snapshot.processorName},
+          {"physicalCores", snapshot.physicalCores},
+          {"logicalProcessors", snapshot.logicalProcessors},
+          {"processorPackages", snapshot.processorPackages},
+          {"processorMaxMegahertz", snapshot.processorMaxMegahertz},
+          {"virtualizationEnabled", snapshot.virtualizationEnabled},
+          {"totalMemoryBytes", snapshot.totalMemoryBytes},
+          {"availableMemoryBytes", snapshot.availableMemoryBytes},
+          {"memoryLoadPercent", snapshot.memoryLoadPercent},
+          {"totalPageFileBytes", snapshot.totalPageFileBytes},
+          {"availablePageFileBytes", snapshot.availablePageFileBytes},
+          {"systemDrive", snapshot.systemDrive},
+          {"systemDiskTotalBytes", snapshot.systemDiskTotalBytes},
+          {"systemDiskFreeBytes", snapshot.systemDiskFreeBytes},
+          {"manufacturer", snapshot.manufacturer},
+          {"model", snapshot.model},
+          {"biosVersion", snapshot.biosVersion},
+          {"biosDate", snapshot.biosDate},
+          {"primaryGraphics", snapshot.primaryGraphics},
+          {"primaryDisplayWidth", snapshot.primaryDisplayWidth},
+          {"primaryDisplayHeight", snapshot.primaryDisplayHeight},
+          {"primaryDisplayDpi", snapshot.primaryDisplayDpi},
+          {"timeZone", snapshot.timeZone},
+          {"localeName", snapshot.localeName},
+          {"activeNetworkAdapters", snapshot.activeNetworkAdapters},
+          {"primaryNetworkAdapter", snapshot.primaryNetworkAdapter},
+          {"primaryIpv4", snapshot.primaryIpv4},
+          {"batteryPercent", snapshot.batteryPercent},
+          {"acLineStatus", snapshot.acLineStatus},
+          {"uptimeMilliseconds", snapshot.uptimeMilliseconds},
+          {"installUnixSeconds", snapshot.installUnixSeconds}};
+}
+
+nlohmann::json PortEntryToJson(const PortEntry& entry) {
+  return {{"protocol", entry.protocol},
+          {"localAddress", entry.localAddress},
+          {"localPort", entry.localPort},
+          {"remoteAddress", entry.remoteAddress},
+          {"remotePort", entry.remotePort},
+          {"state", entry.state},
+          {"processId", entry.processId},
+          {"processName", entry.processName}};
+}
+
+nlohmann::json InstalledSoftwareToJson(const InstalledSoftware& entry) {
+  return {{"id", entry.id},
+          {"displayName", entry.displayName},
+          {"displayVersion", entry.displayVersion},
+          {"publisher", entry.publisher},
+          {"installLocation", entry.installLocation},
+          {"registryPath", entry.registryPath},
+          {"estimatedSizeBytes", entry.estimatedSizeBytes},
+          {"installLocationInferred", entry.installLocationInferred},
+          {"currentUser", entry.currentUser},
+          {"noRemove", entry.noRemove},
+          {"windowsInstaller", entry.windowsInstaller}};
+}
+
+nlohmann::json SoftwareResidualToJson(const SoftwareResidual& residual) {
+  return {{"path", residual.path},
+          {"label", residual.label},
+          {"kind", residual.kind},
+          {"evidence", residual.evidence},
+          {"confidence", residual.confidence},
+          {"sizeBytes", residual.sizeBytes},
+          {"itemCount", residual.itemCount},
+          {"sizeTruncated", residual.sizeTruncated},
+          {"defaultSelected", residual.defaultSelected},
+          {"personalData", residual.personalData}};
+}
+
+nlohmann::json SoftwareCleanupPlanToJson(
+    const SoftwareCleanupPlan& plan) {
+  nlohmann::json residuals = nlohmann::json::array();
+  for (std::vector<SoftwareResidual>::const_iterator residual =
+           plan.residuals.begin();
+       residual != plan.residuals.end(); ++residual) {
+    residuals.push_back(SoftwareResidualToJson(*residual));
+  }
+  return {{"token", plan.token},
+          {"softwareId", plan.softwareId},
+          {"displayName", plan.displayName},
+          {"residuals", residuals}};
+}
+
+nlohmann::json SoftwareOperationToJson(
+    const SoftwareOperationResult& result) {
+  return {{"succeeded", result.succeeded},
+          {"message", result.message},
+          {"removedPaths", result.removedPaths},
+          {"failedPaths", result.failedPaths}};
+}
+
+nlohmann::json DatabaseColumnToJson(const DatabaseColumn& column) {
+  return {{"name", column.name},
+          {"type", column.type},
+          {"defaultValue", column.defaultValue},
+          {"notNull", column.notNull},
+          {"primaryKey", column.primaryKey}};
+}
+
+nlohmann::json DatabaseObjectToJson(const DatabaseObject& object) {
+  nlohmann::json columns = nlohmann::json::array();
+  for (std::vector<DatabaseColumn>::const_iterator column =
+           object.columns.begin();
+       column != object.columns.end(); ++column) {
+    columns.push_back(DatabaseColumnToJson(*column));
+  }
+  return {{"type", object.type},
+          {"name", object.name},
+          {"tableName", object.tableName},
+          {"sql", object.sql},
+          {"columns", columns}};
+}
+
+nlohmann::json DatabaseOverviewToJson(const DatabaseOverview& overview) {
+  nlohmann::json objects = nlohmann::json::array();
+  for (std::vector<DatabaseObject>::const_iterator object =
+           overview.objects.begin();
+       object != overview.objects.end(); ++object) {
+    objects.push_back(DatabaseObjectToJson(*object));
+  }
+  return {{"path", overview.path},
+          {"fileName", overview.fileName},
+          {"fileSizeBytes", overview.fileSizeBytes},
+          {"pageSize", overview.pageSize},
+          {"pageCount", overview.pageCount},
+          {"userVersion", overview.userVersion},
+          {"journalMode", overview.journalMode},
+          {"objects", objects}};
+}
+
+nlohmann::json DatabaseQueryResultToJson(
+    const DatabaseQueryResult& result) {
+  return {{"columns", result.columns},
+          {"rows", result.rows},
+          {"affectedRows", result.affectedRows},
+          {"lastInsertId", result.lastInsertId},
+          {"elapsedMilliseconds", result.elapsedMilliseconds},
+          {"statementCount", result.statementCount},
+          {"truncated", result.truncated},
+          {"wroteData", result.wroteData},
+          {"message", result.message}};
+}
+
 bool IsValidLabel(const std::string& name, std::size_t maximumCharacters) {
-  if (name.empty() || name.size() > 64) {
+  if (name.empty() || maximumCharacters == 0 ||
+      name.size() > maximumCharacters * 4) {
     return false;
   }
   bool hasVisibleCharacter = false;
@@ -72,6 +232,30 @@ bool IsValidAutoHideMinutes(int minutes) {
                    minutes) != std::end(kAutoHideMinuteOptions);
 }
 
+bool IsValidWorkspaceTheme(const std::string& value) {
+  return value == "warm" || value == "cloud" || value == "rose";
+}
+
+bool IsValidWorkspaceTextSize(const std::string& value) {
+  return value == "compact" || value == "comfortable" || value == "large";
+}
+
+bool IsValidDashboardView(const std::string& value) {
+  static const char* views[] = {
+      "toolbox", "today", "all", "status", "settings", "marketplace",
+      "account"};
+  return std::find(std::begin(views), std::end(views), value) !=
+         std::end(views);
+}
+
+bool IsValidToolCategory(const std::string& value) {
+  if (value.empty()) return true;
+  static const char* categories[] = {
+      "data", "network", "system", "file-conversion"};
+  return std::find(std::begin(categories), std::end(categories), value) !=
+         std::end(categories);
+}
+
 bool IsSafeCharacterId(const std::string& value) {
   // Character ids are later embedded in filenames, so allow a strict subset.
   return !value.empty() && value.size() <= 64 &&
@@ -80,70 +264,135 @@ bool IsSafeCharacterId(const std::string& value) {
          });
 }
 
+void UpdateDesktopShortcutIcon(const std::wstring& iconPath) {
+  PWSTR rawDesktop = nullptr;
+  if (FAILED(SHGetKnownFolderPath(FOLDERID_Desktop, KF_FLAG_DEFAULT, nullptr,
+                                  &rawDesktop)) ||
+      rawDesktop == nullptr) {
+    return;
+  }
+  const std::wstring desktop(rawDesktop);
+  CoTaskMemFree(rawDesktop);
+
+  const std::wstring oldShortcut =
+      JoinPath(desktop, L"可爱依依桌面宠物.lnk");
+  const std::wstring newShortcut =
+      JoinPath(desktop, L"可爱依依小助手.lnk");
+  if (PathExists(oldShortcut) && !PathExists(newShortcut)) {
+    MoveFileExW(oldShortcut.c_str(), newShortcut.c_str(),
+                MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+  }
+  const std::wstring shortcut = PathExists(newShortcut)
+                                    ? newShortcut
+                                    : (PathExists(oldShortcut) ? oldShortcut
+                                                               : std::wstring{});
+  if (shortcut.empty()) return;
+
+  Microsoft::WRL::ComPtr<IShellLinkW> shellLink;
+  if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+                              IID_PPV_ARGS(&shellLink)))) {
+    return;
+  }
+  Microsoft::WRL::ComPtr<IPersistFile> persisted;
+  if (FAILED(shellLink.As(&persisted)) ||
+      FAILED(persisted->Load(shortcut.c_str(), STGM_READWRITE)) ||
+      FAILED(shellLink->SetIconLocation(iconPath.c_str(), 0)) ||
+      FAILED(persisted->Save(shortcut.c_str(), TRUE))) {
+    return;
+  }
+  SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT,
+                 shortcut.c_str(), nullptr);
+}
+
 }  // namespace
 
 Application::Application(HINSTANCE instance) : instance_(instance) {
-  const std::filesystem::path executableDirectory = ExecutableDirectory();
-  uiDirectory_ = (executableDirectory / L"ui").wstring();
+  const std::wstring executableDirectory = ExecutableDirectory();
+  uiDirectory_ = JoinPath(executableDirectory, L"ui");
 
-  const std::filesystem::path appData = AppDataDirectory();
-  webViewDataDirectory_ = (appData / L"WebView2").wstring();
-  characterDirectory_ = (appData / L"Characters").wstring();
-  onboardingMarker_ = (appData / L"onboarding.complete").wstring();
-  showDashboardOnStart_ = !std::filesystem::exists(onboardingMarker_);
-  std::filesystem::create_directories(webViewDataDirectory_);
-  std::filesystem::create_directories(characterDirectory_);
-  reminders_.Open((appData / L"yiyi.db").wstring());
+  const std::wstring appData = AppDataDirectory();
+  webViewDataDirectory_ = JoinPath(appData, L"WebView2");
+  characterDirectory_ = JoinPath(appData, L"Characters");
+  onboardingMarker_ = JoinPath(appData, L"onboarding.complete");
+  showDashboardOnStart_ = !PathExists(onboardingMarker_);
+  EnsureDirectory(webViewDataDirectory_);
+  EnsureDirectory(characterDirectory_);
+  reminders_.Open(JoinPath(appData, L"yiyi.db"));
   // User preferences are recoverable. A malformed legacy setting must not keep
   // the application from starting with safe defaults.
   try {
-    if (const auto savedName = reminders_.GetSetting("pet.name");
-        savedName.has_value() && IsValidPetName(*savedName)) {
-      petName_ = *savedName;
+    std::string setting;
+    if (reminders_.GetSetting("pet.name", setting) &&
+        IsValidPetName(setting)) {
+      petName_ = setting;
     }
-    if (const auto sound = reminders_.GetSetting("audio.sound");
-        sound.has_value()) {
-      soundEnabled_ = *sound != "0";
+    if (reminders_.GetSetting("audio.sound", setting)) {
+      soundEnabled_ = setting != "0";
     }
-    if (const auto speech = reminders_.GetSetting("audio.speech");
-        speech.has_value()) {
-      speechEnabled_ = *speech == "1";
+    if (reminders_.GetSetting("audio.speech", setting)) {
+      speechEnabled_ = setting == "1";
     }
-    if (const auto autoHide = reminders_.GetSetting("pet.autoHide");
-        autoHide.has_value()) {
-      autoHideEnabled_ = *autoHide != "0";
+    if (reminders_.GetSetting("pet.autoHide", setting)) {
+      autoHideEnabled_ = setting != "0";
     }
-    if (const auto autoHideMinutes =
-            reminders_.GetSetting("pet.autoHideMinutes");
-        autoHideMinutes.has_value()) {
-      const int savedMinutes = std::stoi(*autoHideMinutes);
+    if (reminders_.GetSetting("pet.autoHideMinutes", setting)) {
+      const int savedMinutes = std::stoi(setting);
       if (IsValidAutoHideMinutes(savedMinutes)) {
         autoHideMinutes_ = savedMinutes;
       }
     }
-    const auto x = reminders_.GetSetting("pet.x");
-    const auto y = reminders_.GetSetting("pet.y");
-    if (x.has_value() && y.has_value()) {
-      petPosition_ = POINT{std::stoi(*x), std::stoi(*y)};
+    if (reminders_.GetSetting("workspace.theme", setting) &&
+        IsValidWorkspaceTheme(setting)) {
+      workspaceTheme_ = setting;
+    }
+    if (reminders_.GetSetting("workspace.textSize", setting) &&
+        IsValidWorkspaceTextSize(setting)) {
+      workspaceTextSize_ = setting;
+    }
+    if (reminders_.GetSetting("workspace.openLastView", setting)) {
+      openLastView_ = setting != "0";
+    }
+    if (reminders_.GetSetting("workspace.lastView", setting) &&
+        IsValidDashboardView(setting)) {
+      lastDashboardView_ = setting;
+    }
+    if (reminders_.GetSetting("workspace.lastCategory", setting) &&
+        IsValidToolCategory(setting)) {
+      lastToolCategory_ = setting;
+    }
+    std::string x;
+    std::string y;
+    if (reminders_.GetSetting("pet.x", x) &&
+        reminders_.GetSetting("pet.y", y)) {
+      petPosition_.x = std::stoi(x);
+      petPosition_.y = std::stoi(y);
+      hasPetPosition_ = true;
     }
     LoadCharacters();
   } catch (const std::exception&) {
-    petPosition_.reset();
+    hasPetPosition_ = false;
     characters_.clear();
     activeCharacterId_ = "builtin";
   }
 }
 
-Application::~Application() { RemoveTrayIcon(); }
+Application::~Application() {
+  RemoveTrayIcon();
+  dashboardWindow_.reset();
+  petWindow_.reset();
+  if (activeSmallIcon_ != nullptr && activeSmallIcon_ != activeLargeIcon_) {
+    DestroyIcon(activeSmallIcon_);
+  }
+  if (activeLargeIcon_ != nullptr) DestroyIcon(activeLargeIcon_);
+}
 
 int Application::Run(int) {
-  if (!std::filesystem::exists(
-          std::filesystem::path(uiDirectory_) / L"index.html")) {
+  if (!PathExists(JoinPath(uiDirectory_, L"index.html"))) {
     throw std::runtime_error(
         "React UI was not found. Run scripts/build.ps1 to build the app.");
   }
 
-  petWindow_ = std::make_unique<WebViewWindow>(*this, WindowKind::Pet);
+  petWindow_.reset(new WebViewWindow(*this, WindowKind::Pet));
 
   if (!petWindow_->Create(instance_)) {
     throw std::runtime_error("Unable to create the application windows.");
@@ -153,9 +402,8 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    std::ofstream marker(std::filesystem::path(onboardingMarker_),
-                         std::ios::binary | std::ios::trunc);
-    marker << "CuteYiyiDesktopPet 0.8.0";
+    const std::string marker = "CuteYiyiDesktopPet 0.11.1";
+    WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
   MSG message{};
@@ -228,7 +476,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
       const std::string layout = payload.value("layout", "single");
       const std::string dataUrl = payload.value("dataUrl", "");
       if (!IsValidCharacterName(name)) {
-        SendError(source, "角色名称需要是 1 到 20 个左右的可见字符。");
+        SendError(source, "衣柜款式名称需要是 1 到 20 个左右的可见字符。");
         return;
       }
       if (layout != "single" && layout != "sheet") {
@@ -244,31 +492,18 @@ void Application::HandleWebMessage(WebViewWindow& source,
              std::to_string(suffix++);
       }
       const std::string fileName = id + image.extension;
-      const std::filesystem::path imagePath =
-          std::filesystem::path(characterDirectory_) / Utf8ToWide(fileName);
-      const std::filesystem::path temporaryPath =
-          imagePath.wstring() + L".uploading";
+      const std::wstring imagePath =
+          JoinPath(characterDirectory_, Utf8ToWide(fileName));
+      const std::wstring temporaryPath = imagePath + L".uploading";
 
       // Write-then-rename prevents half-written character files from appearing
       // in the virtual host if the process is interrupted.
-      {
-        std::ofstream stream(temporaryPath,
-                             std::ios::binary | std::ios::trunc);
-        if (!stream) {
-          throw std::runtime_error("无法创建角色图片文件。");
-        }
-        stream.write(reinterpret_cast<const char*>(image.bytes.data()),
-                     static_cast<std::streamsize>(image.bytes.size()));
-        if (!stream) {
-          throw std::runtime_error("保存角色图片时发生错误。");
-        }
-      }
-
-      std::error_code fileError;
-      std::filesystem::rename(temporaryPath, imagePath, fileError);
-      if (fileError) {
-        std::filesystem::remove(temporaryPath, fileError);
-        throw std::runtime_error("无法完成角色图片保存。");
+      WriteBinaryFile(temporaryPath, image.bytes.data(), image.bytes.size());
+      try {
+        MoveFileReplacing(temporaryPath, imagePath);
+      } catch (...) {
+        DeleteFileW(temporaryPath.c_str());
+        throw;
       }
 
       // Keep the in-memory wardrobe and persisted JSON transaction-like: revert
@@ -282,7 +517,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
       } catch (...) {
         characters_ = previousCharacters;
         activeCharacterId_ = previousActiveId;
-        std::filesystem::remove(imagePath, fileError);
+        DeleteFileW(imagePath.c_str());
         throw;
       }
       SendState();
@@ -301,29 +536,33 @@ void Application::HandleWebMessage(WebViewWindow& source,
                  {"payload", {{"action", "wave"}}}});
       return;
     }
-    if (type == "character.rename") {
+    if (type == "character.icon.update") {
       const std::string id = payload.value("id", "");
-      const std::string name = payload.value("name", "");
-      if (!IsValidCharacterName(name)) {
-        SendError(source, "角色名称需要是 1 到 20 个左右的可见字符。");
+      if (id != activeCharacterId_ || !IsSafeCharacterId(id)) {
+        // An asynchronous render for the previously selected character may
+        // arrive after a quick wardrobe switch; silently ignore stale icons.
         return;
       }
-      auto character = std::find_if(
-          characters_.begin(), characters_.end(),
-          [&id](const CharacterProfile& item) { return item.id == id; });
-      if (character == characters_.end()) {
-        SendError(source, "内置角色不能改名，或角色已经不存在。");
+      const DecodedCharacterImage icon =
+          DecodeCharacterImage(payload.value("dataUrl", ""));
+      if (icon.extension != ".png") {
+        SendError(source, "小助手图标必须使用 PNG 格式。");
         return;
       }
-      const std::string previousName = character->name;
-      character->name = name;
+      const std::wstring iconPath = JoinPath(
+          characterDirectory_, L"assistant-icon-" + Utf8ToWide(id) + L".ico");
+      const std::wstring temporaryPath = iconPath + L".updating";
+      if (!cy_write_png_icon(temporaryPath.c_str(), icon.bytes.data(),
+                             icon.bytes.size())) {
+        throw std::runtime_error("无法生成当前角色的小助手图标。");
+      }
       try {
-        SaveCharacters();
+        MoveFileReplacing(temporaryPath, iconPath);
       } catch (...) {
-        character->name = previousName;
+        DeleteFileW(temporaryPath.c_str());
         throw;
       }
-      SendState();
+      ApplyCharacterIcon(iconPath);
       return;
     }
     if (type == "character.delete") {
@@ -352,12 +591,397 @@ void Application::HandleWebMessage(WebViewWindow& source,
         activeCharacterId_ = previousActiveId;
         throw;
       }
-      std::error_code removeError;
-      std::filesystem::remove(
-          std::filesystem::path(characterDirectory_) /
-              Utf8ToWide(removed.fileName),
-          removeError);
+      const std::wstring removedPath =
+          JoinPath(characterDirectory_, Utf8ToWide(removed.fileName));
+      DeleteFileW(removedPath.c_str());
       SendState();
+      return;
+    }
+    if (type == "tool.execute") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string toolId = payload.value("toolId", "");
+      const std::string operation = payload.value("operation", "");
+      const std::string input = payload.value("input", "");
+      if (requestId.empty() || requestId.size() > 80 || toolId.empty() ||
+          operation.empty()) {
+        source.PostJson(
+            nlohmann::json{{"type", "tool.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "工具请求缺少必要参数。"}}}}
+                .dump());
+        return;
+      }
+
+      // Only the allow-listed C core is reachable through this command. File,
+      // process and network capabilities will use separate permission gates.
+      const ToolExecutionResult result = ExecuteTool(
+          toolId, operation, input, payload.value("urlSafe", false),
+          payload.value("padded", true));
+      const nlohmann::json responsePayload = result.succeeded
+          ? nlohmann::json{{"requestId", requestId},
+                           {"toolId", toolId},
+                           {"output", result.output}}
+          : nlohmann::json{{"requestId", requestId},
+                           {"toolId", toolId},
+                           {"message", result.error}};
+      source.PostJson(
+          nlohmann::json{{"type",
+                          result.succeeded ? "tool.result" : "tool.error"},
+                         {"payload", responsePayload}}
+              .dump());
+      return;
+    }
+    if (type == "system.snapshot") {
+      const std::string requestId = payload.value("requestId", "");
+      if (requestId.empty() || requestId.size() > 80) {
+        SendError(source, "系统信息请求缺少有效标识。");
+        return;
+      }
+      try {
+        source.PostJson(
+            nlohmann::json{{"type", "system.snapshot.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"snapshot", SystemSnapshotToJson(
+                                              QuerySystemSnapshot())}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "system.snapshot.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "ports.list") {
+      const std::string requestId = payload.value("requestId", "");
+      if (requestId.empty() || requestId.size() > 80) {
+        SendError(source, "端口请求缺少有效标识。");
+        return;
+      }
+      const std::vector<PortEntry> entries = ListPortEntries();
+      nlohmann::json rows = nlohmann::json::array();
+      for (std::vector<PortEntry>::const_iterator entry = entries.begin();
+           entry != entries.end(); ++entry) {
+        rows.push_back(PortEntryToJson(*entry));
+      }
+      source.PostJson(
+          nlohmann::json{{"type", "ports.list.result"},
+                         {"payload",
+                          {{"requestId", requestId}, {"entries", rows}}}}
+              .dump());
+      return;
+    }
+    if (type == "ports.terminate") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::uint32_t processId = payload.value("processId", 0U);
+      const std::string processName = payload.value("processName", "");
+      const bool confirmed = payload.value("confirmed", false);
+      if (requestId.empty() || requestId.size() > 80 || !confirmed) {
+        source.PostJson(
+            nlohmann::json{{"type", "ports.terminate.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "结束进程前必须明确确认。"}}}}
+                .dump());
+        return;
+      }
+      const ProcessOperationResult result =
+          TerminatePortOwner(processId, processName);
+      source.PostJson(
+          nlohmann::json{{"type", result.succeeded
+                                     ? "ports.terminate.result"
+                                     : "ports.terminate.error"},
+                         {"payload",
+                          {{"requestId", requestId},
+                           {"message", result.message}}}}
+              .dump());
+      return;
+    }
+    if (type == "software.list") {
+      const std::string requestId = payload.value("requestId", "");
+      if (requestId.empty() || requestId.size() > 80) {
+        SendError(source, "软件列表请求缺少有效标识。");
+        return;
+      }
+      try {
+        const std::vector<InstalledSoftware> entries =
+            softwareService_.ListInstalled();
+        nlohmann::json rows = nlohmann::json::array();
+        for (std::vector<InstalledSoftware>::const_iterator entry =
+                 entries.begin();
+             entry != entries.end(); ++entry) {
+          rows.push_back(InstalledSoftwareToJson(*entry));
+        }
+        source.PostJson(
+            nlohmann::json{{"type", "software.list.result"},
+                           {"payload",
+                            {{"requestId", requestId}, {"entries", rows}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "software.list.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "software.scan") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string softwareId = payload.value("softwareId", "");
+      const std::string displayName = payload.value("displayName", "");
+      if (requestId.empty() || requestId.size() > 80 || softwareId.empty() ||
+          softwareId.size() > 2048 || !IsValidLabel(displayName, 160)) {
+        SendError(source, "软件残留扫描请求无效。");
+        return;
+      }
+      try {
+        const SoftwareCleanupPlan plan =
+            softwareService_.ScanResiduals(softwareId, displayName);
+        source.PostJson(
+            nlohmann::json{{"type", "software.scan.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"plan", SoftwareCleanupPlanToJson(plan)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "software.scan.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "software.uninstall") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string softwareId = payload.value("softwareId", "");
+      const std::string displayName = payload.value("displayName", "");
+      const bool confirmed = payload.value("confirmed", false);
+      if (requestId.empty() || requestId.size() > 80 || softwareId.empty() ||
+          softwareId.size() > 2048 || !IsValidLabel(displayName, 160)) {
+        SendError(source, "软件卸载请求无效。");
+        return;
+      }
+      try {
+        const SoftwareOperationResult result =
+            softwareService_.LaunchRegisteredUninstaller(
+                softwareId, displayName, confirmed);
+        source.PostJson(
+            nlohmann::json{{"type", result.succeeded
+                                       ? "software.uninstall.result"
+                                       : "software.uninstall.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", result.message},
+                             {"operation", SoftwareOperationToJson(result)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "software.uninstall.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "software.cleanup") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string planToken = payload.value("planToken", "");
+      const std::string typedName = payload.value("typedName", "");
+      const bool confirmed = payload.value("confirmed", false);
+      std::vector<std::string> selectedPaths;
+      if (payload.contains("selectedPaths") &&
+          payload.at("selectedPaths").is_array()) {
+        const nlohmann::json& paths = payload.at("selectedPaths");
+        if (paths.size() <= 32) {
+          for (nlohmann::json::const_iterator path = paths.begin();
+               path != paths.end(); ++path) {
+            if (path->is_string() && path->get<std::string>().size() <= 32768)
+              selectedPaths.push_back(path->get<std::string>());
+          }
+        }
+      }
+      if (requestId.empty() || requestId.size() > 80 ||
+          planToken.size() != 32 || !IsValidLabel(typedName, 160) ||
+          selectedPaths.empty()) {
+        SendError(source, "软件残留清理请求无效。");
+        return;
+      }
+      try {
+        const SoftwareOperationResult result =
+            softwareService_.CleanupResiduals(planToken, typedName,
+                                               selectedPaths, confirmed);
+        source.PostJson(
+            nlohmann::json{{"type", (result.succeeded ||
+                                      !result.removedPaths.empty())
+                                       ? "software.cleanup.result"
+                                       : "software.cleanup.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", result.message},
+                             {"operation", SoftwareOperationToJson(result)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "software.cleanup.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "image.save") {
+      const std::string requestId = payload.value("requestId", "");
+      if (requestId.empty() || requestId.size() > 96) {
+        SendError(source, "图片保存请求无效。");
+        return;
+      }
+      try {
+        const ImageSaveResult result = SaveExportedImage(
+            source.Handle(), payload.value("dataUrl", ""),
+            payload.value("format", ""),
+            payload.value("suggestedBaseName", "converted-image"));
+        source.PostJson(
+            nlohmann::json{{"type", "image.save.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"cancelled", result.cancelled},
+                             {"path", result.path},
+                             {"sizeBytes", result.sizeBytes}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "image.save.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+
+    if (type == "database.pick") {
+      const std::string requestId = payload.value("requestId", "");
+      if (requestId.empty() || requestId.size() > 80) {
+        SendError(source, "数据库请求缺少有效标识。");
+        return;
+      }
+      wchar_t selectedPath[32768]{};
+      const bool createNew = payload.value("createNew", false);
+      const int selected = cy_pick_sqlite_database(
+          source.Handle(), createNew ? 1 : 0, selectedPath,
+          sizeof(selectedPath) / sizeof(selectedPath[0]));
+      if (selected == 0) {
+        source.PostJson(
+            nlohmann::json{{"type", "database.pick.result"},
+                           {"payload",
+                            {{"requestId", requestId}, {"cancelled", true}}}}
+                .dump());
+        return;
+      }
+      if (selected < 0) {
+        source.PostJson(
+            nlohmann::json{{"type", "database.pick.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "无法打开 Windows 文件选择器。"}}}}
+                .dump());
+        return;
+      }
+      try {
+        const std::wstring path(selectedPath);
+        const DatabaseOverview overview =
+            createNew ? CreateDatabase(path) : InspectDatabase(path);
+        activeDatabasePath_ = path;
+        source.PostJson(
+            nlohmann::json{{"type", "database.pick.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"cancelled", false},
+                             {"overview", DatabaseOverviewToJson(overview)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "database.pick.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "database.refresh") {
+      const std::string requestId = payload.value("requestId", "");
+      try {
+        if (requestId.empty() || requestId.size() > 80 ||
+            activeDatabasePath_.empty()) {
+          throw std::runtime_error("请先打开一个 SQLite 数据库。");
+        }
+        source.PostJson(
+            nlohmann::json{{"type", "database.refresh.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"overview", DatabaseOverviewToJson(
+                                              InspectDatabase(
+                                                  activeDatabasePath_))}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "database.refresh.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "database.execute") {
+      const std::string requestId = payload.value("requestId", "");
+      try {
+        if (requestId.empty() || requestId.size() > 80 ||
+            activeDatabasePath_.empty()) {
+          throw std::runtime_error("请先打开一个 SQLite 数据库。");
+        }
+        const DatabaseQueryResult result = ExecuteDatabaseSql(
+            activeDatabasePath_, payload.value("sql", ""),
+            payload.value("allowWrite", false));
+        nlohmann::json response =
+            {{"requestId", requestId},
+             {"result", DatabaseQueryResultToJson(result)}};
+        if (result.wroteData) {
+          response["overview"] = DatabaseOverviewToJson(
+              InspectDatabase(activeDatabasePath_));
+        }
+        source.PostJson(
+            nlohmann::json{{"type", "database.execute.result"},
+                           {"payload", response}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "database.execute.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "database.close") {
+      const std::string requestId = payload.value("requestId", "");
+      activeDatabasePath_.clear();
+      source.PostJson(
+          nlohmann::json{{"type", "database.close.result"},
+                         {"payload", {{"requestId", requestId}}}}
+              .dump());
       return;
     }
     if (type == "settings.update") {
@@ -372,23 +996,52 @@ void Application::HandleWebMessage(WebViewWindow& source,
         SendError(source, "自动收起时间只支持 1、2、5、10、20、30 或 60 分钟。");
         return;
       }
+      const std::string workspaceTheme =
+          payload.value("workspaceTheme", workspaceTheme_);
+      const std::string workspaceTextSize =
+          payload.value("workspaceTextSize", workspaceTextSize_);
+      if (!IsValidWorkspaceTheme(workspaceTheme) ||
+          !IsValidWorkspaceTextSize(workspaceTextSize)) {
+        SendError(source, "工作台主题或字号设置无效。");
+        return;
+      }
       petName_ = petName;
       soundEnabled_ = payload.value("soundEnabled", soundEnabled_);
       speechEnabled_ = payload.value("speechEnabled", speechEnabled_);
       autoHideEnabled_ =
           payload.value("autoHideEnabled", autoHideEnabled_);
       autoHideMinutes_ = autoHideMinutes;
+      workspaceTheme_ = workspaceTheme;
+      workspaceTextSize_ = workspaceTextSize;
+      openLastView_ = payload.value("openLastView", openLastView_);
       reminders_.SetSetting("pet.name", petName_);
       reminders_.SetSetting("audio.sound", soundEnabled_ ? "1" : "0");
       reminders_.SetSetting("audio.speech", speechEnabled_ ? "1" : "0");
       reminders_.SetSetting("pet.autoHide", autoHideEnabled_ ? "1" : "0");
       reminders_.SetSetting("pet.autoHideMinutes",
                             std::to_string(autoHideMinutes_));
+      reminders_.SetSetting("workspace.theme", workspaceTheme_);
+      reminders_.SetSetting("workspace.textSize", workspaceTextSize_);
+      reminders_.SetSetting("workspace.openLastView",
+                            openLastView_ ? "1" : "0");
       if (!autoHideEnabled_) {
         petWindow_->SetAutoTucked(false);
       }
       UpdateBranding();
       SendState();
+      return;
+    }
+    if (type == "workspace.navigation.update") {
+      const std::string view = payload.value("view", "");
+      const std::string category = payload.value("category", "");
+      if (!IsValidDashboardView(view) || !IsValidToolCategory(category)) {
+        SendError(source, "无法保存未知的工作台页面。");
+        return;
+      }
+      lastDashboardView_ = view;
+      lastToolCategory_ = category;
+      reminders_.SetSetting("workspace.lastView", lastDashboardView_);
+      reminders_.SetSetting("workspace.lastCategory", lastToolCategory_);
       return;
     }
     if (type == "reminder.create") {
@@ -421,9 +1074,9 @@ void Application::HandleWebMessage(WebViewWindow& source,
       if (soundEnabled_) {
         MessageBeep(MB_OK);
       }
-      if (presentedReminderId_ == id) {
+      if (hasPresentedReminder_ && presentedReminderId_ == id) {
         petWindow_->EndReminderPresentation();
-        presentedReminderId_.reset();
+        hasPresentedReminder_ = false;
         Broadcast({{"type", "reminder.dismissed"}, {"payload", {{"id", id}}}});
       }
       SendState();
@@ -432,9 +1085,9 @@ void Application::HandleWebMessage(WebViewWindow& source,
     if (type == "reminder.delete") {
       const auto id = payload.value("id", std::int64_t{});
       reminders_.Remove(id);
-      if (presentedReminderId_ == id) {
+      if (hasPresentedReminder_ && presentedReminderId_ == id) {
         petWindow_->EndReminderPresentation();
-        presentedReminderId_.reset();
+        hasPresentedReminder_ = false;
         Broadcast({{"type", "reminder.dismissed"}, {"payload", {{"id", id}}}});
       }
       SendState();
@@ -442,13 +1095,14 @@ void Application::HandleWebMessage(WebViewWindow& source,
     }
     if (type == "reminder.snooze") {
       const auto id = payload.value("id", std::int64_t{});
-      const auto minutes =
-          std::clamp(payload.value("minutes", 5), 1, 24 * 60);
+      const int requestedMinutes = payload.value("minutes", 5);
+      const int minutes =
+          (std::max)(1, (std::min)(requestedMinutes, 24 * 60));
       reminders_.Snooze(id,
                         UnixTimeMilliseconds() + minutes * 60LL * 1000LL);
-      if (presentedReminderId_ == id) {
+      if (hasPresentedReminder_ && presentedReminderId_ == id) {
         petWindow_->EndReminderPresentation();
-        presentedReminderId_.reset();
+        hasPresentedReminder_ = false;
       }
       SendState();
       Broadcast({{"type", "reminder.dismissed"}, {"payload", {{"id", id}}}});
@@ -472,6 +1126,7 @@ void Application::HandleTimer() {
       petWindow_->Show();
       petWindow_->BeginReminderPresentation(reminder.priority);
       presentedReminderId_ = reminder.id;
+      hasPresentedReminder_ = true;
       PlayReminderAlert(reminder);
       ShowNativeNotification(reminder);
       Broadcast({{"type", "reminder.triggered"},
@@ -490,7 +1145,7 @@ void Application::HandleTimer() {
     if (GetLastInputInfo(&lastInput)) {
       const DWORD idleMilliseconds = GetTickCount() - lastInput.dwTime;
       const bool shouldTuck =
-          autoHideEnabled_ && !presentedReminderId_.has_value() &&
+          autoHideEnabled_ && !hasPresentedReminder_ &&
           !dashboardVisible &&
           idleMilliseconds >=
               static_cast<DWORD>(autoHideMinutes_ * 60 * 1000);
@@ -524,7 +1179,9 @@ void Application::SavePetPosition(HWND window) {
   if (!GetWindowRect(window, &bounds)) {
     return;
   }
-  petPosition_ = POINT{bounds.left, bounds.top};
+  petPosition_.x = bounds.left;
+  petPosition_.y = bounds.top;
+  hasPetPosition_ = true;
   reminders_.SetSetting("pet.x", std::to_string(bounds.left));
   reminders_.SetSetting("pet.y", std::to_string(bounds.top));
 }
@@ -556,7 +1213,7 @@ void Application::AddTrayIcon() {
   if (trayIcon_.hIcon == nullptr) {
     trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
   }
-  const std::wstring tooltip = Utf8ToWide(petName_) + L"桌面宠物";
+  const std::wstring tooltip = Utf8ToWide(petName_) + L"小助手";
   StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                  tooltip.c_str());
   trayIconAdded_ = Shell_NotifyIconW(NIM_ADD, &trayIcon_) == TRUE;
@@ -578,7 +1235,7 @@ void Application::ShowTrayMenu() {
   GetCursorPos(&cursor);
 
   HMENU menu = CreatePopupMenu();
-  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开事项中心");
+  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开桌面工作台");
   const std::wstring petName = Utf8ToWide(petName_);
   const std::wstring visibilityLabel =
       IsWindowVisible(petWindow_->Handle()) ? L"暂时隐藏" + petName
@@ -655,26 +1312,62 @@ void Application::UpdateBranding() {
     petWindow_->SetTitle(petName);
   }
   if (dashboardWindow_ != nullptr) {
-    dashboardWindow_->SetTitle(petName + L" · 事项中心");
+    dashboardWindow_->SetTitle(petName + L" · 桌面工作台");
   }
   if (trayIconAdded_) {
     trayIcon_.uFlags = NIF_TIP;
-    const std::wstring tooltip = petName + L"桌面宠物";
+    const std::wstring tooltip = petName + L"小助手";
     StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                    tooltip.c_str());
     Shell_NotifyIconW(NIM_MODIFY, &trayIcon_);
   }
 }
 
+void Application::ApplyCharacterIcon(const std::wstring& iconPath) {
+  HICON largeIcon = static_cast<HICON>(LoadImageW(
+      nullptr, iconPath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXICON),
+      GetSystemMetrics(SM_CYICON), LR_LOADFROMFILE | LR_DEFAULTCOLOR));
+  HICON smallIcon = static_cast<HICON>(LoadImageW(
+      nullptr, iconPath.c_str(), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+      GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE | LR_DEFAULTCOLOR));
+  if (largeIcon == nullptr || smallIcon == nullptr) {
+    if (largeIcon != nullptr) DestroyIcon(largeIcon);
+    if (smallIcon != nullptr) DestroyIcon(smallIcon);
+    return;
+  }
+
+  const HICON previousLarge = activeLargeIcon_;
+  const HICON previousSmall = activeSmallIcon_;
+  activeLargeIcon_ = largeIcon;
+  activeSmallIcon_ = smallIcon;
+  activeCharacterIconPath_ = iconPath;
+  if (petWindow_ != nullptr) petWindow_->SetIcons(largeIcon, smallIcon);
+  if (dashboardWindow_ != nullptr) dashboardWindow_->SetIcons(largeIcon, smallIcon);
+  if (trayIconAdded_) {
+    trayIcon_.uFlags = NIF_ICON;
+    trayIcon_.hIcon = smallIcon;
+    Shell_NotifyIconW(NIM_MODIFY, &trayIcon_);
+  }
+  UpdateDesktopShortcutIcon(iconPath);
+
+  if (previousSmall != nullptr && previousSmall != previousLarge) {
+    DestroyIcon(previousSmall);
+  }
+  if (previousLarge != nullptr) DestroyIcon(previousLarge);
+}
+
 void Application::EnsureDashboard() {
   if (dashboardWindow_ != nullptr) {
     return;
   }
-  dashboardWindow_ =
-      std::make_unique<WebViewWindow>(*this, WindowKind::Dashboard);
+  dashboardWindow_.reset(
+      new WebViewWindow(*this, WindowKind::Dashboard));
   if (!dashboardWindow_->Create(instance_)) {
     dashboardWindow_.reset();
     throw std::runtime_error("Unable to create the dashboard window.");
+  }
+  if (activeLargeIcon_ != nullptr || activeSmallIcon_ != nullptr) {
+    dashboardWindow_->SetIcons(activeLargeIcon_, activeSmallIcon_);
   }
 }
 
@@ -725,15 +1418,21 @@ nlohmann::json Application::BuildState() {
           {"speechEnabled", speechEnabled_},
           {"autoHideEnabled", autoHideEnabled_},
           {"autoHideMinutes", autoHideMinutes_},
+          {"workspaceTheme", workspaceTheme_},
+          {"workspaceTextSize", workspaceTextSize_},
+          {"openLastView", openLastView_},
+          {"lastDashboardView", lastDashboardView_},
+          {"lastToolCategory", lastToolCategory_},
           {"characters", std::move(characters)},
           {"activeCharacterId", activeCharacterId_}};
 }
 
 void Application::LoadCharacters() {
   characters_.clear();
-  const auto serialized = reminders_.GetSetting("characters.list");
-  if (serialized.has_value() && !serialized->empty()) {
-    const nlohmann::json saved = nlohmann::json::parse(*serialized);
+  std::string serialized;
+  if (reminders_.GetSetting("characters.list", serialized) &&
+      !serialized.empty()) {
+    const nlohmann::json saved = nlohmann::json::parse(serialized);
     if (saved.is_array()) {
       for (const nlohmann::json& item : saved) {
         if (!item.is_object()) {
@@ -752,11 +1451,9 @@ void Application::LoadCharacters() {
         }
         // Reject absolute paths and traversal before mapping a saved filename
         // into the character directory.
-        const std::filesystem::path relativeName =
-            Utf8ToWide(character.fileName);
-        if (relativeName.filename() != relativeName ||
-            !std::filesystem::exists(
-                std::filesystem::path(characterDirectory_) / relativeName)) {
+        const std::wstring relativeName = Utf8ToWide(character.fileName);
+        if (!IsSimpleFileName(relativeName) ||
+            !PathExists(JoinPath(characterDirectory_, relativeName))) {
           continue;
         }
         characters_.push_back(character);
@@ -767,9 +1464,10 @@ void Application::LoadCharacters() {
     }
   }
 
-  if (const auto active = reminders_.GetSetting("characters.active");
-      active.has_value() && HasCharacter(*active)) {
-    activeCharacterId_ = *active;
+  std::string active;
+  if (reminders_.GetSetting("characters.active", active) &&
+      HasCharacter(active)) {
+    activeCharacterId_ = active;
   } else {
     activeCharacterId_ = "builtin";
   }

@@ -1,0 +1,243 @@
+// =============================================================================
+// Colors
+//
+// 命名规则:--cy-{purpose}-{level}
+//   bg:     surface 背景层(primary 最浅,tertiary 最深 / 暗色反之)
+//   text:   primary 主要,secondary 次要,tertiary 辅助
+//   border: tertiary 极细分隔,secondary 常规边框
+//   状态色: success / warning / danger / info,各有 bg/text/border
+//
+// 强调色 --cy-accent 跨主题不变(品牌识别度)
+// =============================================================================
+
+:root {
+  // ---- 强调色(brand,跨主题不变) ----
+  --cy-accent: #ff5a1f; // 设计图主色,出现在 logo dot / CTA / focus
+  --cy-accent-hover: #e64f1a;
+  --cy-accent-active: #cc4516;
+  --cy-accent-tint: rgba(255, 90, 31, 0.1); // 设计图侧栏选中态背景
+  --cy-on-accent: #ffffff; // 强调色上的文字
+
+  // ---- mac 红黄绿(桌面端 titlebar 装饰) ----
+  --cy-mac-red: #ff5f57;
+  --cy-mac-yellow: #febc2e;
+  --cy-mac-green: #28c840;
+
+  // ---- Light theme(默认) ----
+  --cy-bg-primary: #ffffff;
+  --cy-bg-secondary: #fafaf9; // 微暖白,主面板内的次级 surface
+  --cy-bg-tertiary: #f4f3f0; // 侧栏 / titlebar 灰底
+
+  --cy-text-primary: #1a1a1a;
+  --cy-text-secondary: #5c5b58;
+  --cy-text-tertiary: #94928d; // metadata / placeholder
+
+  --cy-border-tertiary: rgba(0, 0, 0, 0.08); // 0.5px 极细分隔
+  --cy-border-secondary: rgba(0, 0, 0, 0.14); // 常规边框
+
+  // 状态:success / warning / danger / info
+  --cy-bg-success: #f0fdf4;
+  --cy-text-success: #15803d;
+  --cy-border-success: rgba(21, 128, 61, 0.3);
+
+  --cy-bg-warning: #fffbeb;
+  --cy-text-warning: #b45309;
+  --cy-border-warning: rgba(180, 83, 9, 0.3);
+
+  --cy-bg-danger: #fef2f2;
+  --cy-text-danger: #b91c1c;
+  --cy-border-danger: rgba(185, 28, 28, 0.3);
+
+  --cy-bg-info: #eff6ff;
+  --cy-text-info: #1e40af;
+  --cy-border-info: rgba(30, 64, 175, 0.3);
+
+  // ---- Category 色板(插件分类视觉锚点)----
+  //
+  // 每个 category 4 个 token:
+  //   bg / fg:        正常态(icon 方块底色 + 字符色)
+  //   bg-strong / fg-strong: 选中或 hover 态(在 category sidebar 用)
+  //
+  // 设计原则:
+  //   - 跟主品牌色 #ff5a1f 不冲突
+  //   - 6 个色相在色环上分散均匀(blue/violet/orange/green/cyan/zinc)
+  //   - 色彩饱和度统一克制,适合长时间使用
+  //
+  // 色值参考 Tailwind 100-50 / 700-800 范围
+  --cy-cat-encoding-bg: #dbeafe; // blue-100
+  --cy-cat-encoding-fg: #1e40af; // blue-800
+  --cy-cat-encoding-bg-strong: #bfdbfe; // blue-200
+  --cy-cat-encoding-fg-strong: #1e3a8a; // blue-900
+
+  --cy-cat-generators-bg: #ede9fe; // violet-100
+  --cy-cat-generators-fg: #5b21b6; // violet-800
+  --cy-cat-generators-bg-strong: #ddd6fe; // violet-200
+  --cy-cat-generators-fg-strong: #4c1d95; // violet-900
+
+  --cy-cat-media-bg: #ffedd5; // orange-100
+  --cy-cat-media-fg: #c2410c; // orange-700
+  --cy-cat-media-bg-strong: #fed7aa; // orange-200
+  --cy-cat-media-fg-strong: #9a3412; // orange-800
+
+  --cy-cat-text-data-bg: #dcfce7; // green-100
+  --cy-cat-text-data-fg: #166534; // green-800
+  --cy-cat-text-data-bg-strong: #bbf7d0; // green-200
+  --cy-cat-text-data-fg-strong: #14532d; // green-900
+
+  --cy-cat-time-number-bg: #cffafe; // cyan-100
+  --cy-cat-time-number-fg: #0e7490; // cyan-700
+  --cy-cat-time-number-bg-strong: #a5f3fc; // cyan-200
+  --cy-cat-time-number-fg-strong: #155e75; // cyan-800
+
+  --cy-cat-utility-bg: #f4f4f5; // zinc-100
+  --cy-cat-utility-fg: #52525b; // zinc-600
+  --cy-cat-utility-bg-strong: #e4e4e7; // zinc-200
+  --cy-cat-utility-fg-strong: #3f3f46; // zinc-700
+
+  // ---- Featured 强调色(blueprint indigo,代替之前的普通 #5b8def)----
+  // 比起 #5b8def,#6366f1(indigo-500)更现代、跟主品牌橙色对比更鲜明
+  --cy-featured: #6366f1;
+  --cy-featured-hover: #4f46e5;
+  --cy-featured-bg: rgba(99, 102, 241, 0.08);
+  --cy-featured-glow: rgba(99, 102, 241, 0.18);
+
+  // ---- z-index scale ----
+  --cy-z-content: 0;
+  --cy-z-sticky: 10;
+  --cy-z-overlay: 100;
+  --cy-z-modal: 1000;
+  --cy-z-toast: 10000;
+}
+
+// ---- Dark theme ----
+[data-theme='dark'] {
+  --cy-bg-primary: #1a1918;
+  --cy-bg-secondary: #232220;
+  --cy-bg-tertiary: #2d2b28;
+
+  --cy-text-primary: #f5f4f1;
+  --cy-text-secondary: #b8b5ae;
+  --cy-text-tertiary: #75726b;
+
+  --cy-border-tertiary: rgba(255, 255, 255, 0.08);
+  --cy-border-secondary: rgba(255, 255, 255, 0.14);
+
+  --cy-bg-success: rgba(34, 197, 94, 0.12);
+  --cy-text-success: #4ade80;
+  --cy-border-success: rgba(74, 222, 128, 0.3);
+
+  --cy-bg-warning: rgba(234, 179, 8, 0.12);
+  --cy-text-warning: #facc15;
+  --cy-border-warning: rgba(250, 204, 21, 0.3);
+
+  --cy-bg-danger: rgba(239, 68, 68, 0.12);
+  --cy-text-danger: #f87171;
+  --cy-border-danger: rgba(248, 113, 113, 0.3);
+
+  --cy-bg-info: rgba(59, 130, 246, 0.12);
+  --cy-text-info: #60a5fa;
+  --cy-border-info: rgba(96, 165, 250, 0.3);
+
+  // ---- Category 色板(dark)----
+  // 暗色主题:bg 用透明色 + dark hue,fg 用 light hue,保持对比度 + 不刺眼
+  --cy-cat-encoding-bg: rgba(59, 130, 246, 0.18);
+  --cy-cat-encoding-fg: #93c5fd; // blue-300
+  --cy-cat-encoding-bg-strong: rgba(59, 130, 246, 0.28);
+  --cy-cat-encoding-fg-strong: #bfdbfe; // blue-200
+
+  --cy-cat-generators-bg: rgba(139, 92, 246, 0.18);
+  --cy-cat-generators-fg: #c4b5fd; // violet-300
+  --cy-cat-generators-bg-strong: rgba(139, 92, 246, 0.28);
+  --cy-cat-generators-fg-strong: #ddd6fe;
+
+  --cy-cat-media-bg: rgba(249, 115, 22, 0.18);
+  --cy-cat-media-fg: #fdba74; // orange-300
+  --cy-cat-media-bg-strong: rgba(249, 115, 22, 0.28);
+  --cy-cat-media-fg-strong: #fed7aa;
+
+  --cy-cat-text-data-bg: rgba(34, 197, 94, 0.18);
+  --cy-cat-text-data-fg: #86efac; // green-300
+  --cy-cat-text-data-bg-strong: rgba(34, 197, 94, 0.28);
+  --cy-cat-text-data-fg-strong: #bbf7d0;
+
+  --cy-cat-time-number-bg: rgba(6, 182, 212, 0.18);
+  --cy-cat-time-number-fg: #67e8f9; // cyan-300
+  --cy-cat-time-number-bg-strong: rgba(6, 182, 212, 0.28);
+  --cy-cat-time-number-fg-strong: #a5f3fc;
+
+  --cy-cat-utility-bg: rgba(255, 255, 255, 0.06);
+  --cy-cat-utility-fg: #a1a1aa; // zinc-400
+  --cy-cat-utility-bg-strong: rgba(255, 255, 255, 0.1);
+  --cy-cat-utility-fg-strong: #d4d4d8;
+
+  // Featured indigo(dark)
+  --cy-featured: #818cf8; // indigo-400 — 暗色下更柔和
+  --cy-featured-hover: #a5b4fc;
+  --cy-featured-bg: rgba(129, 140, 248, 0.1);
+  --cy-featured-glow: rgba(129, 140, 248, 0.22);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --cy-bg-primary: #1a1918;
+    --cy-bg-secondary: #232220;
+    --cy-bg-tertiary: #2d2b28;
+
+    --cy-text-primary: #f5f4f1;
+    --cy-text-secondary: #b8b5ae;
+    --cy-text-tertiary: #75726b;
+
+    --cy-border-tertiary: rgba(255, 255, 255, 0.08);
+    --cy-border-secondary: rgba(255, 255, 255, 0.14);
+
+    --cy-bg-success: rgba(34, 197, 94, 0.12);
+    --cy-text-success: #4ade80;
+    --cy-border-success: rgba(74, 222, 128, 0.3);
+
+    --cy-bg-warning: rgba(234, 179, 8, 0.12);
+    --cy-text-warning: #facc15;
+    --cy-border-warning: rgba(250, 204, 21, 0.3);
+
+    --cy-bg-danger: rgba(239, 68, 68, 0.12);
+    --cy-text-danger: #f87171;
+    --cy-border-danger: rgba(248, 113, 113, 0.3);
+
+    --cy-bg-info: rgba(59, 130, 246, 0.12);
+    --cy-text-info: #60a5fa;
+    --cy-border-info: rgba(96, 165, 250, 0.3);
+
+    --cy-cat-encoding-bg: rgba(59, 130, 246, 0.18);
+    --cy-cat-encoding-fg: #93c5fd;
+    --cy-cat-encoding-bg-strong: rgba(59, 130, 246, 0.28);
+    --cy-cat-encoding-fg-strong: #bfdbfe;
+
+    --cy-cat-generators-bg: rgba(139, 92, 246, 0.18);
+    --cy-cat-generators-fg: #c4b5fd;
+    --cy-cat-generators-bg-strong: rgba(139, 92, 246, 0.28);
+    --cy-cat-generators-fg-strong: #ddd6fe;
+
+    --cy-cat-media-bg: rgba(249, 115, 22, 0.18);
+    --cy-cat-media-fg: #fdba74;
+    --cy-cat-media-bg-strong: rgba(249, 115, 22, 0.28);
+    --cy-cat-media-fg-strong: #fed7aa;
+
+    --cy-cat-text-data-bg: rgba(34, 197, 94, 0.18);
+    --cy-cat-text-data-fg: #86efac;
+    --cy-cat-text-data-bg-strong: rgba(34, 197, 94, 0.28);
+    --cy-cat-text-data-fg-strong: #bbf7d0;
+
+    --cy-cat-time-number-bg: rgba(6, 182, 212, 0.18);
+    --cy-cat-time-number-fg: #67e8f9;
+    --cy-cat-time-number-bg-strong: rgba(6, 182, 212, 0.28);
+    --cy-cat-time-number-fg-strong: #a5f3fc;
+
+    --cy-cat-utility-bg: rgba(255, 255, 255, 0.06);
+    --cy-cat-utility-fg: #a1a1aa;
+    --cy-cat-utility-bg-strong: rgba(255, 255, 255, 0.1);
+    --cy-cat-utility-fg-strong: #d4d4d8;
+
+    --cy-featured: #818cf8;
+    --cy-featured-hover: #a5b4fc;
+    --cy-featured-bg: rgba(129, 140, 248, 0.1);
+    --cy-featured-glow: rgba(129, 140, 248, 0.22);
+  }
+}

@@ -16,6 +16,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
+& (Join-Path $PSScriptRoot 'check-cxx11.ps1')
 & (Join-Path $PSScriptRoot 'bootstrap-native-deps.ps1')
 
 # Regenerate both the web favicon and Windows icon resource from one source.

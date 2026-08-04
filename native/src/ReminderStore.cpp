@@ -316,23 +316,22 @@ std::vector<Reminder> ReminderStore::TakeDue(std::int64_t now) {
   }
 }
 
-std::optional<std::string> ReminderStore::GetSetting(const std::string& key) {
+bool ReminderStore::GetSetting(const std::string& key, std::string& value) {
   std::lock_guard<std::mutex> lock(mutex_);
   Statement statement(database_,
                       "SELECT value FROM app_settings WHERE key = ?;");
   sqlite3_bind_text(statement.Get(), 1, key.c_str(), -1, SQLITE_TRANSIENT);
   const int result = sqlite3_step(statement.Get());
   if (result == SQLITE_DONE) {
-    return std::nullopt;
+    return false;
   }
   if (result != SQLITE_ROW) {
     throw std::runtime_error(sqlite3_errmsg(database_));
   }
-  const auto* value = sqlite3_column_text(statement.Get(), 0);
-  return value == nullptr
-             ? std::optional<std::string>{std::string{}}
-             : std::optional<std::string>{
-                   reinterpret_cast<const char*>(value)};
+  const auto* rawValue = sqlite3_column_text(statement.Get(), 0);
+  value = rawValue == nullptr ? std::string()
+                              : reinterpret_cast<const char*>(rawValue);
+  return true;
 }
 
 void ReminderStore::SetSetting(const std::string& key,

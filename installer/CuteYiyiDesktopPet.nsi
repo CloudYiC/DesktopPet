@@ -7,10 +7,10 @@ Unicode True
 !include "x64.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.8.0"
+  !define APP_VERSION "0.11.1"
 !endif
 !ifndef APP_FILE_VERSION
-  !define APP_FILE_VERSION "0.8.0.0"
+  !define APP_FILE_VERSION "0.11.1.0"
 !endif
 !ifndef APP_SOURCE
   !error "APP_SOURCE must point to the Release application directory."
@@ -25,7 +25,7 @@ Unicode True
   !error "OUTPUT_DIR must point to the installer output directory."
 !endif
 
-!define APP_NAME "可爱依依桌面宠物"
+!define APP_NAME "可爱依依小助手"
 !define APP_EXE "CuteYiyiDesktopPet.exe"
 !define APP_ID "CuteYiyiDesktopPet"
 !define APP_PUBLISHER "可爱依依项目"
@@ -168,6 +168,11 @@ Section "!${APP_NAME}" SecApplication
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
+  ; Remove names created by builds released before the assistant rename.
+  Delete "$DESKTOP\可爱依依桌面宠物.lnk"
+  Delete "$SMPROGRAMS\可爱依依桌面宠物\可爱依依桌面宠物.lnk"
+  Delete "$SMPROGRAMS\可爱依依桌面宠物\卸载可爱依依桌面宠物.lnk"
+  RMDir "$SMPROGRAMS\可爱依依桌面宠物"
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe"
@@ -193,9 +198,9 @@ Section /o "开机自动启动" SecAutoStart
 SectionEnd
 
 LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并安装应用需要的微软运行环境。"
-LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装桌面宠物、事项中心和卸载程序。"
+LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装可爱依依小助手、CloudYi 桌面工作台和卸载程序。"
 LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建可爱依依快捷方式。"
-LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动桌面宠物。"
+LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动小助手。"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPrerequisites} $(DESC_SecPrerequisites)
@@ -215,9 +220,13 @@ Section "Uninstall"
   SetRegView 64
 
   Delete "$DESKTOP\${APP_NAME}.lnk"
+  Delete "$DESKTOP\可爱依依桌面宠物.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk"
   RMDir "$SMPROGRAMS\${APP_NAME}"
+  Delete "$SMPROGRAMS\可爱依依桌面宠物\可爱依依桌面宠物.lnk"
+  Delete "$SMPROGRAMS\可爱依依桌面宠物\卸载可爱依依桌面宠物.lnk"
+  RMDir "$SMPROGRAMS\可爱依依桌面宠物"
 
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
   DeleteRegKey HKLM "${APP_UNINSTALL_KEY}"

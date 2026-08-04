@@ -1,0 +1,123 @@
+.page {
+  width: calc(100% - 40px);
+  max-width: var(--site-shell-max);
+  margin: 0 auto;
+  padding: 28px 0 40px;
+  display: grid;
+  gap: var(--cy-space-7);
+}
+
+@media (max-width: 680px) {
+  .page {
+    width: calc(100% - 24px);
+    padding: var(--cy-space-5) 0;
+  }
+}
+
+.header {
+  display: grid;
+  gap: var(--cy-space-3);
+}
+
+.title {
+  margin: 0;
+  color: var(--cy-text-primary);
+  font-size: var(--cy-font-size-4xl);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--cy-text-secondary);
+  font-size: var(--cy-font-size-md);
+  line-height: var(--cy-line-height-relaxed);
+
+  .kindAdd,
+  .kindFix,
+  .kindRemove {
+    font-family: var(--cy-font-mono);
+    font-weight: 800;
+  }
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: var(--site-surface);
+  list-style: none;
+  overflow: hidden;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: var(--cy-space-5);
+  padding: var(--cy-space-5);
+  border-top: 1px solid var(--site-border);
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+    gap: var(--cy-space-3);
+  }
+}
+
+.meta {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  font-family: var(--cy-font-mono);
+}
+
+.version {
+  color: var(--site-cyan);
+  font-size: var(--cy-font-size-md);
+  font-weight: 800;
+}
+
+.date {
+  color: var(--cy-text-tertiary);
+  font-size: var(--cy-font-size-xs);
+}
+
+.items {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cy-space-2);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cy-space-3);
+  color: var(--cy-text-primary);
+  font-size: var(--cy-font-size-md);
+  line-height: 1.5;
+}
+
+.kind {
+  width: 14px;
+  flex: 0 0 auto;
+  font-family: var(--cy-font-mono);
+  font-weight: 800;
+  text-align: center;
+}
+
+.kindAdd {
+  color: var(--site-green);
+}
+.kindFix {
+  color: var(--site-amber);
+}
+.kindRemove {
+  color: var(--site-coral);
+}

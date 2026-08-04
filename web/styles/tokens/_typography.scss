@@ -1,0 +1,81 @@
+// =============================================================================
+// Typography
+//
+// 字体策略(双字体系统):
+//   sans:  Inter — 标题 / 正文 / 按钮
+//   mono:  JetBrains Mono — logo / metadata / 技术信息 / 代码 / 终端输出
+//
+// 字号尺度跟设计图严格对齐:
+//   xs(10) 用于 uppercase metadata
+//   sm(11) 用于 metadata 行
+//   base(12) 主信息密度
+//   md(13) 强调/按钮
+//   lg(14) 副标题
+//   xl(16) 二级标题
+//   2xl(18) 一级标题
+//   3xl(22-28) hero / welcome
+// =============================================================================
+
+:root {
+  // 字体族(系统回退,字体未加载时不丑)
+  --cy-font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --cy-font-mono:
+    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+
+  // 字号(rem-based,基准 16px)
+  // 桌面端 1280×800 实测 — 上调 1-4px 让信息层次更清晰
+  --cy-font-size-xs: 0.6875rem; // 11px(↑1)— uppercase metadata
+  --cy-font-size-sm: 0.75rem; // 12px(↑1)— 小 metadata mono
+  --cy-font-size-base: 0.8125rem; // 13px(↑1)— 主信息密度
+  --cy-font-size-md: 0.875rem; // 14px(↑1)— 强调/按钮
+  --cy-font-size-lg: 0.9375rem; // 15px(↑1)— 副标题
+  --cy-font-size-xl: 1.0625rem; // 17px(↑1)— 二级标题
+  --cy-font-size-2xl: 1.375rem; // 22px(↑4)— 三级标题
+  --cy-font-size-3xl: 1.75rem; // 28px(↑6)— 二级 pane 标题
+  --cy-font-size-4xl: 2.25rem; // 36px(↑8)— 一级 pane 标题
+  --cy-font-size-5xl: 2.75rem; // 44px ★ NEW — hero / welcome
+
+  // 行高
+  --cy-line-height-tight: 1.2; // 标题
+  --cy-line-height-base: 1.5; // 正文 / 按钮
+  --cy-line-height-relaxed: 1.7; // 段落 / 多行输出
+
+  // 字距
+  --cy-letter-spacing-tighter: -0.02em; // 大标题
+  --cy-letter-spacing-tight: -0.01em; // 中标题
+  --cy-letter-spacing-base: 0;
+  --cy-letter-spacing-wide: 0.04em;
+  --cy-letter-spacing-wider: 0.1em; // uppercase metadata
+
+  // 字重(Inter / JetBrains Mono 都支持)
+  --cy-font-weight-regular: 400;
+  --cy-font-weight-medium: 500;
+  --cy-font-weight-semibold: 600;
+}
+
+// ---- 全局基底 ----
+html {
+  font-family: var(--cy-font-sans);
+  font-size: 16px;
+  line-height: var(--cy-line-height-base);
+  color: var(--cy-text-primary);
+  background: var(--cy-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  // Inter 字体的精致 features:cv11 = single-storey a,ss01 = open digit
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--cy-font-mono);
+  // 等宽数字 + 紧凑零(slashed zero)防止 0 / O 混淆
+  font-feature-settings: 'tnum', 'zero';
+  font-variant-numeric: tabular-nums slashed-zero;
+}

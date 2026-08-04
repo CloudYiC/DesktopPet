@@ -14,3 +14,7 @@ artifacts/
 *.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
+web/node_modules/
+web/.next/
+web/out/
+web/public/wasm/*.wasm

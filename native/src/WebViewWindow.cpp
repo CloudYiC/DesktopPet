@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <filesystem>
 #include <string>
 
 #include "Milo/Application.h"
@@ -24,6 +23,11 @@ constexpr UINT kAutoTuckTimerId = 3;
 constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr ULONGLONG kHoldDurationMs = 12000;
 constexpr ULONGLONG kMoveOutDurationMs = 850;
+
+template <typename T>
+T ClampValue(T value, T lower, T upper) {
+  return value < lower ? lower : (value > upper ? upper : value);
+}
 
 /** Higher-priority reminders reach the center more quickly. */
 ULONGLONG MoveInDuration(const std::string& priority) {
@@ -55,7 +59,7 @@ void ShowWebViewError(HWND owner, const wchar_t* stage, HRESULT result) {
   wchar_t message[256]{};
   swprintf_s(message, L"%s失败（HRESULT 0x%08X）。\n请确认已安装 WebView2 Runtime。",
              stage, static_cast<unsigned int>(result));
-  MessageBoxW(owner, message, L"可爱依依桌面宠物", MB_OK | MB_ICONERROR);
+  MessageBoxW(owner, message, L"可爱依依小助手", MB_OK | MB_ICONERROR);
 }
 
 }  // namespace
@@ -116,32 +120,39 @@ bool WebViewWindow::Create(HINSTANCE instance) {
     constexpr int height = 360;
     int left = workArea.right - width - 18;
     int top = workArea.bottom - height - 18;
-    if (application_.PetPosition().has_value()) {
-      const POINT saved = *application_.PetPosition();
+    if (application_.HasPetPosition()) {
+      const POINT saved = application_.PetPosition();
       const HMONITOR monitor =
           MonitorFromPoint(saved, MONITOR_DEFAULTTONEAREST);
       MONITORINFO monitorInfo{sizeof(monitorInfo)};
       if (GetMonitorInfoW(monitor, &monitorInfo)) {
-        left = std::clamp(saved.x, monitorInfo.rcWork.left,
+        left = ClampValue(saved.x, monitorInfo.rcWork.left,
                           monitorInfo.rcWork.right - width);
-        top = std::clamp(saved.y, monitorInfo.rcWork.top,
+        top = ClampValue(saved.y, monitorInfo.rcWork.top,
                          monitorInfo.rcWork.bottom - height);
       }
     }
     bounds = {left, top, left + width, top + height};
   } else {
-    constexpr int width = 880;
-    constexpr int height = 660;
-    const int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    const int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-    bounds = {(screenWidth - width) / 2, (screenHeight - height) / 2,
-              (screenWidth + width) / 2, (screenHeight + height) / 2};
+    RECT workArea{};
+    SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0);
+    const int availableWidth = workArea.right - workArea.left;
+    const int availableHeight = workArea.bottom - workArea.top;
+    // The merged CloudYi workbench benefits from a wider editor while still
+    // leaving a margin on smaller displays. The window remains resizable.
+    const int width = (std::min)(
+        availableWidth, (std::max)(720, (std::min)(1120, availableWidth - 48)));
+    const int height = (std::min)(
+        availableHeight, (std::max)(560, (std::min)(740, availableHeight - 48)));
+    const int left = workArea.left + (availableWidth - width) / 2;
+    const int top = workArea.top + (availableHeight - height) / 2;
+    bounds = {left, top, left + width, top + height};
   }
 
   const std::wstring petName = Utf8ToWide(application_.PetName());
   const std::wstring title = kind_ == WindowKind::Pet
                                  ? petName
-                                 : petName + L" · 事项中心";
+                                 : petName + L" · 桌面工作台";
   window_ = CreateWindowExW(
       extendedStyle, kWindowClassName, title.c_str(), style,
       bounds.left, bounds.top, bounds.right - bounds.left,
@@ -178,6 +189,14 @@ void WebViewWindow::SetTitle(const std::wstring& title) {
   if (window_ != nullptr) {
     SetWindowTextW(window_, title.c_str());
   }
+}
+
+void WebViewWindow::SetIcons(HICON largeIcon, HICON smallIcon) {
+  if (window_ == nullptr) return;
+  if (largeIcon != nullptr) SendMessageW(window_, WM_SETICON, ICON_BIG,
+                                         reinterpret_cast<LPARAM>(largeIcon));
+  if (smallIcon != nullptr) SendMessageW(window_, WM_SETICON, ICON_SMALL,
+                                         reinterpret_cast<LPARAM>(smallIcon));
 }
 
 void WebViewWindow::BeginDrag() {
@@ -289,7 +308,7 @@ void WebViewWindow::SetAutoTucked(bool tucked) {
         leftDistance <= rightDistance
             ? monitorInfo.rcWork.left - width + kVisibleStrip
             : monitorInfo.rcWork.right - kVisibleStrip;
-    const LONG targetY = std::clamp(
+    const LONG targetY = ClampValue(
         current.top, monitorInfo.rcWork.top,
         monitorInfo.rcWork.bottom - height);
     autoTuckFrom_ = current;
@@ -589,9 +608,9 @@ void WebViewWindow::SnapPetToWorkArea() {
   constexpr int snapDistance = 28;
   const int width = windowBounds.right - windowBounds.left;
   const int height = windowBounds.bottom - windowBounds.top;
-  int x = std::clamp(windowBounds.left, monitorInfo.rcWork.left,
+  int x = ClampValue(windowBounds.left, monitorInfo.rcWork.left,
                      monitorInfo.rcWork.right - width);
-  int y = std::clamp(windowBounds.top, monitorInfo.rcWork.top,
+  int y = ClampValue(windowBounds.top, monitorInfo.rcWork.top,
                      monitorInfo.rcWork.bottom - height);
 
   if (std::abs(x - monitorInfo.rcWork.left) <= snapDistance) {
@@ -621,7 +640,7 @@ void WebViewWindow::UpdateAutoTuckAnimation() {
 
   const ULONGLONG duration =
       autoTuckState_ == AutoTuckState::MovingOut ? 620 : 480;
-  const double rawProgress = std::clamp(
+  const double rawProgress = ClampValue(
       static_cast<double>(GetTickCount64() - autoTuckStarted_) /
           static_cast<double>(duration),
       0.0, 1.0);
@@ -681,7 +700,7 @@ void WebViewWindow::UpdatePresentationAnimation() {
       presentationState_ == PresentationState::MovingIn
           ? MoveInDuration(presentationPriority_)
           : kMoveOutDurationMs;
-  const double rawProgress = std::clamp(
+  const double rawProgress = ClampValue(
       static_cast<double>(now - presentationPhaseStarted_) /
           static_cast<double>(duration),
       0.0, 1.0);

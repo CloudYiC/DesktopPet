@@ -1,6 +1,5 @@
 #include <windows.h>
 
-#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -17,24 +16,36 @@ void Expect(bool condition, const char* message) {
   }
 }
 
-std::filesystem::path TestDatabasePath() {
+std::wstring TestDatabasePath() {
+  wchar_t temporaryDirectory[MAX_PATH]{};
+  const DWORD length = GetTempPathW(ARRAYSIZE(temporaryDirectory),
+                                    temporaryDirectory);
+  if (length == 0 || length >= ARRAYSIZE(temporaryDirectory)) {
+    throw std::runtime_error("Unable to locate the test temporary directory.");
+  }
   // A process/time suffix allows parallel test runs without database collisions.
   const auto unique = std::to_wstring(GetCurrentProcessId()) + L"-" +
                       std::to_wstring(milo::UnixTimeMilliseconds());
-  return std::filesystem::temp_directory_path() /
-         (L"milo-reminder-store-" + unique + L".db");
+  return milo::JoinPath(temporaryDirectory,
+                        L"milo-reminder-store-" + unique + L".db");
+}
+
+void RemoveTestDatabase(const std::wstring& databasePath) {
+  DeleteFileW(databasePath.c_str());
+  DeleteFileW((databasePath + L"-wal").c_str());
+  DeleteFileW((databasePath + L"-shm").c_str());
 }
 
 }  // namespace
 
 int main() {
-  const std::filesystem::path databasePath = TestDatabasePath();
+  const std::wstring databasePath = TestDatabasePath();
   try {
     {
       // Exercise create/claim/snooze/complete/recur/delete and settings through
       // the same public API used by Application.
       milo::ReminderStore store;
-      store.Open(databasePath.wstring());
+      store.Open(databasePath);
 
       const auto now = milo::UnixTimeMilliseconds();
       const milo::Reminder first =
@@ -69,24 +80,22 @@ int main() {
       store.Remove(repeating.id);
 
       store.SetSetting("pet.x", "128");
-      Expect(store.GetSetting("pet.x") == "128",
+      std::string savedPosition;
+      Expect(store.GetSetting("pet.x", savedPosition) &&
+                 savedPosition == "128",
              "Settings should round-trip through SQLite.");
 
       const milo::Reminder second =
-          store.Create("Delete me", now + 60'000, "none");
+          store.Create("Delete me", now + 60000, "none");
       store.Remove(second.id);
       Expect(store.List().empty(), "Deleted reminders should leave the list.");
     }
 
-    std::filesystem::remove(databasePath);
-    std::filesystem::remove(databasePath.wstring() + L"-wal");
-    std::filesystem::remove(databasePath.wstring() + L"-shm");
+    RemoveTestDatabase(databasePath);
     std::cout << "Milo reminder store tests passed.\n";
     return 0;
   } catch (const std::exception& error) {
-    std::filesystem::remove(databasePath);
-    std::filesystem::remove(databasePath.wstring() + L"-wal");
-    std::filesystem::remove(databasePath.wstring() + L"-shm");
+    RemoveTestDatabase(databasePath);
     std::cerr << error.what() << '\n';
     return 1;
   }

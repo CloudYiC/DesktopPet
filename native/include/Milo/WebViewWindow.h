@@ -35,6 +35,8 @@ class WebViewWindow final {
   void Hide();
   /// Updates the native title used by the taskbar and accessibility APIs.
   void SetTitle(const std::wstring& title);
+  /// Replaces taskbar/window icons with the active assistant character.
+  void SetIcons(HICON largeIcon, HICON smallIcon);
   /// Starts a native caption-style drag for the borderless pet window.
   void BeginDrag();
   /// Animates an expanded reminder window into the monitor work area.
@@ -46,9 +48,9 @@ class WebViewWindow final {
   /// Sends a serialized JSON event to the hosted React application.
   void PostJson(const std::string& json);
 
-  [[nodiscard]] HWND Handle() const { return window_; }
-  [[nodiscard]] WindowKind Kind() const { return kind_; }
-  [[nodiscard]] bool IsReady() const { return webView_ != nullptr; }
+  HWND Handle() const { return window_; }
+  WindowKind Kind() const { return kind_; }
+  bool IsReady() const { return webView_ != nullptr; }
 
  private:
   // Win32 message dispatch.

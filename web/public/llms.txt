@@ -1,0 +1,22 @@
+# 可爱依依 · CloudYi / Cute Yiyi Web Toolbox
+
+> A local-first browser toolbox migrated from CloudYiCSC and maintained beside the Cute Yiyi Windows desktop companion.
+
+Site: https://faw.cloudyic.com/
+Repository: https://github.com/CloudYiC/DesktopPet
+
+## Browser tools
+
+- C/WebAssembly: MD5, SHA-256, Base64, Hex, URL encoding, UUID, password, timestamp, number formatting
+- TypeScript: JSON formatting, JWT inspection, regular expressions, text diff
+- Tool input stays in the browser and is not uploaded for computation.
+
+## Desktop-only capabilities
+
+The Windows client adds the animated desktop character, scheduled reminders, SQLite data,
+system tray integration, system information, port inspection, protected process actions,
+and local plugin registration. Static web pages cannot access these Win32 capabilities.
+
+## Deployment
+
+Run `npm ci && npm run build` in `web/`, then deploy `web/out/` as a static site.

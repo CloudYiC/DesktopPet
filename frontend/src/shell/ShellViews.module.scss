@@ -1,0 +1,391 @@
+$ink: var(--theme-ink);
+$muted: var(--theme-muted);
+$paper: var(--theme-paper);
+$sand: var(--theme-sand);
+$teal: var(--theme-primary);
+$teal-dark: var(--theme-primary-deep);
+
+.storeView,
+.accountView {
+  display: grid;
+  margin-top: 24px;
+  gap: 18px;
+  padding-bottom: 30px;
+}
+
+.storeHero {
+  display: grid;
+  padding: 23px 25px;
+  align-items: center;
+  grid-template-columns: 1fr auto;
+  gap: 22px;
+  background: linear-gradient(135deg, #e4f3f0, #f8e9dc);
+  border: 1px solid rgba(22, 139, 133, 0.12);
+  border-radius: 23px;
+
+  > div:first-child > span,
+  > div:first-child h2,
+  > div:first-child p { display: block; }
+  > div:first-child > span { color: $teal; font-size: 8px; font-weight: 800; letter-spacing: 0.2em; }
+  h2 { margin: 7px 0 5px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 23px; font-weight: 600; }
+  p { margin: 0; color: #766960; font-size: 10px; line-height: 1.7; }
+
+  > div:last-child {
+    display: grid;
+    min-width: 190px;
+    padding: 14px 18px;
+    align-items: center;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 7px;
+    background: color-mix(in srgb, $paper 76%, transparent);
+    border-radius: 17px;
+
+    strong { color: $teal-dark; font-family: Georgia, serif; font-size: 24px; }
+    span { color: $muted; font-size: 8px; }
+  }
+}
+
+.storeSearch {
+  display: grid;
+  min-height: 48px;
+  padding: 0 15px;
+  align-items: center;
+  grid-template-columns: 24px 1fr auto;
+  gap: 8px;
+  background: $paper;
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-radius: 14px;
+
+  > span { color: $teal; font-size: 15px; }
+  input { width: 100%; color: $ink; background: transparent; border: 0; outline: 0; font-size: 10px; }
+  em { color: $muted; font-size: 8px; font-style: normal; }
+}
+
+.pluginGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+
+  article {
+    display: grid;
+    min-width: 0;
+    min-height: 142px;
+    padding: 16px;
+    grid-template-columns: 42px 1fr;
+    grid-template-rows: 1fr auto;
+    gap: 11px;
+    background: color-mix(in srgb, $paper 90%, transparent);
+    border: 1px solid rgba(86, 66, 52, 0.08);
+    border-radius: 17px;
+
+    > i { display: grid; width: 42px; height: 42px; place-items: center; color: $teal-dark; background: #e4f2ef; border-radius: 13px; font-size: 10px; font-style: normal; font-weight: 850; }
+    > div span { color: $teal; font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
+    h3 { margin: 5px 0 4px; color: $ink; font-size: 13px; }
+    p { margin: 0; color: $muted; font-size: 8px; line-height: 1.6; }
+    button { width: fit-content; padding: 7px 10px; grid-column: 2; color: $teal-dark; cursor: pointer; background: #e4f2ef; border: 0; border-radius: 8px; font-size: 8px; font-weight: 750; }
+    button:disabled { color: #8f8279; cursor: default; background: #eee7df; }
+  }
+}
+
+.permissionList {
+  display: flex;
+  padding: 0;
+  margin: 10px 0 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+
+  li { padding: 4px 7px; color: #7c6e65; background: #f3ece4; border-radius: 999px; font-size: 7px; }
+}
+
+.pluginDisabled {
+  opacity: 0.68;
+  box-shadow: none;
+}
+
+.accountCard {
+  display: grid;
+  overflow: hidden;
+  grid-template-columns: 1fr;
+  background: $paper;
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-radius: 25px;
+  box-shadow: 0 18px 45px rgba(70, 58, 49, 0.07);
+}
+
+.accountIntro {
+  padding: 27px 32px 25px;
+  background: linear-gradient(145deg, #e0f1ed, #f8e6d8);
+
+  > span { color: $teal; font-size: 8px; font-weight: 850; letter-spacing: 0.2em; }
+  h2 { margin: 8px 0 6px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 24px; font-weight: 600; line-height: 1.3; }
+  > p { margin: 0; color: #74675f; font-size: 10px; line-height: 1.75; }
+  ul { display: grid; padding: 0; margin: 19px 0 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; }
+  li { display: grid; min-width: 0; padding: 11px; align-items: start; grid-template-columns: 28px 1fr; gap: 9px; background: color-mix(in srgb, $paper 56%, transparent); border: 1px solid rgba(86, 66, 52, 0.06); border-radius: 13px; }
+  li > i { display: grid; width: 28px; height: 28px; place-items: center; color: #fff; background: $teal; border-radius: 50%; font-size: 9px; font-style: normal; }
+  li strong,
+  li small { display: block; }
+  li strong { color: $ink; font-size: 10px; }
+  li small { margin-top: 2px; color: #7e7168; font-size: 8px; line-height: 1.5; }
+}
+
+.authPanel {
+  padding: 27px 34px 31px;
+
+  form { display: grid; width: min(100%, 570px); gap: 13px; margin: 18px auto 0; }
+  form label > span { display: block; margin-bottom: 6px; color: $muted; font-size: 8px; font-weight: 700; }
+  input { width: 100%; min-height: 46px; padding: 0 14px; color: $ink; background: $sand; border: 1px solid rgba(86, 66, 52, 0.08); border-radius: 12px; outline: none; font-size: 10px; }
+  input:focus { border-color: rgba(22, 139, 133, 0.42); }
+  form > button { min-height: 46px; margin-top: 4px; color: #fff; cursor: pointer; background: $teal; border: 0; border-radius: 12px; font-size: 10px; font-weight: 800; }
+  > small { display: block; margin-top: 13px; color: #a09288; font-size: 7px; line-height: 1.5; text-align: center; }
+}
+
+.authTabs {
+  display: grid;
+  width: min(100%, 570px);
+  padding: 3px;
+  margin: 0 auto;
+  grid-template-columns: 1fr 1fr;
+  background: $sand;
+  border-radius: 11px;
+
+  button { min-height: 34px; color: $muted; cursor: pointer; background: transparent; border: 0; border-radius: 9px; font-size: 9px; font-weight: 750; }
+  .activeTab { color: $teal-dark; background: $paper; box-shadow: 0 4px 12px rgba(70, 58, 49, 0.07); }
+}
+
+.accountNotice { margin: 12px 0 0; padding: 10px; color: $teal-dark; background: #e9f5f2; border-radius: 10px; font-size: 8px; line-height: 1.5; }
+
+.centerShell {
+  display: grid;
+  min-height: 520px;
+  overflow: hidden;
+  grid-template-columns: 158px minmax(0, 1fr);
+  background: color-mix(in srgb, $paper 72%, transparent);
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-radius: 24px;
+  box-shadow: 0 18px 45px rgba(70, 58, 49, 0.06);
+}
+
+.centerTabs {
+  display: flex;
+  padding: 22px 14px;
+  flex-direction: column;
+  gap: 7px;
+  background: color-mix(in srgb, $sand 72%, $paper);
+  border-right: 1px solid rgba(86, 66, 52, 0.07);
+
+  > div {
+    padding: 2px 8px 15px;
+    margin-bottom: 3px;
+    border-bottom: 1px solid rgba(86, 66, 52, 0.08);
+
+    span,
+    strong { display: block; }
+    span { color: $teal; font-size: 6px; font-weight: 850; letter-spacing: 0.16em; }
+    strong { margin-top: 5px; color: $ink; font-size: 11px; }
+  }
+
+  > button {
+    display: grid;
+    min-height: 39px;
+    padding: 0 9px;
+    align-items: center;
+    grid-template-columns: 25px 1fr;
+    color: $muted;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    font-size: 8px;
+    font-weight: 750;
+    text-align: left;
+    transition: 160ms ease;
+
+    i { color: $teal; font-size: 9px; font-style: normal; text-align: center; }
+    &:hover { color: $ink; background: color-mix(in srgb, $paper 65%, transparent); }
+  }
+
+  .centerTabActive {
+    color: $teal-dark;
+    background: $paper;
+    box-shadow: 0 6px 17px rgba(70, 58, 49, 0.06);
+  }
+}
+
+.centerContent {
+  min-width: 0;
+  padding: 20px;
+}
+
+.settingsPane {
+  display: grid;
+  gap: 15px;
+
+  > header {
+    padding: 7px 4px 2px;
+
+    > span { color: $teal; font-size: 7px; font-weight: 850; letter-spacing: 0.18em; }
+    h2 { margin: 5px 0 4px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 23px; font-weight: 600; }
+    p { margin: 0; color: $muted; font-size: 8px; line-height: 1.6; }
+  }
+}
+
+.settingsSection {
+  overflow: hidden;
+  background: $paper;
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-radius: 17px;
+
+  > h3 {
+    padding: 11px 15px;
+    margin: 0;
+    color: $teal;
+    background: color-mix(in srgb, $sand 48%, transparent);
+    border-bottom: 1px solid rgba(86, 66, 52, 0.06);
+    font-size: 7px;
+    font-weight: 850;
+    letter-spacing: 0.12em;
+  }
+}
+
+.themeChoices {
+  display: grid;
+  padding: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+
+  > button {
+    display: grid;
+    min-width: 0;
+    padding: 9px;
+    align-items: center;
+    grid-template-columns: 35px 1fr;
+    gap: 8px;
+    color: $ink;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid rgba(86, 66, 52, 0.1);
+    border-radius: 12px;
+    text-align: left;
+
+    > i { width: 35px; height: 30px; border: 1px solid rgba(86, 66, 52, 0.08); border-radius: 9px; }
+    span,
+    strong,
+    small { display: block; min-width: 0; }
+    strong { font-size: 8px; }
+    small { margin-top: 2px; overflow: hidden; color: $muted; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
+  .choiceActive { border-color: $teal; box-shadow: 0 0 0 2px color-mix(in srgb, $teal 12%, transparent); }
+}
+
+.settingHint {
+  padding: 0 15px 13px;
+  margin: 0;
+  color: $muted;
+  font-size: 7px;
+  line-height: 1.6;
+}
+
+.settingLine {
+  display: grid;
+  min-height: 63px;
+  padding: 11px 15px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+
+  & + & { border-top: 1px solid rgba(86, 66, 52, 0.07); }
+  > span > strong,
+  > span > small { display: block; }
+  > span > strong { color: $ink; font-size: 9px; }
+  > span > small { max-width: 420px; margin-top: 3px; color: $muted; font-size: 7px; line-height: 1.5; }
+}
+
+.segmentedControl {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  background: $sand;
+  border-radius: 10px;
+
+  button {
+    min-width: 48px;
+    min-height: 29px;
+    padding: 0 8px;
+    color: $muted;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    font-size: 7px;
+    font-weight: 750;
+  }
+
+  .segmentActive { color: $teal-dark; background: $paper; box-shadow: 0 3px 9px rgba(70, 58, 49, 0.07); }
+}
+
+.miniSwitch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  cursor: pointer;
+  background: #d9d1c9;
+  border: 0;
+  border-radius: 999px;
+
+  i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; box-shadow: 0 2px 5px rgba(70, 58, 49, 0.18); transition: 160ms ease; }
+}
+
+.miniSwitchActive { background: $teal; i { transform: translateX(16px); } }
+
+.summaryCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+
+  article {
+    min-width: 0;
+    padding: 16px;
+    background: linear-gradient(145deg, $paper, color-mix(in srgb, $sand 65%, $paper));
+    border: 1px solid rgba(86, 66, 52, 0.08);
+    border-radius: 16px;
+
+    span,
+    strong,
+    small { display: block; }
+    span { color: $muted; font-size: 7px; }
+    strong { margin-top: 7px; overflow: hidden; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
+    small { margin-top: 5px; color: $teal; font-size: 6px; font-weight: 800; letter-spacing: 0.1em; }
+  }
+}
+
+.secondaryButton {
+  min-height: 31px;
+  padding: 0 11px;
+  color: $teal-dark;
+  cursor: pointer;
+  background: color-mix(in srgb, $teal 12%, $paper);
+  border: 0;
+  border-radius: 8px;
+  font-size: 7px;
+  font-weight: 800;
+}
+
+.statusPill { padding: 6px 9px; color: $teal-dark; background: color-mix(in srgb, $teal 11%, $paper); border-radius: 999px; font-size: 7px; white-space: nowrap; }
+.aboutValue { color: $ink; font-family: Georgia, serif; font-size: 10px; white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .storeHero,
+  .accountCard { grid-template-columns: 1fr; }
+  .pluginGrid { grid-template-columns: 1fr; }
+  .centerShell { grid-template-columns: 1fr; }
+  .centerTabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid rgba(86, 66, 52, 0.07); }
+  .centerTabs > div { display: none; }
+  .centerTabs > button { padding: 6px; grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .themeChoices,
+  .summaryCards { grid-template-columns: 1fr; }
+  .settingLine { align-items: start; grid-template-columns: 1fr; }
+  .accountIntro ul { grid-template-columns: 1fr; }
+}

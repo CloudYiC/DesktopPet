@@ -7,6 +7,11 @@ import {
   useState,
 } from 'react';
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
+import { AppSidebar } from '../navigation/AppSidebar';
+import type { DashboardView } from '../navigation/types';
+import { AccountView, PluginStoreView } from '../shell/ShellViews';
+import { Toolbox } from '../toolbox/Toolbox';
+import { categoryById, type ToolCategoryId } from '../toolbox/catalog';
 import type {
   AppState,
   CharacterLayout,
@@ -15,12 +20,14 @@ import type {
   Reminder,
   ReminderPriority,
   RepeatRule,
+  WorkspaceTextSize,
+  WorkspaceTheme,
 } from '../types';
 import styles from './Dashboard.module.scss';
 
-type DashboardView = 'today' | 'all' | 'status' | 'settings';
 type PetAction = 'wave' | 'hop' | 'walkRight' | 'sleepy' | 'petted';
 type PetPreviewAction = PetAction | 'idle';
+type AllReminderFilter = 'all' | 'overdue' | 'today' | 'upcoming' | 'repeating' | 'urgent';
 
 const builtInCharacter: CharacterProfile = {
   id: 'builtin',
@@ -40,6 +47,11 @@ const initialState: AppState = {
   autoHideMinutes: 10,
   characters: [builtInCharacter],
   activeCharacterId: 'builtin',
+  workspaceTheme: 'warm',
+  workspaceTextSize: 'comfortable',
+  openLastView: true,
+  lastDashboardView: 'today',
+  lastToolCategory: '',
 };
 
 const repeatLabels: Record<RepeatRule, string> = {
@@ -136,11 +148,14 @@ function readImageAsDataUrl(file: File) {
 export function Dashboard() {
   const [state, setState] = useState<AppState>(initialState);
   const [activeView, setActiveView] = useState<DashboardView>('today');
+  const [activeToolCategory, setActiveToolCategory] = useState<ToolCategoryId | null>(null);
   const [title, setTitle] = useState('');
   const [dueAt, setDueAt] = useState(toDateTimeInput(Date.now() + 30 * 60_000));
   const [repeatRule, setRepeatRule] = useState<RepeatRule>('none');
   const [priority, setPriority] = useState<ReminderPriority>('normal');
   const [error, setError] = useState('');
+  const [allReminderQuery, setAllReminderQuery] = useState('');
+  const [allReminderFilter, setAllReminderFilter] = useState<AllReminderFilter>('all');
   const [lastAction, setLastAction] = useState('正在陪你安静待机');
   const [draftName, setDraftName] = useState(initialState.petName);
   const [settingsSaved, setSettingsSaved] = useState('');
@@ -152,12 +167,30 @@ export function Dashboard() {
   const [actionSequence, setActionSequence] = useState(0);
   const celebrationTimer = useRef<number>();
   const actionPreviewTimer = useRef<number>();
+  const restoredNavigation = useRef(false);
 
   useEffect(() => {
     // Native state snapshots are authoritative; local state only drives form UI.
     const unsubscribe = subscribeHost((message: HostMessage) => {
       if (message.type === 'state.sync') {
-        setState(message.payload as AppState);
+        const incoming = {
+          ...initialState,
+          ...(message.payload as Partial<AppState>),
+        };
+        setState(incoming);
+        if (!restoredNavigation.current) {
+          restoredNavigation.current = true;
+          if (incoming.openLastView) {
+            const rememberedView = incoming.lastDashboardView as DashboardView;
+            const validViews: DashboardView[] = [
+              'toolbox', 'today', 'all', 'status', 'settings', 'marketplace', 'account',
+            ];
+            if (validViews.includes(rememberedView)) setActiveView(rememberedView);
+            if (incoming.lastToolCategory && categoryById(incoming.lastToolCategory as ToolCategoryId)) {
+              setActiveToolCategory(incoming.lastToolCategory as ToolCategoryId);
+            }
+          }
+        }
         setError('');
       }
       if (message.type === 'app.error') {
@@ -181,6 +214,19 @@ export function Dashboard() {
     setDraftName(state.petName);
   }, [state.petName]);
 
+  useEffect(() => {
+    document.documentElement.dataset.workspaceTheme = state.workspaceTheme;
+    document.documentElement.dataset.workspaceTextSize = state.workspaceTextSize;
+  }, [state.workspaceTextSize, state.workspaceTheme]);
+
+  useEffect(() => {
+    if (!restoredNavigation.current) return;
+    postHostMessage('workspace.navigation.update', {
+      view: activeView,
+      category: activeToolCategory ?? '',
+    });
+  }, [activeToolCategory, activeView]);
+
   const reminders = useMemo(
     () => [...state.reminders].sort((left, right) => left.dueAt - right.dueAt),
     [state.reminders],
@@ -191,15 +237,66 @@ export function Dashboard() {
     ),
     [reminders],
   );
-  const visibleReminders = activeView === 'all' ? reminders : todayReminders;
+  const allReminderCounts = useMemo(() => {
+    const now = Date.now();
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    const weekEnd = todayEnd.getTime() + 6 * 24 * 60 * 60_000;
+    return {
+      overdue: reminders.filter((reminder) => reminder.dueAt < now).length,
+      today: todayReminders.length,
+      week: reminders.filter((reminder) => reminder.dueAt >= now && reminder.dueAt <= weekEnd).length,
+      repeating: reminders.filter((reminder) => reminder.repeatRule !== 'none').length,
+    };
+  }, [reminders, todayReminders]);
+  const filteredAllReminders = useMemo(() => {
+    const query = allReminderQuery.trim().toLocaleLowerCase('zh-CN');
+    const now = Date.now();
+    const today = new Date().toDateString();
+    return reminders.filter((reminder) => {
+      if (query && !reminder.title.toLocaleLowerCase('zh-CN').includes(query)) return false;
+      if (allReminderFilter === 'overdue') return reminder.dueAt < now;
+      if (allReminderFilter === 'today') return new Date(reminder.dueAt).toDateString() === today;
+      if (allReminderFilter === 'upcoming') return reminder.dueAt >= now;
+      if (allReminderFilter === 'repeating') return reminder.repeatRule !== 'none';
+      if (allReminderFilter === 'urgent') return reminder.priority === 'urgent';
+      return true;
+    });
+  }, [allReminderFilter, allReminderQuery, reminders]);
+  const visibleReminders = activeView === 'all' ? filteredAllReminders : todayReminders;
   const nextReminder = visibleReminders[0] ?? null;
   const repeatingCount = reminders.filter((reminder) => reminder.repeatRule !== 'none').length;
+  const reminderGroups = useMemo(() => {
+    if (activeView !== 'all') return [{ id: 'today', label: '今天', items: visibleReminders }];
+    const now = Date.now();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = today.getTime() + 24 * 60 * 60_000;
+    const dayAfterTomorrow = tomorrow + 24 * 60 * 60_000;
+    const weekEnd = today.getTime() + 7 * 24 * 60 * 60_000;
+    const buckets = [
+      { id: 'overdue', label: '已经超时', items: [] as Reminder[] },
+      { id: 'today', label: '今天', items: [] as Reminder[] },
+      { id: 'tomorrow', label: '明天', items: [] as Reminder[] },
+      { id: 'week', label: '接下来 7 天', items: [] as Reminder[] },
+      { id: 'later', label: '以后', items: [] as Reminder[] },
+    ];
+    visibleReminders.forEach((reminder) => {
+      if (reminder.dueAt < now) buckets[0].items.push(reminder);
+      else if (reminder.dueAt < tomorrow) buckets[1].items.push(reminder);
+      else if (reminder.dueAt < dayAfterTomorrow) buckets[2].items.push(reminder);
+      else if (reminder.dueAt < weekEnd) buckets[3].items.push(reminder);
+      else buckets[4].items.push(reminder);
+    });
+    return buckets.filter((bucket) => bucket.items.length > 0);
+  }, [activeView, visibleReminders]);
   const hour = new Date().getHours();
   const petMood = hour >= 23 || hour < 7 ? '有一点困啦' : '精神满满';
   const characters = state.characters?.length ? state.characters : [builtInCharacter];
   const activeCharacter = characters.find(
     (character) => character.id === state.activeCharacterId,
   ) ?? characters[0];
+  const activeCategory = categoryById(activeToolCategory);
   const characterImageStyle = {
     // Encode the URL as a CSS string so paths with quotes remain valid.
     backgroundImage: `url(${JSON.stringify(activeCharacter.imageUrl)})`,
@@ -258,6 +355,9 @@ export function Dashboard() {
     | 'speechEnabled'
     | 'autoHideEnabled'
     | 'autoHideMinutes'
+    | 'workspaceTheme'
+    | 'workspaceTextSize'
+    | 'openLastView'
   >>) => {
     // Send a complete settings record so older native hosts never need to merge
     // a partially defined payload.
@@ -267,6 +367,9 @@ export function Dashboard() {
       speechEnabled: patch.speechEnabled ?? state.speechEnabled,
       autoHideEnabled: patch.autoHideEnabled ?? state.autoHideEnabled,
       autoHideMinutes: patch.autoHideMinutes ?? state.autoHideMinutes,
+      workspaceTheme: patch.workspaceTheme ?? state.workspaceTheme,
+      workspaceTextSize: patch.workspaceTextSize ?? state.workspaceTextSize,
+      openLastView: patch.openLastView ?? state.openLastView,
     });
     setSettingsSaved('设置已保存');
     window.setTimeout(() => setSettingsSaved(''), 1600);
@@ -276,7 +379,7 @@ export function Dashboard() {
     event.preventDefault();
     const nextName = draftName.trim();
     if (!nextName) {
-      setError('请先给小鼠取一个名字。');
+      setError('请先给小助手取一个名字。');
       return;
     }
     updateSettings({ petName: nextName });
@@ -294,9 +397,9 @@ export function Dashboard() {
       setError('角色图片不能超过 4 MB。');
       return;
     }
-    const nextName = characterName.trim();
-    if (!nextName) {
-      setError('请先填写角色名称。');
+      const nextName = characterName.trim();
+      if (!nextName) {
+        setError('请先填写衣柜款式名称。');
       return;
     }
 
@@ -319,34 +422,45 @@ export function Dashboard() {
     }
   };
 
-  const renameCharacter = (character: CharacterProfile) => {
-    const nextName = window.prompt('给这个角色换个名称', character.name)?.trim();
-    if (!nextName || nextName === character.name) return;
-    postHostMessage('character.rename', { id: character.id, name: nextName });
-  };
-
   const deleteCharacter = (character: CharacterProfile) => {
     if (character.builtIn) return;
     if (!window.confirm(`确定从衣柜删除“${character.name}”吗？`)) return;
     postHostMessage('character.delete', { id: character.id });
   };
 
-  const brandInitial = Array.from(state.petName.trim())[0] ?? '依';
-
-  const viewHeading = activeView === 'all'
+  const viewHeading = activeView === 'toolbox'
+      ? activeCategory?.label ?? 'CloudYi 开发工具箱'
+    : activeView === 'marketplace'
+      ? '让工具按需要来到你身边。'
+    : activeView === 'account'
+      ? '账户、外观与本机数据集中管理。'
+    : activeView === 'all'
       ? '所有小事，都在这里。'
     : activeView === 'status'
       ? `${state.petName}，今天也在陪你。`
     : activeView === 'settings'
       ? '把陪伴方式调成你喜欢的样子。'
       : `${greetingForHour(hour)}，慢慢来就好。`;
-  const viewDescription = activeView === 'all'
+  const viewDescription = activeView === 'toolbox'
+    ? activeCategory?.description ?? '本地优先的常用开发工具，不离开桌面也能快速处理数据。'
+    : activeView === 'marketplace'
+      ? '查看已内置工具和后续将从 CloudYiCSC 迁移的插件。'
+    : activeView === 'account'
+      ? '主题、字号、启动页面和插件状态都可以在这里调整；云端接入前不会上传本地内容。'
+    : activeView === 'all'
     ? '一次看看所有待办和重复提醒。'
     : activeView === 'status'
       ? `看看${state.petName}的状态，也可以叫她做个小动作。`
     : activeView === 'settings'
       ? '角色、名字、声音和自动收起都集中在这里。'
       : `${state.petName}会帮你看着时间，不让重要的小事溜走。`;
+  const viewKicker = activeView === 'toolbox'
+    ? 'CLOUDYI TOOLBOX'
+    : activeView === 'marketplace'
+      ? 'SIGNED EXTENSIONS'
+      : activeView === 'account'
+        ? 'CLOUDYI CENTER'
+        : 'CUTE COMPANION ROUTINE';
 
   return (
     <div className={styles.appShell}>
@@ -358,97 +472,54 @@ export function Dashboard() {
           ))}
         </div>
       )}
-      <aside className={styles.sidebar}>
-        <div className={styles.brand}>
-          <div className={styles.brandMark}>{brandInitial}</div>
-          <div>
-            <strong>{state.petName}</strong>
-            <span>陪你记住小事</span>
-          </div>
-        </div>
-
-        <nav className={styles.navigation} aria-label="主要导航">
-          <button
-            className={activeView === 'today' ? styles.activeNav : undefined}
-            type="button"
-            aria-pressed={activeView === 'today'}
-            onClick={() => setActiveView('today')}
-          >
-            <span>⌁</span>今天
-            <em>{todayReminders.length}</em>
-          </button>
-          <button
-            className={activeView === 'all' ? styles.activeNav : undefined}
-            type="button"
-            aria-pressed={activeView === 'all'}
-            onClick={() => setActiveView('all')}
-          >
-            <span>◷</span>全部事项
-            <em>{reminders.length}</em>
-          </button>
-          <button
-            className={activeView === 'status' ? styles.activeNav : undefined}
-            type="button"
-            aria-pressed={activeView === 'status'}
-            onClick={() => setActiveView('status')}
-          >
-            <span>✦</span>{state.petName}状态
-          </button>
-          <button
-            className={activeView === 'settings' ? styles.activeNav : undefined}
-            type="button"
-            aria-pressed={activeView === 'settings'}
-            onClick={() => setActiveView('settings')}
-          >
-            <span>⚙</span>设置
-          </button>
-        </nav>
-
-        <button
-          className={styles.petCard}
-          type="button"
-          onClick={() => setActiveView('status')}
-        >
-          <div
-            className={`${styles.petPortrait} ${
-              activeCharacter.layout === 'single' ? styles.singlePortrait : ''
-            }`}
-            style={characterImageStyle}
-          />
-          <div>
-            <span>{state.petName}现在</span>
-            <strong>{petMood}</strong>
-          </div>
-          <i />
-        </button>
-
-        <button className={styles.testButton} type="button" onClick={createDemoReminder}>
-          10 秒后测试提醒
-        </button>
-      </aside>
+      <AppSidebar
+        activeView={activeView}
+        activeCategory={activeToolCategory}
+        petName={state.petName}
+        petMood={petMood}
+        petImageUrl={activeCharacter.imageUrl}
+        petLayout={activeCharacter.layout}
+        todayCount={todayReminders.length}
+        reminderCount={reminders.length}
+        onViewChange={setActiveView}
+        onToolboxChange={(category) => {
+          setActiveToolCategory(category);
+          setActiveView('toolbox');
+        }}
+        onCreateDemoReminder={createDemoReminder}
+      />
 
       <main className={styles.content}>
         <header className={styles.header}>
           <div>
-            <span className={styles.kicker}>CUTE COMPANION ROUTINE</span>
+            <span className={styles.kicker}>{viewKicker}</span>
             <h1>{viewHeading}</h1>
             <p>{viewDescription}</p>
           </div>
-          <button
-            className={styles.closeButton}
-            type="button"
-            aria-label="关闭事项中心"
-            onClick={() => postHostMessage('window.hideDashboard')}
-          >
-            ×
-          </button>
         </header>
 
         {error && activeView === 'settings' && (
           <div className={styles.errorMessage}>{error}</div>
         )}
 
-        {activeView === 'status' || activeView === 'settings' ? (
+        {activeView === 'toolbox' ? (
+          <Toolbox
+            category={activeToolCategory}
+            onOpenCategory={(category) => setActiveToolCategory(category)}
+          />
+        ) : activeView === 'marketplace' ? (
+          <PluginStoreView />
+        ) : activeView === 'account' ? (
+          <AccountView
+            state={state}
+            onPreferencesChange={(patch: {
+              workspaceTheme?: WorkspaceTheme;
+              workspaceTextSize?: WorkspaceTextSize;
+              openLastView?: boolean;
+            }) => updateSettings(patch)}
+            onOpenPluginStore={() => setActiveView('marketplace')}
+          />
+        ) : activeView === 'status' || activeView === 'settings' ? (
           <section
             className={
               activeView === 'settings' ? styles.settingsView : styles.statusView
@@ -556,12 +627,12 @@ export function Dashboard() {
 
               <div className={styles.characterUpload}>
                 <label>
-                  <span>角色名称</span>
+                  <span>衣柜款式名称</span>
                   <input
                     value={characterName}
                     maxLength={20}
                     onChange={(event) => setCharacterName(event.target.value)}
-                    placeholder="例如：小蓝、团团"
+                    placeholder="例如：粉色小帽、经典小鼠"
                   />
                 </label>
                 <label>
@@ -617,14 +688,9 @@ export function Dashboard() {
                         {character.id === activeCharacter.id ? '使用中' : '换成她'}
                       </button>
                       {!character.builtIn && (
-                        <>
-                          <button type="button" onClick={() => renameCharacter(character)}>
-                            改名
-                          </button>
-                          <button type="button" onClick={() => deleteCharacter(character)}>
-                            删除
-                          </button>
-                        </>
+                        <button type="button" onClick={() => deleteCharacter(character)}>
+                          删除
+                        </button>
                       )}
                     </div>
                   </article>
@@ -639,14 +705,14 @@ export function Dashboard() {
               </div>
               <div className={styles.preferencesGrid}>
                 <form className={styles.nameForm} onSubmit={savePetName}>
-                  <label htmlFor="pet-name">宠物名字</label>
+                  <label htmlFor="pet-name">小助手名字</label>
                   <div>
                     <input
                       id="pet-name"
                       value={draftName}
                       maxLength={16}
                       onChange={(event) => setDraftName(event.target.value)}
-                      aria-label="宠物名字"
+                      aria-label="小助手名字"
                     />
                     <button type="submit">保存名字</button>
                   </div>
@@ -726,31 +792,32 @@ export function Dashboard() {
           </section>
         ) : (
           <>
-            <section className={styles.overviewGrid}>
-              <article className={styles.nextCard}>
-                <span>{activeView === 'all' ? '最近一项提醒' : '今天下一项提醒'}</span>
-                {nextReminder ? (
-                  <>
-                    <strong>{nextReminder.title}</strong>
-                    <div>
-                      <time>{formatDate(nextReminder.dueAt)}</time>
-                      <em>{relativeTime(nextReminder.dueAt)}</em>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <strong>{activeView === 'all' ? '暂时没有待办啦' : '今天没有待办啦'}</strong>
-                    <div><time>和{state.petName}一起休息一会儿</time></div>
-                  </>
-                )}
-              </article>
-
-              <article className={styles.statCard}>
-                <span>{activeView === 'all' ? '全部还有' : '今天还有'}</span>
-                <strong>{visibleReminders.length}</strong>
-                <small>件小事</small>
-              </article>
-            </section>
+            {activeView === 'all' ? (
+              <section className={styles.allOverview}>
+                <article className={styles.allFocusCard}>
+                  <span>NEXT UP</span>
+                  <small>下一项安排</small>
+                  <strong>{reminders[0]?.title ?? '暂时没有待办啦'}</strong>
+                  <em>{reminders[0] ? `${formatDate(reminders[0].dueAt)} · ${relativeTime(reminders[0].dueAt)}` : `和${state.petName}轻松一下`}</em>
+                </article>
+                <article><span>全部待办</span><strong>{reminders.length}</strong><small>项</small></article>
+                <article className={allReminderCounts.overdue ? styles.warningStat : undefined}><span>已经超时</span><strong>{allReminderCounts.overdue}</strong><small>项</small></article>
+                <article><span>未来 7 天</span><strong>{allReminderCounts.week}</strong><small>项</small></article>
+                <article><span>重复提醒</span><strong>{allReminderCounts.repeating}</strong><small>项</small></article>
+              </section>
+            ) : (
+              <section className={styles.overviewGrid}>
+                <article className={styles.nextCard}>
+                  <span>今天下一项提醒</span>
+                  {nextReminder ? (
+                    <><strong>{nextReminder.title}</strong><div><time>{formatDate(nextReminder.dueAt)}</time><em>{relativeTime(nextReminder.dueAt)}</em></div></>
+                  ) : (
+                    <><strong>今天没有待办啦</strong><div><time>和{state.petName}一起休息一会儿</time></div></>
+                  )}
+                </article>
+                <article className={styles.statCard}><span>今天还有</span><strong>{visibleReminders.length}</strong><small>件小事</small></article>
+              </section>
+            )}
 
             <section className={styles.reminderPanel}>
               <div className={styles.sectionHeading}>
@@ -805,7 +872,21 @@ export function Dashboard() {
 
               {error && <div className={styles.errorMessage}>{error}</div>}
 
-              <div className={styles.reminderList}>
+              {activeView === 'all' && (
+                <div className={styles.allOrganizer}>
+                  <label><span>⌕</span><input value={allReminderQuery} onChange={(event) => setAllReminderQuery(event.target.value)} placeholder="搜索全部事项…" /></label>
+                  <div>
+                    {([
+                      ['all', '全部'], ['overdue', '超时'], ['today', '今天'],
+                      ['upcoming', '未到期'], ['repeating', '重复'], ['urgent', '紧急'],
+                    ] as [AllReminderFilter, string][]).map(([id, label]) => (
+                      <button key={id} type="button" className={allReminderFilter === id ? styles.organizerActive : undefined} onClick={() => setAllReminderFilter(id)}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className={`${styles.reminderList} ${activeView === 'all' ? styles.allReminderList : ''}`}>
                 {visibleReminders.length === 0 ? (
                   <div className={styles.emptyState}>
                     <span>✓</span>
@@ -813,41 +894,25 @@ export function Dashboard() {
                     <p>在上面添加一项，{state.petName}会准时来找你。</p>
                   </div>
                 ) : (
-                  visibleReminders.map((reminder, index) => (
-                    <article
-                      className={`${styles.reminderItem} ${priorityClassNames[reminder.priority]}`}
-                      key={reminder.id}
-                    >
-                      <button
-                        className={styles.checkButton}
-                        type="button"
-                        aria-label={`完成 ${reminder.title}`}
-                        onClick={() => complete(reminder)}
-                      />
-                      <div className={styles.reminderText}>
-                        <strong>{reminder.title}</strong>
-                        <div>
-                          <span>{index === 0 ? '下一项' : relativeTime(reminder.dueAt)}</span>
-                          {reminder.repeatRule !== 'none' && (
-                            <em className={styles.repeatBadge}>
-                              ↻ {repeatLabels[reminder.repeatRule]}
-                            </em>
-                          )}
-                          <em className={styles.priorityBadge}>
-                            {priorityLabels[reminder.priority]}
-                          </em>
-                        </div>
-                      </div>
-                      <time>{formatDate(reminder.dueAt)}</time>
-                      <button
-                        className={styles.deleteButton}
-                        type="button"
-                        aria-label={`删除 ${reminder.title}`}
-                        onClick={() => postHostMessage('reminder.delete', { id: reminder.id })}
-                      >
-                        ×
-                      </button>
-                    </article>
+                  reminderGroups.map((group) => (
+                    <section className={styles.reminderGroup} key={group.id}>
+                      {activeView === 'all' && <header><strong>{group.label}</strong><span>{group.items.length} 项</span></header>}
+                      {group.items.map((reminder) => (
+                        <article className={`${styles.reminderItem} ${priorityClassNames[reminder.priority]}`} key={reminder.id}>
+                          <button className={styles.checkButton} type="button" aria-label={`完成 ${reminder.title}`} onClick={() => complete(reminder)} />
+                          <div className={styles.reminderText}>
+                            <strong>{reminder.title}</strong>
+                            <div>
+                              <span>{reminder.id === nextReminder?.id ? '下一项' : relativeTime(reminder.dueAt)}</span>
+                              {reminder.repeatRule !== 'none' && <em className={styles.repeatBadge}>↻ {repeatLabels[reminder.repeatRule]}</em>}
+                              <em className={styles.priorityBadge}>{priorityLabels[reminder.priority]}</em>
+                            </div>
+                          </div>
+                          <time>{formatDate(reminder.dueAt)}</time>
+                          <button className={styles.deleteButton} type="button" aria-label={`删除 ${reminder.title}`} onClick={() => postHostMessage('reminder.delete', { id: reminder.id })}>×</button>
+                        </article>
+                      ))}
+                    </section>
                   ))
                 )}
               </div>

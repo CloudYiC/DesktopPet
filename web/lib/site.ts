@@ -1,0 +1,39 @@
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://faw.cloudyic.com').replace(
+  /\/$/,
+  '',
+)
+export const SITE_NAME_ZH = '可爱依依 · CloudYi'
+export const SITE_NAME_EN = 'Cute Yiyi Web Toolbox'
+export const SITE_TITLE = `${SITE_NAME_ZH} - ${SITE_NAME_EN}`
+
+export const SITE_DESCRIPTION =
+  '可爱依依 · CloudYi 是本地优先的开发工具箱。Hash、Base64、Hex、URL、JSON、JWT、UUID、密码、时间戳、正则和文本比较均可直接在浏览器中运行。'
+
+export const SITE_KEYWORDS = [
+  '可爱依依',
+  'CloudYi',
+  'CloudYiCFAW',
+  'cloudyicfaw',
+  'developer tools',
+  'local-first tools',
+  'browser tools',
+  'desktop toolbox',
+  'WebAssembly',
+  'C native tools',
+  'Hash tool',
+  'MD5',
+  'SHA-256',
+  'Base64',
+  'Hex converter',
+  'URL encode',
+  'JSON formatter',
+  'JWT inspector',
+  'UUID generator',
+  'password generator',
+]
+
+export function absoluteUrl(path = '/'): string {
+  if (/^https?:\/\//.test(path)) return path
+  const normalized = path.startsWith('/') ? path : `/${path}`
+  return `${SITE_URL}${normalized}`
+}

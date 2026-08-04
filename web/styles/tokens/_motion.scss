@@ -1,0 +1,41 @@
+// =============================================================================
+// Motion
+//
+// 极简工具风的动效原则:
+//   - 短(<200ms)、克制、不夸张
+//   - 状态切换用 fast,布局变化用 base,上下文切换才用 slow
+//   - 尊重 prefers-reduced-motion
+// =============================================================================
+
+:root {
+  // 时长
+  --cy-motion-instant: 80ms;
+  --cy-motion-fast: 120ms; // hover / focus / press
+  --cy-motion-base: 180ms; // 主题切换 / tab 切换
+  --cy-motion-slow: 260ms; // modal 出现 / 路由切换
+  --cy-motion-slower: 400ms; // 大型转场
+
+  // 缓动函数
+  --cy-ease-standard: cubic-bezier(0.2, 0, 0, 1); // 默认,所有 UI 状态
+  --cy-ease-emphasized: cubic-bezier(0.3, 0, 0, 1); // 强调进场
+  --cy-ease-decelerate: cubic-bezier(0, 0, 0, 1); // 进场
+  --cy-ease-accelerate: cubic-bezier(0.3, 0, 1, 1); // 出场
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cy-motion-instant: 0ms;
+    --cy-motion-fast: 0ms;
+    --cy-motion-base: 0ms;
+    --cy-motion-slow: 0ms;
+    --cy-motion-slower: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

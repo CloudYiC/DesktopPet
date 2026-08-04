@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -54,8 +53,8 @@ class ReminderStore final {
   void Snooze(std::int64_t id, std::int64_t dueAt);
   /// Atomically claims due reminders so each occurrence is emitted once.
   std::vector<Reminder> TakeDue(std::int64_t now);
-  /// Reads an optional key/value application setting.
-  std::optional<std::string> GetSetting(const std::string& key);
+  /// Reads a setting into value and returns false when the key is absent.
+  bool GetSetting(const std::string& key, std::string& value);
   /// Inserts or replaces a key/value application setting.
   void SetSetting(const std::string& key, const std::string& value);
 

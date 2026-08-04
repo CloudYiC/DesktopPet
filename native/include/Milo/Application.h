@@ -9,13 +9,13 @@
 #include <wrl/client.h>
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
 
 #include "Milo/ReminderStore.h"
+#include "Milo/SoftwareService.h"
 #include "Milo/WebViewWindow.h"
 
 namespace milo {
@@ -32,7 +32,7 @@ struct CharacterProfile {
   std::string layout;
 };
 
-/// Owns the desktop pet process and mediates all frontend/native communication.
+/// Owns the desktop assistant process and mediates frontend/native communication.
 class Application final {
  public:
   /// Creates the application services and opens the local data store.
@@ -58,21 +58,23 @@ class Application final {
   void Quit();
 
   /// Directory containing the packaged React build.
-  [[nodiscard]] const std::wstring& UiDirectory() const { return uiDirectory_; }
+  const std::wstring& UiDirectory() const { return uiDirectory_; }
   /// Private WebView2 profile directory.
-  [[nodiscard]] const std::wstring& WebViewDataDirectory() const {
+  const std::wstring& WebViewDataDirectory() const {
     return webViewDataDirectory_;
   }
   /// Private directory that stores imported character images.
-  [[nodiscard]] const std::wstring& CharacterDirectory() const {
+  const std::wstring& CharacterDirectory() const {
     return characterDirectory_;
   }
-  /// Last persisted top-left point for the pet window, if available.
-  [[nodiscard]] const std::optional<POINT>& PetPosition() const {
+  /// Returns whether a persisted pet position is available.
+  bool HasPetPosition() const { return hasPetPosition_; }
+  /// Returns the last persisted top-left point for the pet window.
+  const POINT& PetPosition() const {
     return petPosition_;
   }
   /// Current user-defined pet name encoded as UTF-8.
-  [[nodiscard]] const std::string& PetName() const { return petName_; }
+  const std::string& PetName() const { return petName_; }
 
  private:
   // Notification-area lifecycle and native notifications.
@@ -84,6 +86,7 @@ class Application final {
 
   // Window lifecycle and state synchronization.
   void UpdateBranding();
+  void ApplyCharacterIcon(const std::wstring& iconPath);
   void EnsureDashboard();
   void Broadcast(const nlohmann::json& message);
   void SendState(WebViewWindow* target = nullptr);
@@ -99,12 +102,19 @@ class Application final {
   std::unique_ptr<WebViewWindow> petWindow_;
   std::unique_ptr<WebViewWindow> dashboardWindow_;
   ReminderStore reminders_;
+  /// Revalidates registered uninstallers and cleanup paths across requests.
+  SoftwareService softwareService_;
   std::wstring uiDirectory_;
   std::wstring webViewDataDirectory_;
   std::wstring characterDirectory_;
   std::wstring onboardingMarker_;
-  std::optional<POINT> petPosition_;
-  std::optional<std::int64_t> presentedReminderId_;
+  std::wstring activeCharacterIconPath_;
+  /// Database Studio can only operate on a path selected by a native dialog.
+  std::wstring activeDatabasePath_;
+  POINT petPosition_{};
+  bool hasPetPosition_{};
+  std::int64_t presentedReminderId_{};
+  bool hasPresentedReminder_{};
   std::string petName_{"可爱依依"};
   std::vector<CharacterProfile> characters_;
   std::string activeCharacterId_{"builtin"};
@@ -112,10 +122,18 @@ class Application final {
   bool speechEnabled_{};
   bool autoHideEnabled_{true};
   int autoHideMinutes_{10};
+  std::string workspaceTheme_{"warm"};
+  std::string workspaceTextSize_{"comfortable"};
+  bool openLastView_{true};
+  std::string lastDashboardView_{"today"};
+  std::string lastToolCategory_;
   Microsoft::WRL::ComPtr<ISpVoice> speechVoice_;
   /// Shell_NotifyIcon state must remain alive while the tray icon exists.
   NOTIFYICONDATA trayIcon_{};
   bool trayIconAdded_{};
+  /// Runtime icons are regenerated from the selected wardrobe character.
+  HICON activeLargeIcon_{};
+  HICON activeSmallIcon_{};
   bool showDashboardOnStart_{};
 };
 

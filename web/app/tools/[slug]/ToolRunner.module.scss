@@ -1,0 +1,204 @@
+.tool {
+  display: grid;
+  gap: var(--cy-space-3);
+}
+
+.controlRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cy-space-2);
+}
+
+.segmentButton,
+.copyButton {
+  min-height: 34px;
+  padding: 0 var(--cy-space-3);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--cy-text-secondary);
+  cursor: pointer;
+  font-size: var(--cy-font-size-sm);
+  font-weight: 800;
+  transition:
+    border-color var(--cy-motion-fast) var(--cy-ease-standard),
+    color var(--cy-motion-fast) var(--cy-ease-standard),
+    background var(--cy-motion-fast) var(--cy-ease-standard);
+
+  &:hover:not(:disabled) {
+    border-color: var(--site-cyan);
+    color: var(--site-cyan);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+}
+
+.segmentButtonActive {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--site-cyan), var(--site-green));
+  color: #ffffff;
+}
+
+.modeSwitch {
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  border: 1px solid var(--site-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.modeButton {
+  min-height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cy-text-secondary);
+  cursor: pointer;
+  font-family: var(--cy-font-mono);
+  font-size: var(--cy-font-size-sm);
+  font-weight: 800;
+}
+
+.modeButtonActive {
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--site-green);
+  box-shadow: var(--cy-shadow-sm);
+}
+
+.modeLabel,
+.check {
+  color: var(--cy-text-secondary);
+  font-size: var(--cy-font-size-sm);
+  font-weight: 700;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cy-space-2);
+}
+
+.inlineControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cy-space-2);
+}
+
+.field {
+  min-height: 36px;
+  padding: 0 var(--cy-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cy-space-2);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--cy-text-secondary);
+  font-size: var(--cy-font-size-sm);
+  font-weight: 800;
+}
+
+.numberInput {
+  width: 72px;
+  height: 26px;
+  padding: 0 var(--cy-space-2);
+  border: 1px solid var(--site-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--cy-text-primary);
+  font: inherit;
+}
+
+.twoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cy-space-3);
+
+  @media (max-width: 760px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  padding: var(--cy-space-4) var(--cy-space-5);
+  display: grid;
+  gap: var(--cy-space-3);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--cy-shadow-card);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cy-space-3);
+}
+
+.cardLabel {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cy-space-2);
+}
+
+.algorithm {
+  color: var(--site-green);
+  font-family: var(--cy-font-mono);
+  font-size: var(--cy-font-size-md);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.bits {
+  color: var(--cy-text-tertiary);
+  font-family: var(--cy-font-mono);
+  font-size: var(--cy-font-size-sm);
+}
+
+.textarea,
+.code {
+  width: 100%;
+  min-height: 70px;
+  padding: var(--cy-space-3);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--cy-text-primary);
+  font-family: var(--cy-font-mono);
+  font-size: var(--cy-font-size-sm);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.textarea {
+  resize: vertical;
+}
+
+.code {
+  display: block;
+}
+
+.placeholder {
+  color: var(--cy-text-tertiary);
+}
+
+.errorBanner {
+  padding: var(--cy-space-3) var(--cy-space-4);
+  border: 1px solid var(--cy-border-danger);
+  border-radius: 8px;
+  background: var(--cy-bg-danger);
+  color: var(--cy-text-danger);
+  font-family: var(--cy-font-mono);
+  font-size: var(--cy-font-size-sm);
+}

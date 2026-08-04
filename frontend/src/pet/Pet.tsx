@@ -30,6 +30,11 @@ const emptyState: AppState = {
   autoHideMinutes: 10,
   characters: [builtInCharacter],
   activeCharacterId: 'builtin',
+  workspaceTheme: 'warm',
+  workspaceTextSize: 'comfortable',
+  openLastView: true,
+  lastDashboardView: 'today',
+  lastToolCategory: '',
 };
 
 const priorityClassNames: Record<ReminderPriority, string> = {
@@ -55,6 +60,71 @@ function formatShortTime(timestamp: number) {
   }).format(timestamp);
 }
 
+function roundedSquare(
+  context: CanvasRenderingContext2D,
+  inset: number,
+  size: number,
+  radius: number,
+) {
+  const right = inset + size;
+  const bottom = inset + size;
+  context.beginPath();
+  context.moveTo(inset + radius, inset);
+  context.arcTo(right, inset, right, bottom, radius);
+  context.arcTo(right, bottom, inset, bottom, radius);
+  context.arcTo(inset, bottom, inset, inset, radius);
+  context.arcTo(inset, inset, right, inset, radius);
+  context.closePath();
+}
+
+/** Renders the active wardrobe asset into a shell-friendly square PNG. */
+function renderCharacterIcon(character: CharacterProfile) {
+  return new Promise<string>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        reject(new Error('当前环境无法生成小助手图标。'));
+        return;
+      }
+
+      roundedSquare(context, 2, 252, 54);
+      context.fillStyle = '#168b85';
+      context.fill();
+      roundedSquare(context, 13, 230, 45);
+      context.fillStyle = '#fff7eb';
+      context.fill();
+
+      const sourceWidth = character.layout === 'sheet'
+        ? image.naturalWidth / 4
+        : image.naturalWidth;
+      const sourceHeight = character.layout === 'sheet'
+        ? image.naturalHeight / 2
+        : image.naturalHeight;
+      const scale = Math.min(202 / sourceWidth, 202 / sourceHeight);
+      const width = sourceWidth * scale;
+      const height = sourceHeight * scale;
+      context.drawImage(
+        image,
+        0,
+        0,
+        sourceWidth,
+        sourceHeight,
+        (256 - width) / 2,
+        (256 - height) / 2,
+        width,
+        height,
+      );
+      resolve(canvas.toDataURL('image/png'));
+    };
+    image.onerror = () => reject(new Error('无法读取当前小助手图片。'));
+    image.src = character.imageUrl;
+  });
+}
+
 export function Pet() {
   // The development-only demo makes the full-screen presentation reproducible
   // without waiting for a real native reminder.
@@ -64,7 +134,7 @@ export function Pet() {
   const demoReminder: Reminder | null = isPresentationDemo
     ? {
         id: -1,
-        title: '整理并提交今晚的 C++17 桌面宠物学习笔记',
+        title: '整理并提交今晚的 C++11 小助手学习笔记',
         dueAt: Date.now(),
         completed: false,
         notified: true,
@@ -82,6 +152,9 @@ export function Pet() {
   const [hour, setHour] = useState(new Date().getHours());
   const [celebrating, setCelebrating] = useState(false);
   const celebrationTimer = useRef<number>();
+  const activeCharacter = state.characters?.find(
+    (character) => character.id === state.activeCharacterId,
+  ) ?? state.characters?.[0] ?? builtInCharacter;
 
   /** Restarts the short completion-confetti animation. */
   const triggerCelebration = () => {
@@ -154,6 +227,21 @@ export function Pet() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    renderCharacterIcon(activeCharacter).then((dataUrl) => {
+      if (!cancelled) {
+        postHostMessage('character.icon.update', {
+          id: activeCharacter.id,
+          dataUrl,
+        });
+      }
+    }).catch(() => {
+      // The packaged application keeps its embedded icon when rendering fails.
+    });
+    return () => { cancelled = true; };
+  }, [activeCharacter.id, activeCharacter.imageUrl, activeCharacter.layout]);
+
+  useEffect(() => {
     // Autonomous actions are suppressed while a reminder owns the character.
     if (activeReminder) return;
     const timer = window.setInterval(() => {
@@ -198,9 +286,6 @@ export function Pet() {
     ? priorityClassNames[activeReminder.priority]
     : styles.priorityNormal;
   const isNight = hour >= 21 || hour < 7;
-  const activeCharacter = state.characters?.find(
-    (character) => character.id === state.activeCharacterId,
-  ) ?? state.characters?.[0] ?? builtInCharacter;
   const isSingleCharacter = activeCharacter.layout === 'single';
   // JSON string escaping prevents quotes in generated file URLs from breaking CSS.
   const characterImageStyle = {
