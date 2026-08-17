@@ -59,7 +59,7 @@ void ShowWebViewError(HWND owner, const wchar_t* stage, HRESULT result) {
   wchar_t message[256]{};
   swprintf_s(message, L"%s失败（HRESULT 0x%08X）。\n请确认已安装 WebView2 Runtime。",
              stage, static_cast<unsigned int>(result));
-  MessageBoxW(owner, message, L"可爱依依小助手", MB_OK | MB_ICONERROR);
+  MessageBoxW(owner, message, L"依依工作台", MB_OK | MB_ICONERROR);
 }
 
 }  // namespace
@@ -150,9 +150,8 @@ bool WebViewWindow::Create(HINSTANCE instance) {
   }
 
   const std::wstring petName = Utf8ToWide(application_.PetName());
-  const std::wstring title = kind_ == WindowKind::Pet
-                                 ? petName
-                                 : petName + L" · 桌面工作台";
+  const std::wstring title =
+      kind_ == WindowKind::Pet ? petName : L"依依工作台";
   window_ = CreateWindowExW(
       extendedStyle, kWindowClassName, title.c_str(), style,
       bounds.left, bounds.top, bounds.right - bounds.left,
@@ -205,11 +204,31 @@ void WebViewWindow::BeginDrag() {
       autoTuckState_ != AutoTuckState::Visible) {
     return;
   }
+  if (!GetCursorPos(&manualDragStartCursor_) ||
+      !GetWindowRect(window_, &manualDragStartBounds_)) {
+    return;
+  }
+  manualDragActive_ = true;
+}
+
+void WebViewWindow::UpdateDrag() {
+  if (!manualDragActive_ || window_ == nullptr) return;
   POINT cursor{};
-  GetCursorPos(&cursor);
-  ReleaseCapture();
-  SendMessageW(window_, WM_NCLBUTTONDOWN, HTCAPTION,
-               MAKELPARAM(cursor.x, cursor.y));
+  if (!GetCursorPos(&cursor)) return;
+  const int x = manualDragStartBounds_.left +
+                (cursor.x - manualDragStartCursor_.x);
+  const int y = manualDragStartBounds_.top +
+                (cursor.y - manualDragStartCursor_.y);
+  SetWindowPos(window_, nullptr, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void WebViewWindow::EndDrag() {
+  if (!manualDragActive_) return;
+  UpdateDrag();
+  manualDragActive_ = false;
+  SnapPetToWorkArea();
+  application_.SavePetPosition(window_);
 }
 
 void WebViewWindow::BeginReminderPresentation(const std::string& priority) {

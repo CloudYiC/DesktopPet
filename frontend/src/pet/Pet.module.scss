@@ -10,6 +10,57 @@ $cream: #fffaf0;
   user-select: none;
 }
 
+.dragFrame {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  bottom: 0;
+  padding: 3px;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    #ff6f91,
+    #ffc857,
+    #58d6a9,
+    #52a7ff,
+    #a978ff,
+    #ff6f91
+  );
+  border-radius: 34px;
+  box-shadow:
+    0 0 15px rgba(82, 167, 255, 0.34),
+    0 0 24px rgba(255, 111, 145, 0.2);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  transform: translateX(-50%);
+  animation: chromaDragFrame 1.1s linear infinite;
+}
+
+.singleDragFrame {
+  width: 154px;
+  height: 212px;
+  bottom: 3px;
+  border-radius: 30px;
+}
+
+.spriteSheetDragFrame {
+  width: 276px;
+  height: 344px;
+}
+
+.draggingStage {
+  .spriteShell {
+    cursor: grabbing;
+    filter: drop-shadow(0 16px 12px rgba(82, 167, 255, 0.22));
+  }
+}
+
 .priorityNormal {
   --alert-accent: #d66a38;
 }
@@ -72,12 +123,6 @@ $cream: #fffaf0;
     rgba(255, 244, 202, 0.14) 35%,
     rgba(255, 255, 255, 0) 68%
   );
-
-  .dashboardButton {
-    pointer-events: none;
-    opacity: 0;
-    transform: scale(0.7);
-  }
 
   .spriteShell {
     z-index: 4;
@@ -450,29 +495,161 @@ $cream: #fffaf0;
   }
 }
 
-.dashboardButton {
+.interactionCloud {
   position: absolute;
-  z-index: 6;
-  top: 22px;
-  right: 34px;
-  display: grid;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  place-items: center;
-  color: #fff;
-  cursor: pointer;
-  background: $teal;
-  border: 0;
-  border-radius: 50%;
-  box-shadow: 0 5px 14px rgba(22, 139, 133, 0.28);
-  font-size: 18px;
-  line-height: 1;
-  transition: transform 160ms ease;
+  z-index: 10;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  width: 296px;
+  min-height: 122px;
+  padding: 16px 17px 17px;
+  flex-direction: column;
+  color: $ink;
+  background:
+    radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.98) 0 31px, transparent 32px),
+    radial-gradient(circle at 43% 4%, rgba(255, 255, 255, 0.98) 0 38px, transparent 39px),
+    radial-gradient(circle at 72% 11%, rgba(255, 255, 255, 0.98) 0 33px, transparent 34px),
+    rgba(255, 253, 247, 0.98);
+  border: 1px solid rgba(22, 139, 133, 0.16);
+  border-radius: 40px 44px 34px 42px;
+  box-shadow:
+    0 15px 34px rgba(73, 53, 43, 0.16),
+    inset 0 1px rgba(255, 255, 255, 0.9);
+  animation: cloudMenuIn 300ms cubic-bezier(0.18, 0.9, 0.24, 1.12) both;
 
-  &:hover {
-    transform: rotate(90deg) scale(1.08);
+  &::after {
+    position: absolute;
+    right: 73px;
+    bottom: -13px;
+    width: 25px;
+    height: 25px;
+    content: '';
+    background: rgba(255, 253, 247, 0.98);
+    border-right: 1px solid rgba(22, 139, 133, 0.16);
+    border-bottom: 1px solid rgba(22, 139, 133, 0.16);
+    border-radius: 0 0 8px;
+    transform: rotate(45deg);
   }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  > strong {
+    margin: 1px 0 10px;
+    font-family: Georgia, "Noto Serif SC", serif;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+}
+
+.interactionCloudFeedback {
+  top: 24px;
+  left: 42px;
+  width: 236px;
+  min-height: 88px;
+  padding: 17px 21px;
+  justify-content: center;
+  text-align: center;
+
+  &::after {
+    right: 55px;
+  }
+}
+
+.cloudEyebrow {
+  color: $teal;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.cloudChoices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+
+  button {
+    display: grid;
+    min-width: 0;
+    padding: 8px 9px;
+    grid-template-columns: 24px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 7px;
+    color: $ink;
+    cursor: pointer;
+    background: rgba(245, 238, 228, 0.84);
+    border: 1px solid transparent;
+    border-radius: 15px;
+    text-align: left;
+    transition: border-color 150ms ease, transform 150ms ease;
+
+    &:hover,
+    &:focus-visible {
+      border-color: rgba(22, 139, 133, 0.34);
+      outline: 0;
+      transform: translateY(-2px);
+    }
+
+    span {
+      grid-row: 1 / 3;
+      align-self: center;
+      color: $teal;
+      font-size: 21px;
+      text-align: center;
+    }
+
+    b {
+      overflow: hidden;
+      font-size: 11px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    small {
+      color: rgba($ink, 0.58);
+      font-size: 8px;
+      white-space: nowrap;
+    }
+  }
+}
+
+.cloudActions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+
+  button {
+    padding: 7px 5px;
+    color: $ink;
+    cursor: pointer;
+    background: rgba(245, 238, 228, 0.86);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+
+    &:hover,
+    &:focus-visible {
+      color: #fff;
+      background: $teal;
+      border-color: $teal;
+      outline: 0;
+    }
+
+    &:last-child {
+      color: rgba($ink, 0.68);
+      background: transparent;
+      border-color: rgba($ink, 0.12);
+    }
+  }
+}
+
+.cloudFeedbackText {
+  margin: 3px 0 0 !important;
+  font-size: 13px !important;
 }
 
 .spriteShell {
@@ -488,6 +665,12 @@ $cream: #fffaf0;
 
   &:active {
     cursor: grabbing;
+  }
+
+  &:focus-visible {
+    outline: 3px solid rgba(22, 139, 133, 0.54);
+    outline-offset: -10px;
+    border-radius: 44%;
   }
 
   &.idle {
@@ -517,6 +700,21 @@ $cream: #fffaf0;
   &.petted {
     animation: bashfulPat 720ms ease-in-out 2;
   }
+}
+
+.spriteShell.singleCharacterShell {
+  right: 55px;
+  bottom: 2px;
+  width: 210px;
+  height: 210px;
+}
+
+.presentationStage .spriteShell.singleCharacterShell {
+  right: auto;
+  bottom: -6px;
+  left: 8px;
+  width: 238px;
+  height: 317px;
 }
 
 .sprite {
@@ -675,25 +873,6 @@ $cream: #fffaf0;
 .presentationStage .nightCap { top: 7px; }
 .presentationStage .dayFlower { top: 116px; }
 
-.patHotspot {
-  position: absolute;
-  z-index: 8;
-  right: 70px;
-  bottom: 166px;
-  width: 120px;
-  height: 118px;
-  padding: 0;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-
-  &:focus-visible {
-    outline: 3px solid rgba(22, 139, 133, 0.55);
-    outline-offset: 2px;
-  }
-}
-
 .actionEffects {
   position: absolute;
   z-index: 3;
@@ -769,6 +948,19 @@ $cream: #fffaf0;
   margin: -25px -18px 0 0;
   font-size: 24px;
   animation-delay: 650ms !important;
+}
+
+// A single-image character occupies a square canvas and needs its effects
+// anchored to the visible head instead of the taller sprite-sheet geometry.
+.singleCharacterEffects {
+  .sleepFx {
+    right: 84px;
+    bottom: 156px;
+  }
+
+  .sleepTwo {
+    margin: -19px -11px 0 0;
+  }
 }
 
 .dustFx {
@@ -910,6 +1102,17 @@ $cream: #fffaf0;
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes cloudMenuIn {
+  from { opacity: 0; transform: translateY(9px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes chromaDragFrame {
+  0% { filter: hue-rotate(0deg) saturate(1.05); }
+  50% { filter: hue-rotate(180deg) saturate(1.28); }
+  100% { filter: hue-rotate(360deg) saturate(1.05); }
+}
+
 @keyframes presentationHop {
   0%, 100% { transform: translateY(0) rotate(-0.7deg) scale(1); }
   45% { transform: translateY(-18px) rotate(0.8deg) scale(1.025); }
@@ -1013,6 +1216,8 @@ $cream: #fffaf0;
   .spriteShell,
   .sprite,
   .bubble,
+  .interactionCloud,
+  .dragFrame,
   .signBoard,
   .signPost,
   .spotlight,

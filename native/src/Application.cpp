@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <iterator>
 #include <stdexcept>
 #include <utility>
@@ -30,6 +31,49 @@ constexpr UINT kOpenDashboardCommand = 1001;
 constexpr UINT kHidePetCommand = 1002;
 constexpr UINT kQuitCommand = 1003;
 constexpr int kAutoHideMinuteOptions[] = {1, 2, 5, 10, 20, 30, 60};
+constexpr wchar_t kPackagedGirlRelativePath[] =
+    L"assets\\private-default-girl.png";
+
+bool FilesHaveSameContent(const std::wstring& leftPath,
+                          const std::wstring& rightPath) {
+  HANDLE left = CreateFileW(leftPath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                            nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                            nullptr);
+  if (left == INVALID_HANDLE_VALUE) return false;
+  HANDLE right = CreateFileW(rightPath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                             nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                             nullptr);
+  if (right == INVALID_HANDLE_VALUE) {
+    CloseHandle(left);
+    return false;
+  }
+
+  LARGE_INTEGER leftSize{};
+  LARGE_INTEGER rightSize{};
+  bool equal = GetFileSizeEx(left, &leftSize) &&
+               GetFileSizeEx(right, &rightSize) &&
+               leftSize.QuadPart == rightSize.QuadPart;
+  std::vector<unsigned char> leftBuffer(64 * 1024);
+  std::vector<unsigned char> rightBuffer(leftBuffer.size());
+  while (equal) {
+    DWORD leftRead = 0;
+    DWORD rightRead = 0;
+    if (!ReadFile(left, leftBuffer.data(),
+                  static_cast<DWORD>(leftBuffer.size()), &leftRead, nullptr) ||
+        !ReadFile(right, rightBuffer.data(),
+                  static_cast<DWORD>(rightBuffer.size()), &rightRead,
+                  nullptr) ||
+        leftRead != rightRead ||
+        std::memcmp(leftBuffer.data(), rightBuffer.data(), leftRead) != 0) {
+      equal = false;
+      break;
+    }
+    if (leftRead == 0) break;
+  }
+  CloseHandle(right);
+  CloseHandle(left);
+  return equal;
+}
 
 /** Converts the persistence model to the protocol shape consumed by React. */
 nlohmann::json ReminderToJson(const Reminder& reminder) {
@@ -274,18 +318,27 @@ void UpdateDesktopShortcutIcon(const std::wstring& iconPath) {
   const std::wstring desktop(rawDesktop);
   CoTaskMemFree(rawDesktop);
 
-  const std::wstring oldShortcut =
+  const std::wstring legacyPetShortcut =
       JoinPath(desktop, L"可爱依依桌面宠物.lnk");
-  const std::wstring newShortcut =
+  const std::wstring legacyAssistantShortcut =
       JoinPath(desktop, L"可爱依依小助手.lnk");
-  if (PathExists(oldShortcut) && !PathExists(newShortcut)) {
-    MoveFileExW(oldShortcut.c_str(), newShortcut.c_str(),
+  const std::wstring workbenchShortcut =
+      JoinPath(desktop, L"依依工作台.lnk");
+  if (!PathExists(workbenchShortcut) && PathExists(legacyAssistantShortcut)) {
+    MoveFileExW(legacyAssistantShortcut.c_str(), workbenchShortcut.c_str(),
                 MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
   }
-  const std::wstring shortcut = PathExists(newShortcut)
-                                    ? newShortcut
-                                    : (PathExists(oldShortcut) ? oldShortcut
-                                                               : std::wstring{});
+  if (!PathExists(workbenchShortcut) && PathExists(legacyPetShortcut)) {
+    MoveFileExW(legacyPetShortcut.c_str(), workbenchShortcut.c_str(),
+                MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+  }
+  const std::wstring shortcut =
+      PathExists(workbenchShortcut)
+          ? workbenchShortcut
+          : (PathExists(legacyAssistantShortcut)
+                 ? legacyAssistantShortcut
+                 : (PathExists(legacyPetShortcut) ? legacyPetShortcut
+                                                  : std::wstring{}));
   if (shortcut.empty()) return;
 
   Microsoft::WRL::ComPtr<IShellLinkW> shellLink;
@@ -372,7 +425,7 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
   } catch (const std::exception&) {
     hasPetPosition_ = false;
     characters_.clear();
-    activeCharacterId_ = "builtin";
+    activeCharacterId_ = DefaultCharacterId();
   }
 }
 
@@ -402,7 +455,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.11.1";
+    const std::string marker = "CuteYiyiDesktopPet 0.11.5";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -429,8 +482,16 @@ void Application::HandleWebMessage(WebViewWindow& source,
       SendState(&source);
       return;
     }
-    if (type == "window.drag") {
+    if (type == "window.drag.start") {
       source.BeginDrag();
+      return;
+    }
+    if (type == "window.drag.move") {
+      source.UpdateDrag();
+      return;
+    }
+    if (type == "window.drag.end") {
+      source.EndDrag();
       return;
     }
     if (type == "window.openDashboard") {
@@ -580,7 +641,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
       const std::string previousActiveId = activeCharacterId_;
       characters_.erase(character);
       if (activeCharacterId_ == id) {
-        activeCharacterId_ = "builtin";
+        activeCharacterId_ = DefaultCharacterId();
       }
       try {
         SaveCharacters();
@@ -1213,7 +1274,7 @@ void Application::AddTrayIcon() {
   if (trayIcon_.hIcon == nullptr) {
     trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
   }
-  const std::wstring tooltip = Utf8ToWide(petName_) + L"小助手";
+  const std::wstring tooltip = L"依依工作台";
   StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                  tooltip.c_str());
   trayIconAdded_ = Shell_NotifyIconW(NIM_ADD, &trayIcon_) == TRUE;
@@ -1235,7 +1296,7 @@ void Application::ShowTrayMenu() {
   GetCursorPos(&cursor);
 
   HMENU menu = CreatePopupMenu();
-  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开桌面工作台");
+  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开依依工作台");
   const std::wstring petName = Utf8ToWide(petName_);
   const std::wstring visibilityLabel =
       IsWindowVisible(petWindow_->Handle()) ? L"暂时隐藏" + petName
@@ -1312,11 +1373,11 @@ void Application::UpdateBranding() {
     petWindow_->SetTitle(petName);
   }
   if (dashboardWindow_ != nullptr) {
-    dashboardWindow_->SetTitle(petName + L" · 桌面工作台");
+    dashboardWindow_->SetTitle(L"依依工作台");
   }
   if (trayIconAdded_) {
     trayIcon_.uFlags = NIF_TIP;
-    const std::wstring tooltip = petName + L"小助手";
+    const std::wstring tooltip = L"依依工作台";
     StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                    tooltip.c_str());
     Shell_NotifyIconW(NIM_MODIFY, &trayIcon_);
@@ -1396,12 +1457,22 @@ nlohmann::json Application::BuildState() {
   for (const Reminder& reminder : reminders_.List()) {
     items.push_back(ReminderToJson(reminder));
   }
-  nlohmann::json characters = nlohmann::json::array(
-      {{{"id", "builtin"},
-        {"name", "经典小鼠"},
-        {"imageUrl", "https://milo.local/assets/milo-sprite.png"},
-        {"layout", "sheet"},
-        {"builtIn", true}}});
+  nlohmann::json characters = nlohmann::json::array();
+  if (HasPackagedGirl()) {
+    characters.push_back(
+        {{"id", "builtin-girl"},
+         {"name", "粉色依依"},
+         {"imageUrl",
+          "https://milo.local/assets/private-default-girl.png"},
+         {"layout", "single"},
+         {"builtIn", true}});
+  }
+  characters.push_back(
+      {{"id", "builtin"},
+       {"name", "经典小鼠"},
+       {"imageUrl", "https://milo.local/assets/milo-sprite.png"},
+       {"layout", "sheet"},
+       {"builtIn", true}});
   for (const CharacterProfile& character : characters_) {
     characters.push_back(
         {{"id", character.id},
@@ -1429,6 +1500,9 @@ nlohmann::json Application::BuildState() {
 
 void Application::LoadCharacters() {
   characters_.clear();
+  std::vector<std::wstring> redundantCharacterFiles;
+  const std::wstring packagedGirlPath =
+      JoinPath(uiDirectory_, kPackagedGirlRelativePath);
   std::string serialized;
   if (reminders_.GetSetting("characters.list", serialized) &&
       !serialized.empty()) {
@@ -1452,8 +1526,17 @@ void Application::LoadCharacters() {
         // Reject absolute paths and traversal before mapping a saved filename
         // into the character directory.
         const std::wstring relativeName = Utf8ToWide(character.fileName);
-        if (!IsSimpleFileName(relativeName) ||
-            !PathExists(JoinPath(characterDirectory_, relativeName))) {
+        const std::wstring characterPath =
+            JoinPath(characterDirectory_, relativeName);
+        if (!IsSimpleFileName(relativeName) || !PathExists(characterPath)) {
+          continue;
+        }
+        if (HasPackagedGirl() &&
+            FilesHaveSameContent(characterPath, packagedGirlPath)) {
+          redundantCharacterFiles.push_back(characterPath);
+          redundantCharacterFiles.push_back(JoinPath(
+              characterDirectory_,
+              L"assistant-icon-" + Utf8ToWide(character.id) + L".ico"));
           continue;
         }
         characters_.push_back(character);
@@ -1465,11 +1548,36 @@ void Application::LoadCharacters() {
   }
 
   std::string active;
-  if (reminders_.GetSetting("characters.active", active) &&
-      HasCharacter(active)) {
-    activeCharacterId_ = active;
+  const bool hasValidActive =
+      reminders_.GetSetting("characters.active", active) &&
+      HasCharacter(active);
+  std::string packagedGirlDefaultApplied;
+  const bool shouldApplyPackagedGirlDefault =
+      HasPackagedGirl() &&
+      (!reminders_.GetSetting("characters.packagedGirlDefaultApplied",
+                              packagedGirlDefaultApplied) ||
+       packagedGirlDefaultApplied != "1");
+
+  // Releases before 0.11.3 stored the mouse as the default. Upgrade that old
+  // default once, but preserve a user-imported active character. The marker
+  // lets a later deliberate switch back to the mouse survive future launches.
+  if (shouldApplyPackagedGirlDefault) {
+    activeCharacterId_ = hasValidActive && active != "builtin"
+                             ? active
+                             : "builtin-girl";
+    reminders_.SetSetting("characters.active", activeCharacterId_);
+    reminders_.SetSetting("characters.packagedGirlDefaultApplied", "1");
   } else {
-    activeCharacterId_ = "builtin";
+    activeCharacterId_ = hasValidActive ? active : DefaultCharacterId();
+  }
+
+  if (!redundantCharacterFiles.empty()) {
+    SaveCharacters();
+    for (std::vector<std::wstring>::const_iterator file =
+             redundantCharacterFiles.begin();
+         file != redundantCharacterFiles.end(); ++file) {
+      DeleteFileIfExists(*file);
+    }
   }
 }
 
@@ -1489,9 +1597,20 @@ bool Application::HasCharacter(const std::string& id) const {
   if (id == "builtin") {
     return true;
   }
+  if (id == "builtin-girl") {
+    return HasPackagedGirl();
+  }
   return std::any_of(
       characters_.begin(), characters_.end(),
       [&id](const CharacterProfile& character) { return character.id == id; });
+}
+
+bool Application::HasPackagedGirl() const {
+  return PathExists(JoinPath(uiDirectory_, kPackagedGirlRelativePath));
+}
+
+std::string Application::DefaultCharacterId() const {
+  return HasPackagedGirl() ? "builtin-girl" : "builtin";
 }
 
 void Application::SendError(WebViewWindow& target,

@@ -71,7 +71,7 @@ export function AppSidebar(props: AppSidebarProps) {
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <div className={styles.brandMark}>依</div>
-        <div><strong>{props.petName}</strong><span>CloudYi 桌面工作台</span></div>
+        <div><strong>依依工作台</strong><span>{props.petName} · CloudYi 工具箱</span></div>
       </div>
 
       <div className={styles.scrollArea}>

@@ -45,6 +45,23 @@ if (-not $SkipFrontend) {
     }
 }
 
+# Personal character artwork stays under the ignored artifacts directory. When
+# present locally it is copied only into generated UI output and the installer;
+# public source builds remain functional and fall back to the mouse character.
+$privateCharacterSource = Join-Path $projectRoot `
+    'artifacts\private-characters\default-girl.png'
+$privateCharacterOutput = Join-Path $projectRoot `
+    'frontend\dist\assets\private-default-girl.png'
+if (Test-Path -LiteralPath $privateCharacterSource) {
+    New-Item -ItemType Directory -Force `
+        -Path (Split-Path -Parent $privateCharacterOutput) | Out-Null
+    Copy-Item -LiteralPath $privateCharacterSource `
+        -Destination $privateCharacterOutput -Force
+    Write-Host "Private installer character: $privateCharacterOutput"
+} elseif (-not $SkipFrontend) {
+    Write-Host 'Private installer character not found; using the public mouse default.'
+}
+
 # All generated files stay below out/ so source directories remain reproducible.
 $buildRoot = Join-Path $projectRoot 'out\build'
 

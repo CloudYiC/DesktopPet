@@ -7,10 +7,10 @@ Unicode True
 !include "x64.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.11.1"
+  !define APP_VERSION "0.11.5"
 !endif
 !ifndef APP_FILE_VERSION
-  !define APP_FILE_VERSION "0.11.1.0"
+  !define APP_FILE_VERSION "0.11.5.0"
 !endif
 !ifndef APP_SOURCE
   !error "APP_SOURCE must point to the Release application directory."
@@ -25,16 +25,16 @@ Unicode True
   !error "OUTPUT_DIR must point to the installer output directory."
 !endif
 
-!define APP_NAME "可爱依依小助手"
+!define APP_NAME "依依工作台"
 !define APP_EXE "CuteYiyiDesktopPet.exe"
 !define APP_ID "CuteYiyiDesktopPet"
-!define APP_PUBLISHER "可爱依依项目"
+!define APP_PUBLISHER "依依工作台项目"
 !define APP_UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 !define WEBVIEW2_CLIENT_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 ; Product identity and package-level branding.
 Name "${APP_NAME}"
-OutFile "${OUTPUT_DIR}\CuteYiyiDesktopPet-Setup-${APP_VERSION}.exe"
+OutFile "${OUTPUT_DIR}\YiyiWorkbench-Setup-${APP_VERSION}.exe"
 InstallDir "$PROGRAMFILES64\CuteYiyiDesktopPet"
 InstallDirRegKey HKLM "${APP_UNINSTALL_KEY}" "InstallLocation"
 RequestExecutionLevel admin
@@ -60,6 +60,7 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026"
 !define MUI_UNICON "${APP_ICON}"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "启动${APP_NAME}"
+!define MUI_UNCONFIRMPAGE_TEXT_TOP "卸载将永久删除提醒、名称、自定义角色和本机设置，删除后无法恢复。"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS
@@ -75,7 +76,7 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026"
 ; Refuse unsupported systems before any filesystem changes occur.
 Function .onInit
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_OK|MB_ICONSTOP "可爱依依需要 Windows 10 或更高版本。"
+    MessageBox MB_OK|MB_ICONSTOP "依依工作台需要 Windows 10 或更高版本。"
     Abort
   ${EndIf}
   ${IfNot} ${RunningX64}
@@ -85,7 +86,7 @@ Function .onInit
 FunctionEnd
 
 Function CloseRunningApp
-  nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM ${APP_EXE}'
+  nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /T /IM ${APP_EXE}'
   Pop $0
   Pop $1
 FunctionEnd
@@ -168,11 +169,15 @@ Section "!${APP_NAME}" SecApplication
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ; Remove names created by builds released before the assistant rename.
+  ; Remove shortcut names created by the two earlier product identities.
   Delete "$DESKTOP\可爱依依桌面宠物.lnk"
+  Delete "$DESKTOP\可爱依依小助手.lnk"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\可爱依依桌面宠物.lnk"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\卸载可爱依依桌面宠物.lnk"
   RMDir "$SMPROGRAMS\可爱依依桌面宠物"
+  Delete "$SMPROGRAMS\可爱依依小助手\可爱依依小助手.lnk"
+  Delete "$SMPROGRAMS\可爱依依小助手\卸载可爱依依小助手.lnk"
+  RMDir "$SMPROGRAMS\可爱依依小助手"
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe"
@@ -198,9 +203,9 @@ Section /o "开机自动启动" SecAutoStart
 SectionEnd
 
 LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并安装应用需要的微软运行环境。"
-LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装可爱依依小助手、CloudYi 桌面工作台和卸载程序。"
-LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建可爱依依快捷方式。"
-LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动小助手。"
+LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装依依工作台、CloudYi 工具箱和卸载程序。"
+LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建依依工作台快捷方式。"
+LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动依依工作台。"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPrerequisites} $(DESC_SecPrerequisites)
@@ -210,7 +215,7 @@ LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Function un.CloseRunningApp
-  nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM ${APP_EXE}'
+  nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /T /IM ${APP_EXE}'
   Pop $0
   Pop $1
 FunctionEnd
@@ -221,15 +226,24 @@ Section "Uninstall"
 
   Delete "$DESKTOP\${APP_NAME}.lnk"
   Delete "$DESKTOP\可爱依依桌面宠物.lnk"
+  Delete "$DESKTOP\可爱依依小助手.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk"
   RMDir "$SMPROGRAMS\${APP_NAME}"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\可爱依依桌面宠物.lnk"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\卸载可爱依依桌面宠物.lnk"
   RMDir "$SMPROGRAMS\可爱依依桌面宠物"
+  Delete "$SMPROGRAMS\可爱依依小助手\可爱依依小助手.lnk"
+  Delete "$SMPROGRAMS\可爱依依小助手\卸载可爱依依小助手.lnk"
+  RMDir "$SMPROGRAMS\可爱依依小助手"
 
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
   DeleteRegKey HKLM "${APP_UNINSTALL_KEY}"
+
+  ; Remove only this application's fixed current and legacy data directories.
+  ; The legacy folder is included because older releases copied reminders from it.
+  RMDir /r /REBOOTOK "$LOCALAPPDATA\CuteYiyiDesktopPet"
+  RMDir /r /REBOOTOK "$LOCALAPPDATA\MiloDesktopPet"
 
   RMDir /r "$INSTDIR\ui"
   Delete "$INSTDIR\${APP_EXE}"
@@ -237,6 +251,6 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   IfSilent skipUninstallMessage
-  MessageBox MB_OK|MB_ICONINFORMATION "可爱依依已卸载。提醒数据仍保留在本机，重新安装后可以继续使用。"
+  MessageBox MB_OK|MB_ICONINFORMATION "依依工作台已完全卸载，提醒、名称、角色和本机设置均已清除。"
   skipUninstallMessage:
 SectionEnd

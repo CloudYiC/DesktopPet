@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
 import type {
   AppState,
@@ -10,6 +17,14 @@ import type {
 import styles from './Pet.module.scss';
 
 type PetAction = 'idle' | 'walkLeft' | 'walkRight' | 'wave' | 'hop' | 'sleepy' | 'petted';
+type InteractionView = 'closed' | 'choices' | 'actions' | 'feedback';
+
+interface DragGesture {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  dragging: boolean;
+}
 
 /** Fallback shown before the first native state snapshot arrives. */
 const builtInCharacter: CharacterProfile = {
@@ -151,7 +166,11 @@ export function Pet() {
   const [message, setMessage] = useState('嗨，我是可爱依依！');
   const [hour, setHour] = useState(new Date().getHours());
   const [celebrating, setCelebrating] = useState(false);
+  const [interactionView, setInteractionView] = useState<InteractionView>('closed');
+  const [isDragging, setIsDragging] = useState(false);
   const celebrationTimer = useRef<number>();
+  const interactionTimer = useRef<number>();
+  const dragGesture = useRef<DragGesture | null>(null);
   const activeCharacter = state.characters?.find(
     (character) => character.id === state.activeCharacterId,
   ) ?? state.characters?.[0] ?? builtInCharacter;
@@ -183,6 +202,7 @@ export function Pet() {
         setIsPresenting(true);
         setMessage('到时间啦！');
         setAction('hop');
+        setInteractionView('closed');
       }
       if (hostMessage.type === 'reminder.dismissed') {
         activeReminderRef.current = null;
@@ -211,6 +231,7 @@ export function Pet() {
       }
       if (hostMessage.type === 'app.error') {
         setMessage((hostMessage.payload as { message: string }).message);
+        setInteractionView('feedback');
       }
     });
 
@@ -218,8 +239,23 @@ export function Pet() {
     return () => {
       unsubscribe();
       window.clearTimeout(celebrationTimer.current);
+      window.clearTimeout(interactionTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    window.clearTimeout(interactionTimer.current);
+    if (interactionView === 'closed') return;
+    interactionTimer.current = window.setTimeout(
+      () => setInteractionView('closed'),
+      interactionView === 'feedback' ? 2_600 : 8_000,
+    );
+    return () => window.clearTimeout(interactionTimer.current);
+  }, [interactionView]);
+
+  useEffect(() => {
+    setInteractionView('closed');
+  }, [activeCharacter.id]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setHour(new Date().getHours()), 60_000);
@@ -282,6 +318,75 @@ export function Pet() {
     setIsPresenting(false);
   };
 
+  const toggleInteractionMenu = () => {
+    if (isPresenting || activeReminder) return;
+    setInteractionView((current) => current === 'closed' ? 'choices' : 'closed');
+  };
+
+  const requestPetAction = (requested: PetAction) => {
+    setMessage(actionMessages[requested]);
+    setInteractionView('feedback');
+    postHostMessage('pet.action', { action: requested });
+  };
+
+  const openDashboard = () => {
+    setInteractionView('closed');
+    postHostMessage('window.openDashboard');
+  };
+
+  const beginCharacterPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || isPresenting) return;
+    dragGesture.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const continueCharacterPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (gesture.dragging) {
+      postHostMessage('window.drag.move');
+      return;
+    }
+    if (Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) < 6) return;
+    gesture.dragging = true;
+    setInteractionView('closed');
+    setIsDragging(true);
+    postHostMessage('window.drag.start');
+  };
+
+  const endCharacterPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragGesture.current = null;
+    if (gesture.dragging) {
+      postHostMessage('window.drag.end');
+      setIsDragging(false);
+    } else {
+      toggleInteractionMenu();
+    }
+  };
+
+  const cancelCharacterPress = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragGesture.current?.pointerId !== event.pointerId) return;
+    if (dragGesture.current.dragging) postHostMessage('window.drag.end');
+    dragGesture.current = null;
+    setIsDragging(false);
+  };
+
+  const handleCharacterKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    toggleInteractionMenu();
+  };
+
   const priorityClass = activeReminder
     ? priorityClassNames[activeReminder.priority]
     : styles.priorityNormal;
@@ -294,9 +399,11 @@ export function Pet() {
 
   return (
     <section
-      className={`${styles.stage} ${isPresenting ? styles.presentationStage : ''} ${priorityClass}`}
-      onDoubleClick={() => {
-        if (!isPresenting) postHostMessage('window.openDashboard');
+      className={`${styles.stage} ${isPresenting ? styles.presentationStage : ''} ${
+        isDragging ? styles.draggingStage : ''
+      } ${priorityClass}`}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) setInteractionView('closed');
       }}
     >
       {celebrating && (
@@ -307,25 +414,70 @@ export function Pet() {
           ))}
         </div>
       )}
-      {!isPresenting && (
+      {isDragging && (
+        <div
+          className={`${styles.dragFrame} ${
+            isSingleCharacter ? styles.singleDragFrame : styles.spriteSheetDragFrame
+          }`}
+          aria-hidden="true"
+        />
+      )}
+      {!isPresenting && activeReminder && (
         <div
           className={`${styles.bubble} ${
             isSingleCharacter ? styles.bubbleSingleCharacter : ''
           } ${activeReminder ? styles.bubbleUrgent : ''}`}
         >
           <span className={styles.bubbleEyebrow}>
-            {activeReminder
-              ? activeReminder.repeatRule === 'none'
-                ? '提醒时间到'
-                : '重复提醒时间到'
-              : `${state.petName}悄悄说`}
+            {activeReminder.repeatRule === 'none'
+              ? '提醒时间到'
+              : '重复提醒时间到'}
           </span>
-          <strong>{activeReminder?.title ?? message}</strong>
-          {activeReminder && (
-            <div className={styles.bubbleActions}>
-              <button type="button" onClick={completeReminder}>完成</button>
-              <button type="button" onClick={snoozeReminder}>5 分钟后</button>
-            </div>
+          <strong>{activeReminder.title}</strong>
+          <div className={styles.bubbleActions}>
+            <button type="button" onClick={completeReminder}>完成</button>
+            <button type="button" onClick={snoozeReminder}>5 分钟后</button>
+          </div>
+        </div>
+      )}
+
+      {!isPresenting && !activeReminder && interactionView !== 'closed' && (
+        <div
+          className={`${styles.interactionCloud} ${
+            interactionView === 'feedback' ? styles.interactionCloudFeedback : ''
+          }`}
+          role="dialog"
+          aria-label={`${state.petName}互动菜单`}
+        >
+          <span className={styles.cloudEyebrow}>{state.petName}</span>
+          {interactionView === 'choices' && (
+            <>
+              <strong>现在想做什么？</strong>
+              <div className={styles.cloudChoices}>
+                <button type="button" onClick={openDashboard}>
+                  <span>▦</span><b>打开工作台</b><small>查看提醒和工具</small>
+                </button>
+                <button type="button" onClick={() => setInteractionView('actions')}>
+                  <span>♡</span><b>和我互动</b><small>一起玩一会儿</small>
+                </button>
+              </div>
+            </>
+          )}
+          {interactionView === 'actions' && (
+            <>
+              <strong>想和我怎么玩？</strong>
+              <div className={styles.cloudActions}>
+                <button type="button" onClick={() => requestPetAction('wave')}>挥挥手</button>
+                <button type="button" onClick={() => requestPetAction('hop')}>跳一下</button>
+                <button type="button" onClick={() => requestPetAction('walkRight')}>散散步</button>
+                <button type="button" onClick={() => requestPetAction('petted')}>摸摸头</button>
+                <button type="button" onClick={() => requestPetAction('sleepy')}>休息会</button>
+                <button type="button" onClick={() => setInteractionView('choices')}>返回</button>
+              </div>
+            </>
+          )}
+          {interactionView === 'feedback' && (
+            <strong className={styles.cloudFeedbackText}>{message}</strong>
           )}
         </div>
       )}
@@ -358,25 +510,20 @@ export function Pet() {
         </div>
       )}
 
-      <button
-        className={styles.dashboardButton}
-        type="button"
-        aria-label="打开事项中心"
-        onClick={() => postHostMessage('window.openDashboard')}
-      >
-        +
-      </button>
-
       <div
         key={`${activeCharacter.id}-${actionCycle}`}
         className={`${styles.spriteShell} ${styles[action]} ${
-          activeCharacter.builtIn ? '' : styles.customCharacter
+          isSingleCharacter ? `${styles.singleCharacterShell} ${styles.customCharacter}` : ''
         }`}
-        onPointerDown={(event) => {
-          if (event.button === 0 && !isPresenting) postHostMessage('window.drag');
-        }}
-        role="img"
-        aria-label={`可爱的桌面小鼠${state.petName}`}
+        onPointerDown={beginCharacterPress}
+        onPointerMove={continueCharacterPress}
+        onPointerUp={endCharacterPress}
+        onPointerCancel={cancelCharacterPress}
+        onKeyDown={handleCharacterKey}
+        role="button"
+        tabIndex={isPresenting ? -1 : 0}
+        aria-expanded={interactionView !== 'closed'}
+        aria-label={`点击${state.petName}打开互动菜单，拖动可移动位置`}
       >
         <div
           className={`${styles.sprite} ${styles[action]} ${
@@ -392,20 +539,11 @@ export function Pet() {
         </div>
       </div>
 
-      {!isPresenting && (
-        <button
-          className={styles.patHotspot}
-          type="button"
-          aria-label={`摸摸${state.petName}的头`}
-          title={`摸摸${state.petName}`}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => postHostMessage('pet.action', { action: 'petted' })}
-        />
-      )}
-
       <div
         key={`effects-${actionCycle}`}
-        className={`${styles.actionEffects} ${styles[action]}`}
+        className={`${styles.actionEffects} ${styles[action]} ${
+          isSingleCharacter ? styles.singleCharacterEffects : ''
+        }`}
         aria-hidden="true"
       >
         <span className={`${styles.heartFx} ${styles.heartOne}`}>♥</span>
@@ -422,7 +560,7 @@ export function Pet() {
         <button
           className={styles.nextReminder}
           type="button"
-          onClick={() => postHostMessage('window.openDashboard')}
+          onClick={openDashboard}
         >
           <span>{formatShortTime(nextReminder.dueAt)}</span>
           <strong>{nextReminder.title}</strong>

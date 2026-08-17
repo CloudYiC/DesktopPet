@@ -97,6 +97,8 @@ class Application final {
   void LoadCharacters();
   void SaveCharacters();
   bool HasCharacter(const std::string& id) const;
+  bool HasPackagedGirl() const;
+  std::string DefaultCharacterId() const;
 
   HINSTANCE instance_{};
   std::unique_ptr<WebViewWindow> petWindow_;

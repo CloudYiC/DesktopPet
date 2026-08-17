@@ -222,9 +222,9 @@ export function AccountView({ state, onPreferencesChange, onOpenPluginStore }: A
           )}
 
           {tab === 'about' && (
-            <SettingsPane kicker="ABOUT CLOUDYI" title="关于桌面工作台" description="可爱依依小助手与 CloudYi 工具箱共用一个本地优先的 Windows 客户端。">
+            <SettingsPane kicker="ABOUT CLOUDYI" title="关于依依工作台" description="桌面小助手与 CloudYi 工具箱共用一个本地优先的 Windows 客户端。">
               <SettingsSection title="版本信息">
-                <SettingLine label="可爱依依小助手 · 桌面工作台" detail="当前应用版本"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
+                <SettingLine label="依依工作台" detail="当前应用版本"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
                 <SettingLine label="原生层" detail="C Win32 探针、C++11 应用与 WebView2 桥接"><strong className={styles.aboutValue}>C / C++11</strong></SettingLine>
                 <SettingLine label="界面层" detail="组件、动画与 SCSS Modules"><strong className={styles.aboutValue}>React 18</strong></SettingLine>
                 <SettingLine label="数据层" detail="事项、角色元数据与工作台偏好"><strong className={styles.aboutValue}>SQLite</strong></SettingLine>

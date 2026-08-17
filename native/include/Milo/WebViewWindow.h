@@ -37,8 +37,12 @@ class WebViewWindow final {
   void SetTitle(const std::wstring& title);
   /// Replaces taskbar/window icons with the active assistant character.
   void SetIcons(HICON largeIcon, HICON smallIcon);
-  /// Starts a native caption-style drag for the borderless pet window.
+  /// Records the cursor/window origin for application-rendered pet dragging.
   void BeginDrag();
+  /// Moves the pet window with the current cursor without native caption UI.
+  void UpdateDrag();
+  /// Finishes custom dragging, snaps to the work area and saves the position.
+  void EndDrag();
   /// Animates an expanded reminder window into the monitor work area.
   void BeginReminderPresentation(const std::string& priority);
   /// Returns the presentation window to its saved desktop position.
@@ -93,6 +97,9 @@ class WebViewWindow final {
   RECT animationTo_{};
   ULONGLONG presentationPhaseStarted_{};
   std::string presentationPriority_{"normal"};
+  bool manualDragActive_{};
+  POINT manualDragStartCursor_{};
+  RECT manualDragStartBounds_{};
 };
 
 }  // namespace milo

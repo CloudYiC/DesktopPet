@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   keywords: [
     SITE_NAME_ZH,
     SITE_NAME_EN,
-    '可爱依依小助手',
+    '依依工作台',
     'CloudYi desktop toolbox',
     'C++11 Win32 desktop app',
     'local developer toolbox',
@@ -27,9 +27,9 @@ export default function DesktopPage() {
     <div className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <h1 className={styles.heroTitle}>可爱依依桌面工作台</h1>
+          <h1 className={styles.heroTitle}>依依工作台</h1>
           <p className={styles.heroLead}>
-            把可爱依依小助手、事项提醒、系统中心、端口管理和 CloudYi 本地工具放进同一个
+            把粉色依依、事项提醒、系统中心、端口管理和 CloudYi 本地工具放进同一个
             Windows 应用，数据默认保存在本机。
           </p>
 
@@ -61,12 +61,12 @@ export default function DesktopPage() {
           </div>
         </div>
 
-        <div className={styles.heroVisual} aria-label="可爱依依桌面工作台预览">
+        <div className={styles.heroVisual} aria-label="依依工作台预览">
           <div className={styles.previewTop}>
             <span />
             <span />
             <span />
-            <strong>可爱依依 · CloudYi 工具箱</strong>
+            <strong>依依工作台 · CloudYi 工具箱</strong>
           </div>
           <div className={styles.previewBody}>
             <aside className={styles.previewSidebar}>

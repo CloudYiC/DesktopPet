@@ -26,7 +26,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
   // WebView2 and SAPI both require COM on the UI thread.
   const HRESULT comResult = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if (FAILED(comResult)) {
-    MessageBoxW(nullptr, L"无法初始化 Windows COM 环境。", L"可爱依依小助手",
+    MessageBoxW(nullptr, L"无法初始化 Windows COM 环境。", L"依依工作台",
                 MB_OK | MB_ICONERROR);
     CloseHandle(instanceMutex);
     return 1;
@@ -38,7 +38,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
     exitCode = application.Run(showCommand);
   } catch (const std::exception& error) {
     std::wstring message = L"启动失败：\n" + milo::Utf8ToWide(error.what());
-    MessageBoxW(nullptr, message.c_str(), L"可爱依依小助手",
+    MessageBoxW(nullptr, message.c_str(), L"依依工作台",
                 MB_OK | MB_ICONERROR);
     exitCode = 1;
   }
