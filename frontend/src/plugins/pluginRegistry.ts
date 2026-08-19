@@ -22,7 +22,6 @@ const listeners = new Set<() => void>();
 function readState(): PluginState {
   const defaults = Object.fromEntries(
     TOOL_DEFINITIONS
-      .filter((tool) => tool.runtime !== 'planned')
       .map((tool) => [tool.id, DEFAULT_LOCAL_TOOLS.has(tool.id)]),
   );
   try {

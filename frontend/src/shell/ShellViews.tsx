@@ -1,11 +1,11 @@
-import { FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import packageInfo from '../../package.json';
 import { setPluginEnabled, usePluginRegistry } from '../plugins/pluginRegistry';
 import { permissionsForTool, READY_TOOL_COUNT, TOOL_DEFINITIONS } from '../toolbox/catalog';
 import type { AppState, WorkspaceTextSize, WorkspaceTheme } from '../types';
 import styles from './ShellViews.module.scss';
 
-/** Read-only first migration of the signed CloudYi plugin catalog. */
+/** Enables or disables only the working modules bundled with the app. */
 export function PluginStoreView() {
   const [query, setQuery] = useState('');
   const pluginState = usePluginRegistry();
@@ -19,29 +19,28 @@ export function PluginStoreView() {
     );
   }, [query]);
   const enabledCount = TOOL_DEFINITIONS.filter(
-    (tool) => tool.runtime !== 'planned' && pluginState[tool.id] !== false,
+    (tool) => pluginState[tool.id] !== false,
   ).length;
 
   return (
     <section className={styles.storeView}>
       <div className={styles.storeHero}>
-        <div><span>PLUGIN MANAGER</span><h2>按需启用，让每项权限都看得见。</h2><p>内置插件的启用状态保存在本机；系统与进程权限仍由 C++11 原生层再次校验。</p></div>
+        <div><span>LOCAL MODULES</span><h2>按需启用，让每项权限都看得见。</h2><p>内置模块的启用状态保存在本机；系统与进程权限仍由 C++11 原生层再次校验。</p></div>
         <div><strong>{enabledCount}</strong><span>Local</span><strong>{READY_TOOL_COUNT - enabledCount}</strong><span>Available</span></div>
       </div>
       <label className={styles.storeSearch}>
         <span>⌕</span>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索插件或功能…" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索模块或功能…" />
         <em>{filteredTools.length} 个结果</em>
       </label>
       <div className={styles.pluginGrid}>
         {filteredTools.map((tool) => {
-          const ready = tool.runtime !== 'planned';
-          const enabled = ready && pluginState[tool.id] !== false;
+          const enabled = pluginState[tool.id] !== false;
           return (
-            <article key={tool.id} className={!enabled && ready ? styles.pluginDisabled : undefined}>
+            <article key={tool.id} className={!enabled ? styles.pluginDisabled : undefined}>
               <i>{tool.glyph}</i>
               <div>
-                <span>{!ready ? 'COMING SOON' : enabled ? 'BUILT IN · LOCAL' : 'BUNDLED · AVAILABLE'}</span>
+                <span>{enabled ? 'BUILT IN · LOCAL' : 'BUNDLED · AVAILABLE'}</span>
                 <h3>{tool.name}</h3><p>{tool.description}</p>
                 <ul className={styles.permissionList}>
                   {permissionsForTool(tool).map((permission) => <li key={permission}>{permission}</li>)}
@@ -49,10 +48,9 @@ export function PluginStoreView() {
               </div>
               <button
                 type="button"
-                disabled={!ready}
                 onClick={() => setPluginEnabled(tool.id, !enabled)}
               >
-                {!ready ? 'Coming Soon' : enabled ? 'Remove' : 'Install'}
+                {enabled ? '停用' : '启用'}
               </button>
             </article>
           );
@@ -62,17 +60,16 @@ export function PluginStoreView() {
   );
 }
 
-type CloudYiCenterTab = 'account' | 'appearance' | 'plugins' | 'storage' | 'about';
+type WorkbenchCenterTab = 'appearance' | 'plugins' | 'storage' | 'about';
 
-const CLOUDYI_CENTER_TABS: { id: CloudYiCenterTab; label: string; glyph: string }[] = [
-  { id: 'account', label: '账户', glyph: '依' },
+const WORKBENCH_CENTER_TABS: { id: WorkbenchCenterTab; label: string; glyph: string }[] = [
   { id: 'appearance', label: '常规', glyph: '◐' },
-  { id: 'plugins', label: '插件与版本', glyph: '◇' },
+  { id: 'plugins', label: '模块与版本', glyph: '◇' },
   { id: 'storage', label: '本机数据', glyph: '▤' },
   { id: 'about', label: '关于', glyph: 'i' },
 ];
 
-interface AccountViewProps {
+interface WorkspaceCenterViewProps {
   state: AppState;
   onPreferencesChange(patch: {
     workspaceTheme?: WorkspaceTheme;
@@ -82,26 +79,20 @@ interface AccountViewProps {
   onOpenPluginStore(): void;
 }
 
-/** Local-first CloudYi center; cloud authentication remains intentionally inert. */
-export function AccountView({ state, onPreferencesChange, onOpenPluginStore }: AccountViewProps) {
-  const [tab, setTab] = useState<CloudYiCenterTab>('account');
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [notice, setNotice] = useState('');
+/** Local-first settings center containing only operational preferences. */
+export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginStore }: WorkspaceCenterViewProps) {
+  const [tab, setTab] = useState<WorkbenchCenterTab>('appearance');
   const pluginState = usePluginRegistry();
-  const readyTools = TOOL_DEFINITIONS.filter((tool) => tool.runtime !== 'planned');
+  const readyTools = TOOL_DEFINITIONS;
   const enabledTools = readyTools.filter((tool) => pluginState[tool.id] !== false).length;
   const customCharacters = state.characters.filter((character) => !character.builtIn).length;
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setNotice('账户界面已经迁移；云端接口接入前不会创建虚假的登录状态。');
-  };
 
   return (
-    <section className={styles.accountView}>
+    <section className={styles.centerView}>
       <div className={styles.centerShell}>
-        <nav className={styles.centerTabs} aria-label="CloudYi 中心">
-          <div><span>CLOUDYI CENTER</span><strong>账户与偏好</strong></div>
-          {CLOUDYI_CENTER_TABS.map((item) => (
+        <nav className={styles.centerTabs} aria-label="工作台中心">
+          <div><span>YIYI WORKBENCH</span><strong>工作台偏好</strong></div>
+          {WORKBENCH_CENTER_TABS.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -115,35 +106,6 @@ export function AccountView({ state, onPreferencesChange, onOpenPluginStore }: A
         </nav>
 
         <div className={styles.centerContent}>
-          {tab === 'account' && (
-            <article className={styles.accountCard}>
-              <div className={styles.accountIntro}>
-                <span>CLOUDYI ACCOUNT</span>
-                <h2>登录后管理插件权限与多设备设置。</h2>
-                <p>提醒事项、角色图片和工具输入默认仍只保存在本机，不会因为登录自动上传。</p>
-                <ul>
-                  <li><i>✓</i><span><strong>本地优先</strong><small>未登录也可使用内置工具和小助手。</small></span></li>
-                  <li><i>✓</i><span><strong>权限透明</strong><small>高权限插件安装前显示文件、网络或进程权限。</small></span></li>
-                  <li><i>✓</i><span><strong>按需同步</strong><small>以后可单独选择同步设置，不默认同步私人数据。</small></span></li>
-                </ul>
-              </div>
-              <div className={styles.authPanel}>
-                <div className={styles.authTabs}>
-                  <button type="button" className={mode === 'login' ? styles.activeTab : undefined} onClick={() => setMode('login')}>登录</button>
-                  <button type="button" className={mode === 'register' ? styles.activeTab : undefined} onClick={() => setMode('register')}>注册</button>
-                </div>
-                <form onSubmit={submit}>
-                  {mode === 'register' && <label><span>显示名称</span><input required maxLength={30} placeholder="怎么称呼你" /></label>}
-                  <label><span>邮箱</span><input required type="email" placeholder="name@example.com" /></label>
-                  <label><span>密码</span><input required type="password" minLength={8} placeholder="至少 8 位" /></label>
-                  <button type="submit">{mode === 'login' ? '登录 CloudYi' : '创建账户'}</button>
-                </form>
-                {notice && <p className={styles.accountNotice}>{notice}</p>}
-                <small>当前为账户界面预览，尚未向任何服务器发送数据。</small>
-              </div>
-            </article>
-          )}
-
           {tab === 'appearance' && (
             <SettingsPane kicker="GENERAL" title="常规与外观" description="设置会写入本机 SQLite，并在下次启动时恢复。">
               <SettingsSection title="主题颜色">
@@ -165,7 +127,7 @@ export function AccountView({ state, onPreferencesChange, onOpenPluginStore }: A
                     </button>
                   ))}
                 </div>
-                <p className={styles.settingHint}>当前提供三套完整浅色主题；深色主题会在所有工具完成对比度校准后加入。</p>
+                <p className={styles.settingHint}>当前三套浅色主题均已完整可用。</p>
               </SettingsSection>
               <SettingsSection title="界面显示">
                 <SettingLine label="界面字号" detail="同时缩放侧栏、工具和表单，避免只放大部分文字。">
@@ -191,23 +153,22 @@ export function AccountView({ state, onPreferencesChange, onOpenPluginStore }: A
           )}
 
           {tab === 'plugins' && (
-            <SettingsPane kicker="PLUGINS & VERSION" title="插件与版本" description="这里只展示真实的本地安装状态，不模拟在线更新。">
+            <SettingsPane kicker="MODULES & VERSION" title="模块与版本" description="这里只展示内置模块的真实启用状态和当前应用版本。">
               <div className={styles.summaryCards}>
                 <article><span>已启用</span><strong>{enabledTools}</strong><small>Local</small></article>
-                <article><span>可安装</span><strong>{readyTools.length - enabledTools}</strong><small>Available</small></article>
+                <article><span>未启用</span><strong>{readyTools.length - enabledTools}</strong><small>Available</small></article>
                 <article><span>当前版本</span><strong>v{packageInfo.version}</strong><small>Release</small></article>
               </div>
-              <SettingsSection title="插件管理">
-                <SettingLine label="本地插件目录" detail={`${READY_TOOL_COUNT} 项功能已经接入；安装状态保存在当前 WebView 用户数据中。`}>
-                  <button type="button" className={styles.secondaryButton} onClick={onOpenPluginStore}>打开插件商店</button>
+              <SettingsSection title="模块管理">
+                <SettingLine label="本地模块目录" detail={`${READY_TOOL_COUNT} 项功能已经接入；启用状态保存在当前 WebView 用户数据中。`}>
+                  <button type="button" className={styles.secondaryButton} onClick={onOpenPluginStore}>打开模块管理</button>
                 </SettingLine>
-                <SettingLine label="在线更新" detail="尚未配置签名清单与校验服务，因此不会展示一个无效的检查按钮。"><span className={styles.statusPill}>待接服务</span></SettingLine>
               </SettingsSection>
             </SettingsPane>
           )}
 
           {tab === 'storage' && (
-            <SettingsPane kicker="LOCAL STORAGE" title="本机数据" description="这些内容默认不会因为打开账户页面而上传。">
+            <SettingsPane kicker="LOCAL STORAGE" title="本机数据" description="这些内容全部保存在本机，不会上传到云端。">
               <div className={styles.summaryCards}>
                 <article><span>未完成事项</span><strong>{state.reminders.length}</strong><small>SQLite</small></article>
                 <article><span>自定义角色</span><strong>{customCharacters}</strong><small>Characters</small></article>

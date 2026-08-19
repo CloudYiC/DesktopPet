@@ -455,7 +455,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.11.5";
+    const std::string marker = "CuteYiyiDesktopPet 0.11.6";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -499,9 +499,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
       return;
     }
     if (type == "window.hideDashboard") {
-      if (dashboardWindow_ != nullptr) {
-        dashboardWindow_->Hide();
-      }
+      CloseDashboard();
       return;
     }
     if (type == "window.hidePet") {
@@ -1183,11 +1181,20 @@ void Application::HandleTimer() {
     // TakeDue atomically claims occurrences before any UI or audio side effect.
     const std::vector<Reminder> due =
         reminders_.TakeDue(UnixTimeMilliseconds());
+    const bool dashboardVisible =
+        dashboardWindow_ != nullptr &&
+        IsWindowVisible(dashboardWindow_->Handle());
     for (const Reminder& reminder : due) {
-      petWindow_->Show();
-      petWindow_->BeginReminderPresentation(reminder.priority);
+      // Keep the workspace distraction-free. The reminder still reaches the
+      // dashboard, tray and audio channels, and the pet can present it after
+      // the dashboard has been closed.
+      if (!dashboardVisible) {
+        petWindow_->Show();
+        petWindow_->BeginReminderPresentation(reminder.priority);
+      }
       presentedReminderId_ = reminder.id;
       hasPresentedReminder_ = true;
+      presentedReminderPriority_ = reminder.priority;
       PlayReminderAlert(reminder);
       ShowNativeNotification(reminder);
       Broadcast({{"type", "reminder.triggered"},
@@ -1200,9 +1207,6 @@ void Application::HandleTimer() {
     // Windows' system-wide last-input tick includes activity outside this app,
     // matching the user's expectation of "no computer operation".
     LASTINPUTINFO lastInput{sizeof(lastInput)};
-    const bool dashboardVisible =
-        dashboardWindow_ != nullptr &&
-        IsWindowVisible(dashboardWindow_->Handle());
     if (GetLastInputInfo(&lastInput)) {
       const DWORD idleMilliseconds = GetTickCount() - lastInput.dwTime;
       const bool shouldTuck =
@@ -1231,8 +1235,35 @@ void Application::HandleTrayMessage(LPARAM event) {
 
 void Application::ShowDashboard() {
   EnsureDashboard();
+  const bool dashboardVisible =
+      IsWindowVisible(dashboardWindow_->Handle()) != FALSE;
+  const bool petVisible =
+      petWindow_ != nullptr &&
+      IsWindowVisible(petWindow_->Handle()) != FALSE;
+  if (!dashboardVisible) {
+    // Only restore a pet that this dashboard transition actually hid. This
+    // preserves an explicit "temporarily hide" choice made from the tray.
+    restorePetAfterDashboard_ = petVisible;
+  }
+  if (petVisible) {
+    petWindow_->Hide();
+  }
   dashboardWindow_->Show();
   SendState(dashboardWindow_.get());
+}
+
+void Application::CloseDashboard() {
+  if (dashboardWindow_ != nullptr) {
+    dashboardWindow_->Hide();
+  }
+  if (!quitting_ && restorePetAfterDashboard_ && petWindow_ != nullptr &&
+      !IsWindowVisible(petWindow_->Handle())) {
+    petWindow_->Show();
+    if (hasPresentedReminder_) {
+      petWindow_->BeginReminderPresentation(presentedReminderPriority_);
+    }
+  }
+  restorePetAfterDashboard_ = false;
 }
 
 void Application::SavePetPosition(HWND window) {
@@ -1248,6 +1279,8 @@ void Application::SavePetPosition(HWND window) {
 }
 
 void Application::Quit() {
+  quitting_ = true;
+  restorePetAfterDashboard_ = false;
   RemoveTrayIcon();
   if (dashboardWindow_ != nullptr &&
       IsWindow(dashboardWindow_->Handle())) {
@@ -1298,10 +1331,16 @@ void Application::ShowTrayMenu() {
   HMENU menu = CreatePopupMenu();
   AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开依依工作台");
   const std::wstring petName = Utf8ToWide(petName_);
+  const bool dashboardVisible =
+      dashboardWindow_ != nullptr &&
+      IsWindowVisible(dashboardWindow_->Handle()) != FALSE;
   const std::wstring visibilityLabel =
-      IsWindowVisible(petWindow_->Handle()) ? L"暂时隐藏" + petName
-                                            : L"显示" + petName;
-  AppendMenuW(menu, MF_STRING, kHidePetCommand, visibilityLabel.c_str());
+      dashboardVisible
+          ? petName + L"会在关闭工作台后回来"
+          : (IsWindowVisible(petWindow_->Handle()) ? L"暂时隐藏" + petName
+                                                   : L"显示" + petName);
+  AppendMenuW(menu, dashboardVisible ? MF_GRAYED : MF_STRING,
+              kHidePetCommand, visibilityLabel.c_str());
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
   AppendMenuW(menu, MF_STRING, kQuitCommand, L"退出");
 

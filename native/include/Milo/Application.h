@@ -52,6 +52,8 @@ class Application final {
   void HandleTrayMessage(LPARAM event);
   /// Opens or foregrounds the reminder dashboard.
   void ShowDashboard();
+  /// Closes the dashboard surface and restores the pet when it opened it.
+  void CloseDashboard();
   /// Persists the pet window position after a drag or display change.
   void SavePetPosition(HWND window);
   /// Closes all windows and exits the process.
@@ -117,6 +119,8 @@ class Application final {
   bool hasPetPosition_{};
   std::int64_t presentedReminderId_{};
   bool hasPresentedReminder_{};
+  /// Priority retained when a reminder arrives while the dashboard is open.
+  std::string presentedReminderPriority_{"normal"};
   std::string petName_{"可爱依依"};
   std::vector<CharacterProfile> characters_;
   std::string activeCharacterId_{"builtin"};
@@ -137,6 +141,10 @@ class Application final {
   HICON activeLargeIcon_{};
   HICON activeSmallIcon_{};
   bool showDashboardOnStart_{};
+  /// Remembers whether opening the dashboard temporarily displaced the pet.
+  bool restorePetAfterDashboard_{};
+  /// Prevents window-close callbacks from reviving the pet during shutdown.
+  bool quitting_{};
 };
 
 }  // namespace milo

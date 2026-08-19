@@ -134,14 +134,14 @@ export function AppSidebar(props: AppSidebarProps) {
           type="button"
           onClick={() => props.onViewChange('marketplace')}
         >
-          <i>◇</i><span><strong>插件商店</strong><small>扩展本地工具</small></span><em>›</em>
+          <i>◇</i><span><strong>模块管理</strong><small>启用内置工具</small></span><em>›</em>
         </button>
         <button
           className={`${styles.profileButton} ${props.activeView === 'account' ? styles.bottomActive : ''}`}
           type="button"
           onClick={() => props.onViewChange('account')}
         >
-          <i>依</i><span><strong>CloudYi 中心</strong><small>账户、主题与本机设置</small></span><em>›</em>
+          <i>依</i><span><strong>工作台中心</strong><small>主题、模块与本机数据</small></span><em>›</em>
         </button>
       </div>
     </aside>

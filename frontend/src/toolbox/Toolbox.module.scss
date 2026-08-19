@@ -239,11 +239,6 @@ $peach: var(--theme-accent);
     &:hover { border-color: rgba(22, 139, 133, 0.23); box-shadow: 0 7px 18px rgba(70, 58, 49, 0.07); transform: translateY(-1px); }
   }
 
-  .plannedTool {
-    background: rgba(250, 247, 242, 0.78);
-    box-shadow: none;
-  }
-
   .availableTool { background: color-mix(in srgb, $paper 82%, transparent); }
 }
 
@@ -257,11 +252,6 @@ $peach: var(--theme-accent);
   border-radius: 11px;
   font-size: 10px;
   font-weight: 850;
-}
-
-.plannedTool .toolGlyph {
-  color: #9c8f86;
-  background: #eee7df;
 }
 
 .toolCopy {
@@ -292,8 +282,6 @@ $peach: var(--theme-accent);
   }
 }
 
-.plannedTool .toolCopy span { color: #a7988e; }
-
 .toolActions {
   display: flex;
   grid-column: 1 / -1;
@@ -319,7 +307,6 @@ $peach: var(--theme-accent);
 
 .localBadge,
 .availableBadge,
-.soonBadge,
 .popularBadge {
   padding: 4px 7px;
   border-radius: 5px;
@@ -329,7 +316,6 @@ $peach: var(--theme-accent);
 
 .localBadge { color: #167d5c; background: #dff5e9; }
 .availableBadge { color: #9a6500; background: #fff0c9; }
-.soonBadge { color: #8e827a; background: #eee8e2; }
 .popularBadge { color: #ca511d; background: #ffe6d4; }
 .emptyCatalog { grid-column: 1 / -1; margin: 0; padding: 38px; color: $muted; background: $paper; border-radius: 14px; font-size: 10px; text-align: center; }
 

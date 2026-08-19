@@ -30,7 +30,7 @@ interface ToolboxProps {
 export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'default' | 'local' | 'available' | 'planned'>('default');
+  const [statusFilter, setStatusFilter] = useState<'default' | 'local' | 'available'>('default');
   const searchInput = useRef<HTMLInputElement>(null);
   const activeTool = TOOL_DEFINITIONS.find((tool) => tool.id === activeToolId) ?? null;
   const pluginState = usePluginRegistry();
@@ -38,11 +38,10 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
   const visibleTools = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('zh-CN');
     return toolsForCategory(category).filter((tool) => {
-      const local = tool.runtime !== 'planned' && pluginState[tool.id] !== false;
-      const available = tool.runtime !== 'planned' && pluginState[tool.id] === false;
+      const local = pluginState[tool.id] !== false;
+      const available = !local;
       if (statusFilter === 'local' && !local) return false;
       if (statusFilter === 'available' && !available) return false;
-      if (statusFilter === 'planned' && tool.runtime !== 'planned') return false;
       return !normalized || `${tool.name} ${tool.shortName} ${tool.description}`
         .toLocaleLowerCase('zh-CN')
         .includes(normalized);
@@ -127,23 +126,22 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
           <option value="default">Default</option>
           <option value="local">Local</option>
           <option value="available">Available</option>
-          <option value="planned">Coming Soon</option>
         </select>
       </div>
 
       {!selectedCategory && (
         <div className={styles.catalogHeading}>
-          <div><span>TOOL CATALOG</span><h2>全部工具</h2><p>本地工具、可安装模块和后续计划。</p></div>
+          <div><span>TOOL CATALOG</span><h2>全部工具</h2><p>这里只展示已经可以实际使用的本地工具与模块。</p></div>
         </div>
       )}
 
       <div className={styles.toolGrid}>
         {visibleTools.map((tool) => {
-          const local = tool.runtime !== 'planned' && pluginState[tool.id] !== false;
-          const available = tool.runtime !== 'planned' && !local;
+          const local = pluginState[tool.id] !== false;
+          const available = !local;
           const popular = ['timestamp', 'system-inspector', 'port-manager', 'software-uninstaller'].includes(tool.id);
           return (
-            <article key={tool.id} className={tool.runtime === 'planned' ? styles.plannedTool : available ? styles.availableTool : undefined}>
+            <article key={tool.id} className={available ? styles.availableTool : undefined}>
               <div className={styles.toolGlyph}>{tool.glyph}</div>
               <div className={styles.toolCopy}>
                 <span>{runtimeLabel(tool)}</span>
@@ -153,19 +151,18 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
               <footer className={styles.toolActions}>
                 <div>
                   {popular && <span className={styles.popularBadge}>Popular</span>}
-                  <span className={local ? styles.localBadge : available ? styles.availableBadge : styles.soonBadge}>
-                    {local ? 'Local' : available ? 'Available' : 'Coming Soon'}
+                  <span className={local ? styles.localBadge : styles.availableBadge}>
+                    {local ? 'Local' : 'Available'}
                   </span>
                 </div>
                 <button
                   type="button"
-                  disabled={tool.runtime === 'planned'}
                   onClick={() => {
                     if (available) setPluginEnabled(tool.id, true);
-                    else if (local) setActiveToolId(tool.id);
+                    else setActiveToolId(tool.id);
                   }}
                 >
-                  {local ? 'Open' : available ? 'Install' : 'Soon'}
+                  {local ? 'Open' : 'Enable'}
                 </button>
               </footer>
             </article>
@@ -180,8 +177,7 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
 function runtimeLabel(tool: ToolDefinition) {
   if (tool.runtime === 'c-core') return 'C CORE';
   if (tool.runtime === 'react') return 'REACT LOCAL';
-  if (tool.runtime === 'native-system') return 'WINDOWS NATIVE';
-  return 'MIGRATION QUEUE';
+  return 'WINDOWS NATIVE';
 }
 
 function WorkspaceHeading({ tool, onBack }: ToolWorkspaceProps) {

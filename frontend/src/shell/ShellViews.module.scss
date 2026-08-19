@@ -6,7 +6,7 @@ $teal: var(--theme-primary);
 $teal-dark: var(--theme-primary-deep);
 
 .storeView,
-.accountView {
+.centerView {
   display: grid;
   margin-top: 24px;
   gap: 18px;
@@ -102,58 +102,6 @@ $teal-dark: var(--theme-primary-deep);
   opacity: 0.68;
   box-shadow: none;
 }
-
-.accountCard {
-  display: grid;
-  overflow: hidden;
-  grid-template-columns: 1fr;
-  background: $paper;
-  border: 1px solid rgba(86, 66, 52, 0.08);
-  border-radius: 25px;
-  box-shadow: 0 18px 45px rgba(70, 58, 49, 0.07);
-}
-
-.accountIntro {
-  padding: 27px 32px 25px;
-  background: linear-gradient(145deg, #e0f1ed, #f8e6d8);
-
-  > span { color: $teal; font-size: 8px; font-weight: 850; letter-spacing: 0.2em; }
-  h2 { margin: 8px 0 6px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 24px; font-weight: 600; line-height: 1.3; }
-  > p { margin: 0; color: #74675f; font-size: 10px; line-height: 1.75; }
-  ul { display: grid; padding: 0; margin: 19px 0 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; }
-  li { display: grid; min-width: 0; padding: 11px; align-items: start; grid-template-columns: 28px 1fr; gap: 9px; background: color-mix(in srgb, $paper 56%, transparent); border: 1px solid rgba(86, 66, 52, 0.06); border-radius: 13px; }
-  li > i { display: grid; width: 28px; height: 28px; place-items: center; color: #fff; background: $teal; border-radius: 50%; font-size: 9px; font-style: normal; }
-  li strong,
-  li small { display: block; }
-  li strong { color: $ink; font-size: 10px; }
-  li small { margin-top: 2px; color: #7e7168; font-size: 8px; line-height: 1.5; }
-}
-
-.authPanel {
-  padding: 27px 34px 31px;
-
-  form { display: grid; width: min(100%, 570px); gap: 13px; margin: 18px auto 0; }
-  form label > span { display: block; margin-bottom: 6px; color: $muted; font-size: 8px; font-weight: 700; }
-  input { width: 100%; min-height: 46px; padding: 0 14px; color: $ink; background: $sand; border: 1px solid rgba(86, 66, 52, 0.08); border-radius: 12px; outline: none; font-size: 10px; }
-  input:focus { border-color: rgba(22, 139, 133, 0.42); }
-  form > button { min-height: 46px; margin-top: 4px; color: #fff; cursor: pointer; background: $teal; border: 0; border-radius: 12px; font-size: 10px; font-weight: 800; }
-  > small { display: block; margin-top: 13px; color: #a09288; font-size: 7px; line-height: 1.5; text-align: center; }
-}
-
-.authTabs {
-  display: grid;
-  width: min(100%, 570px);
-  padding: 3px;
-  margin: 0 auto;
-  grid-template-columns: 1fr 1fr;
-  background: $sand;
-  border-radius: 11px;
-
-  button { min-height: 34px; color: $muted; cursor: pointer; background: transparent; border: 0; border-radius: 9px; font-size: 9px; font-weight: 750; }
-  .activeTab { color: $teal-dark; background: $paper; box-shadow: 0 4px 12px rgba(70, 58, 49, 0.07); }
-}
-
-.accountNotice { margin: 12px 0 0; padding: 10px; color: $teal-dark; background: #e9f5f2; border-radius: 10px; font-size: 8px; line-height: 1.5; }
 
 .centerShell {
   display: grid;
@@ -377,15 +325,13 @@ $teal-dark: var(--theme-primary-deep);
 .aboutValue { color: $ink; font-family: Georgia, serif; font-size: 10px; white-space: nowrap; }
 
 @media (max-width: 760px) {
-  .storeHero,
-  .accountCard { grid-template-columns: 1fr; }
+  .storeHero { grid-template-columns: 1fr; }
   .pluginGrid { grid-template-columns: 1fr; }
   .centerShell { grid-template-columns: 1fr; }
-  .centerTabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid rgba(86, 66, 52, 0.07); }
+  .centerTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid rgba(86, 66, 52, 0.07); }
   .centerTabs > div { display: none; }
   .centerTabs > button { padding: 6px; grid-template-columns: 1fr; justify-items: center; text-align: center; }
   .themeChoices,
   .summaryCards { grid-template-columns: 1fr; }
   .settingLine { align-items: start; grid-template-columns: 1fr; }
-  .accountIntro ul { grid-template-columns: 1fr; }
 }

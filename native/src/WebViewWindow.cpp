@@ -444,7 +444,9 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
 
     case WM_CLOSE:
       if (kind_ == WindowKind::Dashboard) {
-        Hide();
+        // Treat the close button/Alt+F4 as leaving the workspace. Minimizing
+        // only sends WM_SIZE, so it deliberately keeps the pet hidden.
+        application_.CloseDashboard();
       } else {
         application_.Quit();
       }
@@ -750,15 +752,16 @@ void WebViewWindow::UpdatePresentationAnimation() {
   const LONG width = Interpolate(startWidth, endWidth, progress);
   const LONG height = Interpolate(startHeight, endHeight, progress);
 
-  SetWindowPos(window_, HWND_TOPMOST, x, y, width, height,
-               SWP_NOACTIVATE | SWP_SHOWWINDOW);
+  // Do not force visibility here: the dashboard may have deliberately hidden
+  // the pet while this timer finishes its presentation state transition.
+  SetWindowPos(window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE);
 
   if (rawProgress < 1.0) {
     return;
   }
 
   SetWindowPos(window_, HWND_TOPMOST, animationTo_.left, animationTo_.top,
-               endWidth, endHeight, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+               endWidth, endHeight, SWP_NOACTIVATE);
   if (presentationState_ == PresentationState::MovingIn) {
     presentationState_ = PresentationState::Holding;
     presentationPhaseStarted_ = now;

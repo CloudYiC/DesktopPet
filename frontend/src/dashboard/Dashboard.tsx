@@ -9,7 +9,7 @@ import {
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
 import { AppSidebar } from '../navigation/AppSidebar';
 import type { DashboardView } from '../navigation/types';
-import { AccountView, PluginStoreView } from '../shell/ShellViews';
+import { PluginStoreView, WorkspaceCenterView } from '../shell/ShellViews';
 import { Toolbox } from '../toolbox/Toolbox';
 import { categoryById, type ToolCategoryId } from '../toolbox/catalog';
 import type {
@@ -431,9 +431,9 @@ export function Dashboard() {
   const viewHeading = activeView === 'toolbox'
       ? activeCategory?.label ?? 'CloudYi 开发工具箱'
     : activeView === 'marketplace'
-      ? '让工具按需要来到你身边。'
+      ? '按需启用已经内置的本地工具。'
     : activeView === 'account'
-      ? '账户、外观与本机数据集中管理。'
+      ? '工作台外观、模块与本机数据集中管理。'
     : activeView === 'all'
       ? '所有小事，都在这里。'
     : activeView === 'status'
@@ -444,9 +444,9 @@ export function Dashboard() {
   const viewDescription = activeView === 'toolbox'
     ? activeCategory?.description ?? '本地优先的常用开发工具，不离开桌面也能快速处理数据。'
     : activeView === 'marketplace'
-      ? '查看已内置工具和后续将从 CloudYiCSC 迁移的插件。'
+      ? '这里只管理已经随依依工作台打包并可实际使用的模块。'
     : activeView === 'account'
-      ? '主题、字号、启动页面和插件状态都可以在这里调整；云端接入前不会上传本地内容。'
+      ? '主题、字号、启动页面、模块状态和本机数据都可以在这里查看或调整。'
     : activeView === 'all'
     ? '一次看看所有待办和重复提醒。'
     : activeView === 'status'
@@ -457,9 +457,9 @@ export function Dashboard() {
   const viewKicker = activeView === 'toolbox'
     ? 'CLOUDYI TOOLBOX'
     : activeView === 'marketplace'
-      ? 'SIGNED EXTENSIONS'
+      ? 'LOCAL MODULES'
       : activeView === 'account'
-        ? 'CLOUDYI CENTER'
+        ? 'YIYI WORKBENCH'
         : 'CUTE COMPANION ROUTINE';
 
   return (
@@ -510,7 +510,7 @@ export function Dashboard() {
         ) : activeView === 'marketplace' ? (
           <PluginStoreView />
         ) : activeView === 'account' ? (
-          <AccountView
+          <WorkspaceCenterView
             state={state}
             onPreferencesChange={(patch: {
               workspaceTheme?: WorkspaceTheme;
