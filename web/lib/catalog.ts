@@ -1,6 +1,7 @@
 /** Tool categories shared by the catalog, filters, and detail pages. */
 export type PluginCategory =
   | 'encoding'
+  | 'network'
   | 'generators'
   | 'media'
   | 'text-data'
@@ -84,6 +85,22 @@ export const TOOLS: ToolEntry[] = [
     updatedDays: 8,
     tags: ['hex', 'binary', 'bytes'],
     builtIn: false,
+  },
+  {
+    id: 'packet-inspector',
+    name: '十六进制报文分析器',
+    shortName: '报文分析',
+    description: '粘贴 Hex 或 Wireshark 转储，看清协议层、字段与字节位置。',
+    longDescription:
+      '在浏览器本地解析 Ethernet、IPv4、IPv6、TCP、UDP 和 ICMP 基本头部，并用颜色将字段映射到原始字节。未知载荷不会被猜测成某种协议；可以为自定义协议保存字段模板。',
+    category: 'network',
+    icon: 'PKT',
+    version: '0.1.0',
+    size: '12 KB',
+    publishedAt: '2026-09-03',
+    updatedDays: 0,
+    tags: ['hex', 'packet', 'wireshark', 'tcp', 'udp', '自定义协议'],
+    builtIn: true,
   },
   {
     id: 'jwt',
@@ -223,6 +240,7 @@ export function categoryCounts(): CategoryEntry[] {
   const all: CategoryEntry[] = [
     { id: 'all', label: 'All', count: TOOLS.length },
     { id: 'encoding', label: 'Encoding', count: counts.encoding ?? 0 },
+    { id: 'network', label: 'Network & Protocols', count: counts.network ?? 0 },
     { id: 'text-data', label: 'Text & Data', count: counts['text-data'] ?? 0 },
     { id: 'generators', label: 'Generators', count: counts.generators ?? 0 },
     { id: 'time-number', label: 'Time & Number', count: counts['time-number'] ?? 0 },

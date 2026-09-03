@@ -33,6 +33,7 @@ add_library(cloudyi_core_c STATIC
   c_core/src/base64.c
   c_core/src/hex.c
   c_core/src/md5.c
+  c_core/src/packet_inspector.c
   c_core/src/sha256.c
   c_core/src/store_tools.c
   c_core/src/url_encode.c
@@ -189,6 +190,7 @@ if(BUILD_TESTING)
     WIN32_LEAN_AND_MEAN
   )
   target_link_libraries(MiloToolServiceTests PRIVATE
+    milo_json
     cloudyi_core_c
     bcrypt
     ole32

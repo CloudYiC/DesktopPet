@@ -46,6 +46,7 @@
 - 首次启动时展示云依助手主界面
 - 云依工具分类位于侧边栏顶部，宠物功能随后排列，模块管理与助手设置固定在底部；代码与数据库工具统一归入“数据处理”，图片转换统一归入“文件处理”，不再显示独立代码、AI、图片或数据库分类
 - 已内置 JSON 格式化、正则表达式、文本比较、Base64、Hex、URL 编解码、MD5 与 SHA-256
+- 网络与协议中提供十六进制报文分析器：可粘贴普通 Hex 或 Wireshark hexdump，按偏移查看 Ethernet、VLAN、ARP、IPv4/IPv6、TCP、UDP、ICMP 与未知载荷，并为私有协议保存自定义字段
 - 已内置数字格式化、Unix 时间戳转换、UUID v4/v7 和安全密码生成器
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
@@ -70,7 +71,7 @@
 - SCSS Modules；所有组件样式均为 `*.module.scss`
 
 项目优先把与平台无关的字节、编码和摘要算法保留为 C 接口。目前 Base64、Hex、
-URL 编解码、MD5、SHA-256、数字、时间戳、UUID 和密码规则位于 `native/c_core/`，
+URL 编解码、MD5、SHA-256、报文解析、数字、时间戳、UUID 和密码规则位于 `native/c_core/`，
 可供后续 CloudYiCSC 模块直接迁移。
 SQLite 的官方 `sqlite3.c` 仍作为单独的 C 语言第三方库编译。窗口生命周期、路径、
 UTF-8 转换、WebView2 通信和 JSON 请求分发等需要 RAII 或 Windows 对象管理的部分使用
@@ -90,6 +91,8 @@ C++11；React 不直接调用 C，而是经过一层受允许列表保护的 C++
 
 CloudYiCSC 的界面顺序、C/C++11 边界、已完成工具和后续迁移规则见
 [`docs/cloudyi-integration.md`](docs/cloudyi-integration.md)。
+报文识别模式、自定义协议边界与两端实现说明见
+[`docs/packet-inspector.md`](docs/packet-inspector.md)。
 系统信息范围、端口结束进程保护和模块启停边界见
 [`docs/system-permissions.md`](docs/system-permissions.md)，数据库文件与 SQL 安全边界见
 [`docs/database-studio.md`](docs/database-studio.md)，图片输入输出边界见
@@ -188,8 +191,9 @@ npm run dev
 ## Web 部署版
 
 旧 CloudYiCSC 的 Web 前端已经迁入 `web/`，并改造成不依赖旧 monorepo、Go 或
-Wails 的独立 React 18 静态站点。它保留 12 个可直接在浏览器运行的工具，其中
-Base64、Hex、URL、MD5、SHA-256、UUID、密码、时间戳和数字格式化复用 C/WebAssembly。
+Wails 的独立 React 18 静态站点。它保留 13 个可直接在浏览器运行的工具，其中
+Base64、Hex、URL、MD5、SHA-256、UUID、密码、时间戳和数字格式化复用 C/WebAssembly；
+十六进制报文分析器使用同等的浏览器本地解析与字节可视化，不上传报文内容。
 
 ```powershell
 .\scripts\build-web.ps1

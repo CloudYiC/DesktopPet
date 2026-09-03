@@ -13,10 +13,13 @@
 #include <windows.h>
 #include <bcrypt.h>
 
+#include <nlohmann/json.hpp>
+
 #include "Milo/Utils.h"
 #include "cloudyi/base64.h"
 #include "cloudyi/hex.h"
 #include "cloudyi/md5.h"
+#include "cloudyi/packet_inspector.h"
 #include "cloudyi/sha256.h"
 #include "cloudyi/store_tools.h"
 #include "cloudyi/url_encode.h"
@@ -25,6 +28,7 @@ namespace milo {
 namespace {
 
 const std::size_t kMaximumInputBytes = 1024U * 1024U;
+const std::size_t kMaximumPacketBytes = 256U * 1024U;
 const unsigned char kEmptyByte = 0;
 
 const unsigned char* BytesOf(const std::string& input) {
@@ -256,6 +260,85 @@ ToolExecutionResult GeneratePassword(const std::string& input,
   return Failure("密码生成失败，请重试。");
 }
 
+ToolExecutionResult InspectPacket(const std::string& input,
+                                  const std::string& operation) {
+  cy_packet_mode mode = CY_PACKET_MODE_AUTO;
+  if (cy_packet_mode_parse(operation.c_str(), &mode) != 0) {
+    return Failure("报文起始层无效，请选择自动、Ethernet、IPv4、IPv6、TCP、UDP 或原始数据。");
+  }
+
+  const std::size_t capacity =
+      (std::max)(std::size_t{1}, cy_packet_hex_max_decoded_size(input.size()));
+  std::vector<unsigned char> bytes(capacity);
+  const long decoded = cy_packet_hex_decode(
+      input.empty() ? "" : input.data(), input.size(), bytes.data(), bytes.size());
+  if (decoded == -2) {
+    return Failure("报文中包含非十六进制字符；请粘贴规范化 Hex 内容。");
+  }
+  if (decoded == -4) {
+    return Failure("十六进制数字数量必须为偶数，当前末尾缺少半个字节。");
+  }
+  if (decoded < 0) {
+    return Failure("十六进制报文解析失败，请检查输入长度与格式。");
+  }
+  const std::size_t byteCount = static_cast<std::size_t>(decoded);
+  if (byteCount > kMaximumPacketBytes) {
+    return Failure("单次报文分析最多支持 256 KB 数据。");
+  }
+  bytes.resize(byteCount);
+
+  cy_packet_report report = {};
+  const unsigned char emptyByte = 0;
+  const unsigned char* data = bytes.empty() ? &emptyByte : bytes.data();
+  if (cy_packet_inspect(data, bytes.size(), mode, &report) != 0) {
+    return Failure("报文解析核心未能完成本次分析。");
+  }
+
+  nlohmann::json json;
+  json["mode"] = cy_packet_mode_name(report.mode);
+  json["byteCount"] = report.byte_count;
+  json["protocol"] = report.protocol;
+  json["confidence"] = report.confidence;
+  json["bytes"] = nlohmann::json::array();
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    json["bytes"].push_back(bytes[index]);
+  }
+  json["layers"] = nlohmann::json::array();
+  for (std::size_t index = 0; index < report.layer_count; ++index) {
+    const cy_packet_layer& layer = report.layers[index];
+    nlohmann::json item;
+    item["id"] = layer.id;
+    item["name"] = layer.name;
+    item["offset"] = layer.offset;
+    item["length"] = layer.length;
+    item["summary"] = layer.summary;
+    json["layers"].push_back(item);
+  }
+  json["fields"] = nlohmann::json::array();
+  for (std::size_t index = 0; index < report.field_count; ++index) {
+    const cy_packet_field& field = report.fields[index];
+    nlohmann::json item;
+    item["layer"] = field.layer;
+    item["name"] = field.name;
+    item["offset"] = field.offset;
+    item["length"] = field.length;
+    item["value"] = field.value;
+    item["summary"] = field.summary;
+    json["fields"].push_back(item);
+  }
+  json["warnings"] = nlohmann::json::array();
+  for (std::size_t index = 0; index < report.warning_count; ++index) {
+    const cy_packet_warning& warning = report.warnings[index];
+    nlohmann::json item;
+    item["code"] = warning.code;
+    item["message"] = warning.message;
+    item["offset"] = warning.offset;
+    json["warnings"].push_back(item);
+  }
+  const std::string output = json.dump();
+  return Success(output.data(), output.size());
+}
+
 }  // namespace
 
 ToolExecutionResult ExecuteTool(const std::string& toolId,
@@ -294,6 +377,12 @@ ToolExecutionResult ExecuteTool(const std::string& toolId,
     if (operation == "strong" || operation == "letters-digits" ||
         operation == "pin") {
       return GeneratePassword(input, operation);
+    }
+  } else if (toolId == "packet-inspector") {
+    if (operation == "auto" || operation == "ethernet" ||
+        operation == "ipv4" || operation == "ipv6" ||
+        operation == "tcp" || operation == "udp" || operation == "raw") {
+      return InspectPacket(input, operation);
     }
   }
   return Failure("这个工具操作尚未接入本地核心。");

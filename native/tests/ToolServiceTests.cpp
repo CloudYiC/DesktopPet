@@ -4,6 +4,10 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <nlohmann/json.hpp>
+
+#include "cloudyi/packet_inspector.h"
+
 namespace {
 
 bool ExpectOutput(const std::string& tool, const std::string& operation,
@@ -65,6 +69,156 @@ bool ExpectPassword(const std::string& operation, const std::string& length,
   return valid;
 }
 
+bool ExpectPacketInspection() {
+  const std::string packet =
+      "ff ff ff ff ff ff 00 11 22 33 44 55 08 00 "
+      "45 00 00 20 12 34 40 00 40 11 00 00 c0 a8 01 64 c0 a8 01 01 "
+      "04 d2 16 2e 00 0c 00 00 de ad be ef";
+  const milo::ToolExecutionResult result =
+      milo::ExecuteTool("packet-inspector", "auto", packet);
+  if (!result.succeeded) {
+    std::cerr << "packet-inspector/auto failed: " << result.error << "\n";
+    return false;
+  }
+  try {
+    const nlohmann::json report = nlohmann::json::parse(result.output);
+    if (report.at("byteCount").get<std::size_t>() != 46U ||
+        report.at("protocol").get<std::string>() !=
+            "Ethernet II / IPv4 / UDP" ||
+        report.at("confidence").get<int>() < 80 ||
+        report.at("bytes").size() != 46U ||
+        report.at("layers").size() != 4U) {
+      std::cerr << "packet-inspector returned unexpected report metadata: "
+                << result.output << "\n";
+      return false;
+    }
+    bool foundDestination = false;
+    bool foundUdpPort = false;
+    const nlohmann::json& fields = report.at("fields");
+    for (nlohmann::json::const_iterator field = fields.begin();
+         field != fields.end(); ++field) {
+      const std::size_t offset = field->at("offset").get<std::size_t>();
+      const std::size_t length = field->at("length").get<std::size_t>();
+      if (offset > 46U || length > 46U - offset) {
+        std::cerr << "packet-inspector exposed an out-of-bounds field.\n";
+        return false;
+      }
+      if (field->at("layer") == "ipv4" && field->at("name") == "destination" &&
+          field->at("value") == "192.168.1.1") {
+        foundDestination = true;
+      }
+      if (field->at("layer") == "udp" &&
+          field->at("name") == "destinationPort" &&
+          field->at("value") == "5678") {
+        foundUdpPort = true;
+      }
+    }
+    if (!foundDestination || !foundUdpPort) {
+      std::cerr << "packet-inspector omitted expected IPv4/UDP fields.\n";
+      return false;
+    }
+  } catch (const std::exception& error) {
+    std::cerr << "packet-inspector returned invalid JSON: " << error.what()
+              << "\n";
+    return false;
+  }
+
+  const milo::ToolExecutionResult raw =
+      milo::ExecuteTool("packet-inspector", "auto", "de ad be ef 01");
+  if (!raw.succeeded) return false;
+  const nlohmann::json rawReport = nlohmann::json::parse(raw.output);
+  if (rawReport.at("protocol") != "Raw bytes" ||
+      rawReport.at("warnings").empty()) {
+    std::cerr << "Unknown data was not preserved as warned raw payload.\n";
+    return false;
+  }
+  const milo::ToolExecutionResult explicitRaw =
+      milo::ExecuteTool("packet-inspector", "raw", "de ad be ef");
+  if (!explicitRaw.succeeded ||
+      nlohmann::json::parse(explicitRaw.output).at("confidence") != 0) {
+    std::cerr << "Explicit raw mode should not claim protocol confidence.\n";
+    return false;
+  }
+  const milo::ToolExecutionResult forcedInvalid =
+      milo::ExecuteTool("packet-inspector", "ipv4", "45 00");
+  if (!forcedInvalid.succeeded ||
+      nlohmann::json::parse(forcedInvalid.output).at("confidence").get<int>() >
+          35) {
+    std::cerr << "A truncated forced protocol should have low confidence.\n";
+    return false;
+  }
+  const milo::ToolExecutionResult forcedWrongVersion = milo::ExecuteTool(
+      "packet-inspector", "ipv4",
+      "55 00 00 14 00 00 00 00 40 11 00 00 01 02 03 04 05 06 07 08");
+  if (!forcedWrongVersion.succeeded) return false;
+  const nlohmann::json wrongVersion =
+      nlohmann::json::parse(forcedWrongVersion.output);
+  bool reportedActualVersion = false;
+  for (nlohmann::json::const_iterator field = wrongVersion.at("fields").begin();
+       field != wrongVersion.at("fields").end(); ++field) {
+    if (field->at("name") == "version" && field->at("value") == "5") {
+      reportedActualVersion = true;
+    }
+  }
+  if (!reportedActualVersion || wrongVersion.at("confidence").get<int>() > 35) {
+    std::cerr << "Forced IPv4 mode hid the actual invalid version nibble.\n";
+    return false;
+  }
+  const milo::ToolExecutionResult fragment = milo::ExecuteTool(
+      "packet-inspector", "ipv4",
+      "45 00 00 18 00 01 00 01 40 11 00 00 01 02 03 04 05 06 07 08 "
+      "de ad be ef");
+  if (!fragment.succeeded) return false;
+  const nlohmann::json fragmentReport =
+      nlohmann::json::parse(fragment.output);
+  bool reportedByteOffset = false;
+  for (nlohmann::json::const_iterator field =
+           fragmentReport.at("fields").begin();
+       field != fragmentReport.at("fields").end(); ++field) {
+    if (field->at("name") == "fragment" &&
+        field->at("value").get<std::string>().find("offsetBytes=8") !=
+            std::string::npos) {
+      reportedByteOffset = true;
+    }
+  }
+  if (!reportedByteOffset) {
+    std::cerr << "IPv4 fragment offset was not reported in byte units.\n";
+    return false;
+  }
+  const milo::ToolExecutionResult padded =
+      milo::ExecuteTool("packet-inspector", "auto", packet + " 00 00");
+  if (!padded.succeeded) return false;
+  const nlohmann::json paddedReport = nlohmann::json::parse(padded.output);
+  bool foundTrailing = false;
+  for (nlohmann::json::const_iterator layer = paddedReport.at("layers").begin();
+       layer != paddedReport.at("layers").end(); ++layer) {
+    if (layer->at("id") == "trailing" && layer->at("offset") == 46U &&
+        layer->at("length") == 2U) {
+      foundTrailing = true;
+    }
+  }
+  if (!foundTrailing) {
+    std::cerr << "Bytes beyond the declared IPv4 packet were not classified.\n";
+    return false;
+  }
+
+  const milo::ToolExecutionResult odd =
+      milo::ExecuteTool("packet-inspector", "raw", "abc");
+  if (odd.succeeded || odd.error.empty()) {
+    std::cerr << "Odd-length packet Hex was unexpectedly accepted.\n";
+    return false;
+  }
+
+  unsigned char bytes[8] = {};
+  const long decoded = cy_packet_hex_decode(
+      "0x45:00-00_14", 13U, bytes, sizeof(bytes));
+  if (decoded != 4 || bytes[0] != 0x45 || bytes[3] != 0x14) {
+    std::cerr << "Portable packet Hex decoder rejected supported separators.\n";
+    return false;
+  }
+  return true;
+}
+
 }  // namespace
 
 int main() {
@@ -91,6 +245,7 @@ int main() {
   passed &= ExpectUuid("v7", '7');
   passed &= ExpectPassword("strong", "24", true);
   passed &= ExpectPassword("pin", "6", false);
+  passed &= ExpectPacketInspection();
 
   const milo::ToolExecutionResult invalid =
       milo::ExecuteTool("hex", "decode", "xyz");

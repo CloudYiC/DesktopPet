@@ -9,7 +9,13 @@ export const WASM_NATIVE_TOOL_IDS = [
   'numfmt',
 ] as const
 
-export const TYPESCRIPT_TOOL_IDS = ['jwt', 'json-format', 'regex', 'diff'] as const
+export const TYPESCRIPT_TOOL_IDS = [
+  'jwt',
+  'json-format',
+  'regex',
+  'diff',
+  'packet-inspector',
+] as const
 
 export const RUNNABLE_TOOL_IDS = [...WASM_NATIVE_TOOL_IDS, ...TYPESCRIPT_TOOL_IDS] as const
 

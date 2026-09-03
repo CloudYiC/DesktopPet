@@ -87,6 +87,7 @@ export interface ToolExecuteRequest {
     | 'hex'
     | 'hash'
     | 'url-encode'
+    | 'packet-inspector'
     | 'numfmt'
     | 'timestamp'
     | 'uuid'

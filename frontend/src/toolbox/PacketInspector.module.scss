@@ -1,0 +1,582 @@
+$ink: var(--theme-ink);
+$muted: var(--theme-muted);
+$paper: var(--theme-paper);
+$sand: var(--theme-sand);
+$teal: var(--theme-primary);
+$teal-dark: var(--theme-primary-deep);
+
+.workspace {
+  display: grid;
+  margin-top: 24px;
+  padding-bottom: 34px;
+  gap: 16px;
+}
+
+.workspaceHeader {
+  display: grid;
+  gap: 15px;
+
+  > button {
+    width: fit-content;
+    padding: 0;
+    color: $teal-dark;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    font-size: 10px;
+    font-weight: 750;
+  }
+}
+
+.workspaceTitle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  > i {
+    display: grid;
+    width: 54px;
+    height: 54px;
+    flex: 0 0 auto;
+    place-items: center;
+    color: $teal-dark;
+    background: #dff0ed;
+    border-radius: 17px;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 850;
+  }
+
+  span,
+  h2,
+  p { display: block; }
+  span { color: $teal; font-size: 8px; font-weight: 850; letter-spacing: 0.16em; }
+  h2 { margin: 3px 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 24px; font-weight: 600; }
+  p { margin: 0; color: $muted; font-size: 10px; }
+}
+
+.inputCard,
+.layerPanel,
+.bytePanel,
+.fieldCard,
+.customCard {
+  min-width: 0;
+  background: color-mix(in srgb, $paper 95%, transparent);
+  border: 1px solid rgba(86, 66, 52, 0.09);
+  border-radius: 19px;
+  box-shadow: 0 9px 26px rgba(70, 58, 49, 0.045);
+}
+
+.inputCard {
+  display: grid;
+  padding: 17px;
+  gap: 12px;
+
+  textarea {
+    width: 100%;
+    min-height: 132px;
+    padding: 13px 15px;
+    color: #443a35;
+    background:
+      linear-gradient(rgba(247, 242, 236, 0.96), rgba(247, 242, 236, 0.96)),
+      repeating-linear-gradient(90deg, transparent 0 30px, rgba(22, 139, 133, 0.07) 30px 31px);
+    border: 1px solid rgba(86, 66, 52, 0.09);
+    border-radius: 12px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.7;
+    outline: none;
+    resize: vertical;
+
+    &:focus { border-color: rgba(22, 139, 133, 0.42); box-shadow: 0 0 0 3px rgba(22, 139, 133, 0.07); }
+  }
+}
+
+.inputHeading,
+.fieldCard > header,
+.customCard > header,
+.bytePanel > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+
+  span { color: $teal; font-size: 7px; font-weight: 850; letter-spacing: 0.18em; }
+  h3 { margin: 3px 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 17px; font-weight: 600; }
+  p { margin: 0; color: $muted; font-size: 8px; line-height: 1.55; }
+}
+
+.inputHeading > button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: $teal-dark;
+  cursor: pointer;
+  background: #e7f3f0;
+  border: 0;
+  border-radius: 9px;
+  font-size: 8px;
+  font-weight: 750;
+
+  &:hover { background: #d9ece8; }
+}
+
+.analysisControls {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(180px, 230px) minmax(200px, 1fr) auto auto;
+  gap: 10px;
+
+  > label {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px;
+
+    span { color: $muted; font-size: 8px; font-weight: 750; }
+  }
+
+  select {
+    min-width: 0;
+    height: 35px;
+    padding: 0 10px;
+    color: $ink;
+    background: $sand;
+    border: 1px solid rgba(86, 66, 52, 0.08);
+    border-radius: 9px;
+    outline: none;
+    font-size: 9px;
+  }
+
+  > p { margin: 0; color: $muted; font-size: 8px; line-height: 1.45; }
+
+  > button {
+    min-width: 92px;
+    min-height: 38px;
+    padding: 0 14px;
+    color: white;
+    cursor: pointer;
+    background: $teal;
+    border: 0;
+    border-radius: 10px;
+    box-shadow: 0 7px 16px rgba(22, 139, 133, 0.18);
+    font-size: 9px;
+    font-weight: 800;
+
+    &:hover:not(:disabled) { background: $teal-dark; }
+    &:disabled { cursor: default; opacity: 0.48; box-shadow: none; }
+  }
+}
+
+.inputFacts {
+  display: grid;
+  min-width: 80px;
+  justify-items: end;
+  white-space: nowrap;
+
+  span { color: $muted; font-size: 7px; }
+  strong { margin-top: 2px; color: $ink; font-family: Georgia, serif; font-size: 14px; }
+}
+
+.errorBanner {
+  margin: 0;
+  padding: 11px 14px;
+  color: #9f4d45;
+  background: #fff0eb;
+  border: 1px solid rgba(170, 77, 64, 0.1);
+  border-radius: 11px;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryCard {
+  display: grid;
+  min-width: 0;
+  min-height: 93px;
+  padding: 14px;
+  align-content: center;
+  gap: 5px;
+  background: $paper;
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-top: 3px solid $teal;
+  border-radius: 14px;
+
+  &[data-tone="gold"] { border-top-color: #e2a640; }
+  &[data-tone="rose"] { border-top-color: #e98b85; }
+  span { color: $muted; font-size: 7px; font-weight: 750; }
+  strong { overflow: hidden; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  small { overflow: hidden; color: $muted; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.truthNotice {
+  display: flex;
+  min-height: 41px;
+  margin: 0;
+  padding: 9px 13px;
+  align-items: center;
+  gap: 10px;
+  color: $teal-dark;
+  background: linear-gradient(90deg, #e4f3ef, #f8eee2);
+  border: 1px solid rgba(22, 139, 133, 0.1);
+  border-radius: 11px;
+  font-size: 8px;
+
+  b { padding: 4px 7px; color: white; background: $teal; border-radius: 6px; font-size: 7px; white-space: nowrap; }
+}
+
+.inspectorGrid {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(0, 2.2fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.layerPanel,
+.bytePanel,
+.fieldCard,
+.customCard { padding: 16px; }
+
+.layerPanel > header {
+  span { color: $teal; font-size: 7px; font-weight: 850; letter-spacing: 0.16em; }
+  h3 { margin: 4px 0 12px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 17px; font-weight: 600; }
+}
+
+.layerTree {
+  display: grid;
+  gap: 5px;
+
+  > button {
+    position: relative;
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    min-height: 57px;
+    padding: 8px;
+    align-items: center;
+    grid-template-columns: 28px 1fr;
+    gap: 8px;
+    color: inherit;
+    cursor: pointer;
+    background: color-mix(in srgb, var(--layer-color) 68%, white);
+    border: 1px solid transparent;
+    border-radius: 11px;
+    text-align: left;
+    transition: 130ms ease;
+
+    &:not(:last-child)::after {
+      position: absolute;
+      bottom: -7px;
+      left: 21px;
+      z-index: 1;
+      width: 1px;
+      height: 9px;
+      content: '';
+      background: rgba(22, 139, 133, 0.28);
+    }
+
+    &:hover,
+    &.selectedLayer { border-color: rgba(22, 139, 133, 0.36); transform: translateX(2px); }
+
+    > i {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      color: $teal-dark;
+      background: rgba(255, 255, 255, 0.72);
+      border-radius: 8px;
+      font-size: 8px;
+      font-style: normal;
+      font-weight: 850;
+    }
+
+    > span,
+    strong,
+    small { display: block; min-width: 0; }
+    strong { color: $ink; font-size: 9px; }
+    small { margin-top: 3px; overflow: hidden; color: $muted; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+    em { grid-column: 2; color: $teal-dark; font-family: Consolas, monospace; font-size: 7px; font-style: normal; }
+  }
+}
+
+.warningList {
+  display: grid;
+  margin-top: 14px;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(86, 66, 52, 0.08);
+
+  > strong { color: #9d6544; font-size: 8px; }
+  p { display: grid; margin: 0; grid-template-columns: 20px 1fr; gap: 7px; color: #795f50; font-size: 7px; line-height: 1.45; }
+  i { display: grid; width: 18px; height: 18px; place-items: center; color: #a96c36; background: #fff0d8; border-radius: 6px; font-style: normal; font-weight: 850; }
+  span,
+  small { display: block; }
+  small { margin-top: 2px; color: #a89487; font-family: Consolas, monospace; }
+}
+
+.bytePanel {
+  overflow: hidden;
+
+  > header { margin-bottom: 12px; }
+  > header > p { text-align: right; }
+}
+
+.hexScroller {
+  max-width: 100%;
+  max-height: 430px;
+  overflow: auto;
+  background: #302f31;
+  border: 1px solid rgba(17, 20, 22, 0.22);
+  border-radius: 12px;
+}
+
+.hexTable {
+  width: max-content;
+  min-width: 100%;
+  padding-bottom: 6px;
+  color: #e6e1dc;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 8px;
+}
+
+.hexHeader,
+.hexRow {
+  display: grid;
+  min-width: 670px;
+  grid-template-columns: 58px repeat(16, 27px) 1fr;
+  align-items: center;
+}
+
+.hexHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 32px;
+  color: #9abbb6;
+  background: #29282a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+
+  b { padding-left: 10px; font-size: 7px; font-weight: 700; }
+  b:last-child { padding-left: 12px; }
+  i { font-style: normal; text-align: center; }
+}
+
+.hexRow {
+  min-height: 29px;
+
+  &:hover { background: rgba(255, 255, 255, 0.025); }
+  > b { padding-left: 10px; color: #829a96; font-size: 7px; font-weight: 500; }
+  > button,
+  > i {
+    display: grid;
+    width: 23px;
+    height: 22px;
+    place-items: center;
+    justify-self: center;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 8px;
+  }
+  > button {
+    color: #373338;
+    cursor: pointer;
+    background: var(--byte-color);
+    border: 1px solid transparent;
+    transition: 100ms ease;
+
+    &:hover { border-color: white; transform: scale(1.08); }
+    &.selectedByte { color: white; background: $teal-dark; border-color: #7ff0e5; box-shadow: 0 0 0 2px rgba(90, 231, 218, 0.18); }
+  }
+  > code { padding-left: 12px; color: #d9d3ce; font-family: inherit; font-size: 8px; letter-spacing: 0.04em; white-space: pre; }
+}
+
+.emptyByte { color: rgba(255, 255, 255, 0.14); font-style: normal; }
+
+.selectionSummary {
+  display: grid;
+  min-width: 0;
+  margin-top: 10px;
+  padding: 10px 12px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  background: #eef5f2;
+  border-radius: 10px;
+
+  span { color: $muted; font-size: 7px; }
+  strong { color: $teal-dark; font-size: 8px; white-space: nowrap; }
+  code { overflow: hidden; color: #5d514a; font-family: Consolas, monospace; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.renderLimit {
+  margin: 8px 0 0;
+  color: #9d6544;
+  font-size: 7px;
+}
+
+.fieldCard,
+.customCard {
+  display: grid;
+  gap: 12px;
+}
+
+.fieldTable {
+  overflow: hidden;
+  border: 1px solid rgba(86, 66, 52, 0.08);
+  border-radius: 12px;
+}
+
+.fieldTableHead,
+.fieldTable > button {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 110px 1.1fr 145px 1.4fr;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+
+.fieldTableHead {
+  min-height: 34px;
+  padding: 0 11px;
+  color: $muted;
+  background: #f4eee7;
+  font-size: 7px;
+  font-weight: 750;
+}
+
+.fieldTable > button {
+  min-height: 45px;
+  padding: 7px 11px;
+  color: inherit;
+  cursor: pointer;
+  background: $paper;
+  border: 0;
+  border-top: 1px solid rgba(86, 66, 52, 0.065);
+
+  &:hover,
+  &.selectedField { background: #e9f4f1; }
+  span { color: $teal; font-size: 7px; font-weight: 750; }
+  strong { min-width: 0; color: $ink; font-size: 8px; }
+  small { display: block; margin-top: 2px; overflow: hidden; color: $muted; font-size: 7px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+  code { color: #806f63; font-family: Consolas, monospace; font-size: 7px; }
+  em { overflow: hidden; color: #514641; font-family: Consolas, "Noto Sans SC", monospace; font-size: 8px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.customCard > header > strong {
+  padding: 6px 9px;
+  color: $teal-dark;
+  background: #e4f2ef;
+  border-radius: 8px;
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.customForm {
+  display: grid;
+  grid-template-columns: 1.15fr 0.82fr 0.72fr 0.9fr 1fr auto;
+  align-items: end;
+  gap: 8px;
+
+  label { display: grid; min-width: 0; gap: 5px; }
+  span { color: $muted; font-size: 7px; font-weight: 700; }
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    height: 35px;
+    padding: 0 9px;
+    color: $ink;
+    background: $sand;
+    border: 1px solid rgba(86, 66, 52, 0.08);
+    border-radius: 9px;
+    outline: none;
+    font-size: 8px;
+
+    &:focus { border-color: rgba(22, 139, 133, 0.4); }
+    &:disabled { color: #afa39a; }
+  }
+  > button {
+    height: 35px;
+    padding: 0 13px;
+    color: white;
+    cursor: pointer;
+    background: $teal;
+    border: 0;
+    border-radius: 9px;
+    font-size: 8px;
+    font-weight: 800;
+  }
+}
+
+.selectionTip { margin: -4px 0 0; color: $muted; font-size: 7px; }
+
+.customFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+
+  article {
+    display: grid;
+    min-width: 0;
+    padding: 10px;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+    background: #f7f2ec;
+    border: 1px solid transparent;
+    border-radius: 11px;
+
+    &.selectedCustom { background: #e8f4f1; border-color: rgba(22, 139, 133, 0.3); }
+    > button:first-child { display: grid; min-width: 0; padding: 0; gap: 3px; color: inherit; cursor: pointer; background: transparent; border: 0; text-align: left; }
+    > button:last-child { align-self: start; padding: 4px 6px; color: #aa6157; cursor: pointer; background: #fff; border: 0; border-radius: 6px; font-size: 7px; }
+    span { color: $teal; font-size: 6px; font-weight: 850; letter-spacing: 0.1em; }
+    strong { color: $ink; font-size: 9px; }
+    small { color: $muted; font-size: 7px; }
+    code { margin-top: 3px; overflow: hidden; color: #514641; font-family: Consolas, monospace; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+  }
+}
+
+.emptyCustom {
+  display: flex;
+  min-height: 72px;
+  padding: 14px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: $muted;
+  background: #f7f2ec;
+  border: 1px dashed rgba(86, 66, 52, 0.16);
+  border-radius: 11px;
+  font-size: 8px;
+
+  i { display: grid; width: 27px; height: 27px; place-items: center; color: $teal; background: #e3f2ef; border-radius: 9px; font-size: 14px; font-style: normal; }
+}
+
+@media (max-width: 950px) {
+  .summaryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inspectorGrid { grid-template-columns: 1fr; }
+  .layerTree { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .layerTree > button:not(:last-child)::after { display: none; }
+  .customForm { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .customFieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 680px) {
+  .analysisControls { grid-template-columns: 1fr; }
+  .analysisControls > label { grid-template-columns: 1fr; }
+  .inputFacts { justify-items: start; }
+  .summaryGrid,
+  .layerTree,
+  .customFieldGrid { grid-template-columns: 1fr; }
+  .fieldTableHead { display: none; }
+  .fieldTable > button { grid-template-columns: 72px 1fr; }
+  .fieldTable > button code,
+  .fieldTable > button em { grid-column: 2; }
+  .customForm { grid-template-columns: 1fr 1fr; }
+}

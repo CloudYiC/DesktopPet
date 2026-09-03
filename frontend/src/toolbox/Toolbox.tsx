@@ -20,6 +20,7 @@ import styles from './Toolbox.module.scss';
 import { DatabaseStudio } from './DatabaseStudio';
 import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
+import { PacketInspector } from './PacketInspector';
 
 interface ToolboxProps {
   category: ToolCategoryId | null;
@@ -84,6 +85,9 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
     }
     if (activeTool.id === 'software-uninstaller') {
       return <SoftwareUninstaller tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'packet-inspector') {
+      return <PacketInspector tool={activeTool} onBack={() => setActiveToolId(null)} />;
     }
     return <ToolWorkspace tool={activeTool} onBack={() => setActiveToolId(null)} />;
   }

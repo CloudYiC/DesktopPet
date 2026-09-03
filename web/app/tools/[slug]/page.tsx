@@ -233,6 +233,7 @@ export default async function ToolPage({ params }: Params) {
 function categoryColorClass(category: string): string {
   const map: Record<string, string | undefined> = {
     encoding: styles.iconCatEncoding,
+    network: styles.iconCatNetwork,
     generators: styles.iconCatGenerators,
     media: styles.iconCatMedia,
     'text-data': styles.iconCatTextData,
