@@ -429,7 +429,7 @@ export function Dashboard() {
   };
 
   const viewHeading = activeView === 'toolbox'
-      ? activeCategory?.label ?? 'CloudYi 开发工具箱'
+      ? activeCategory?.label ?? '云依助手工具箱'
     : activeView === 'marketplace'
       ? '按需启用已经内置的本地工具。'
     : activeView === 'account'
@@ -444,7 +444,7 @@ export function Dashboard() {
   const viewDescription = activeView === 'toolbox'
     ? activeCategory?.description ?? '本地优先的常用开发工具，不离开桌面也能快速处理数据。'
     : activeView === 'marketplace'
-      ? '这里只管理已经随依依工作台打包并可实际使用的模块。'
+      ? '这里只管理已经随云依助手打包并可实际使用的模块。'
     : activeView === 'account'
       ? '主题、字号、启动页面、模块状态和本机数据都可以在这里查看或调整。'
     : activeView === 'all'
@@ -459,7 +459,7 @@ export function Dashboard() {
     : activeView === 'marketplace'
       ? 'LOCAL MODULES'
       : activeView === 'account'
-        ? 'YIYI WORKBENCH'
+        ? 'CLOUDYI ASSISTANT'
         : 'CUTE COMPANION ROUTINE';
 
   return (

@@ -25,16 +25,16 @@ Unicode True
   !error "OUTPUT_DIR must point to the installer output directory."
 !endif
 
-!define APP_NAME "依依工作台"
+!define APP_NAME "云依助手"
 !define APP_EXE "CuteYiyiDesktopPet.exe"
 !define APP_ID "CuteYiyiDesktopPet"
-!define APP_PUBLISHER "依依工作台项目"
+!define APP_PUBLISHER "云依助手项目"
 !define APP_UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 !define WEBVIEW2_CLIENT_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 ; Product identity and package-level branding.
 Name "${APP_NAME}"
-OutFile "${OUTPUT_DIR}\YiyiWorkbench-Setup-${APP_VERSION}.exe"
+OutFile "${OUTPUT_DIR}\CloudYiAssistant-Setup-${APP_VERSION}.exe"
 InstallDir "$PROGRAMFILES64\CuteYiyiDesktopPet"
 InstallDirRegKey HKLM "${APP_UNINSTALL_KEY}" "InstallLocation"
 RequestExecutionLevel admin
@@ -76,7 +76,7 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026"
 ; Refuse unsupported systems before any filesystem changes occur.
 Function .onInit
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_OK|MB_ICONSTOP "依依工作台需要 Windows 10 或更高版本。"
+    MessageBox MB_OK|MB_ICONSTOP "云依助手需要 Windows 10 或更高版本。"
     Abort
   ${EndIf}
   ${IfNot} ${RunningX64}
@@ -169,15 +169,19 @@ Section "!${APP_NAME}" SecApplication
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
-  ; Remove shortcut names created by the two earlier product identities.
+  ; Remove shortcut names created by earlier product identities.
   Delete "$DESKTOP\可爱依依桌面宠物.lnk"
   Delete "$DESKTOP\可爱依依小助手.lnk"
+  Delete "$DESKTOP\依依工作台.lnk"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\可爱依依桌面宠物.lnk"
   Delete "$SMPROGRAMS\可爱依依桌面宠物\卸载可爱依依桌面宠物.lnk"
   RMDir "$SMPROGRAMS\可爱依依桌面宠物"
   Delete "$SMPROGRAMS\可爱依依小助手\可爱依依小助手.lnk"
   Delete "$SMPROGRAMS\可爱依依小助手\卸载可爱依依小助手.lnk"
   RMDir "$SMPROGRAMS\可爱依依小助手"
+  Delete "$SMPROGRAMS\依依工作台\依依工作台.lnk"
+  Delete "$SMPROGRAMS\依依工作台\卸载依依工作台.lnk"
+  RMDir "$SMPROGRAMS\依依工作台"
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe"
@@ -203,9 +207,9 @@ Section /o "开机自动启动" SecAutoStart
 SectionEnd
 
 LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并安装应用需要的微软运行环境。"
-LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装依依工作台、CloudYi 工具箱和卸载程序。"
-LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建依依工作台快捷方式。"
-LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动依依工作台。"
+LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装云依助手、内置工具模块和卸载程序。"
+LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建云依助手快捷方式。"
+LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动云依助手。"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SecPrerequisites} $(DESC_SecPrerequisites)
@@ -227,6 +231,7 @@ Section "Uninstall"
   Delete "$DESKTOP\${APP_NAME}.lnk"
   Delete "$DESKTOP\可爱依依桌面宠物.lnk"
   Delete "$DESKTOP\可爱依依小助手.lnk"
+  Delete "$DESKTOP\依依工作台.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk"
   Delete "$SMPROGRAMS\${APP_NAME}\卸载${APP_NAME}.lnk"
   RMDir "$SMPROGRAMS\${APP_NAME}"
@@ -236,6 +241,9 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\可爱依依小助手\可爱依依小助手.lnk"
   Delete "$SMPROGRAMS\可爱依依小助手\卸载可爱依依小助手.lnk"
   RMDir "$SMPROGRAMS\可爱依依小助手"
+  Delete "$SMPROGRAMS\依依工作台\依依工作台.lnk"
+  Delete "$SMPROGRAMS\依依工作台\卸载依依工作台.lnk"
+  RMDir "$SMPROGRAMS\依依工作台"
 
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
   DeleteRegKey HKLM "${APP_UNINSTALL_KEY}"
@@ -251,6 +259,6 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   IfSilent skipUninstallMessage
-  MessageBox MB_OK|MB_ICONINFORMATION "依依工作台已完全卸载，提醒、名称、角色和本机设置均已清除。"
+  MessageBox MB_OK|MB_ICONINFORMATION "云依助手已完全卸载，提醒、名称、角色和本机设置均已清除。"
   skipUninstallMessage:
 SectionEnd

@@ -6,7 +6,7 @@ export function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.col}>
-          <div className={styles.label}>可爱依依 · CloudYi</div>
+          <div className={styles.label}>云依助手</div>
           <p className={styles.tagline}>
             Local-first browser tools with a C/WebAssembly core and a Windows desktop companion.
           </p>

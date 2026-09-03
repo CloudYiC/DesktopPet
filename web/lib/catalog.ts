@@ -247,7 +247,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: 'v0.12.0-web',
     date: '2026-08-01',
     items: [
-      { kind: '+', text: 'CloudYiCSC web catalog migrated into the desktop-pet repository' },
+      { kind: '+', text: 'CloudYiCSC web catalog migrated into the CloudYi Assistant repository' },
       { kind: '+', text: 'Eight C utilities compile to WebAssembly during every production build' },
       { kind: '+', text: 'Four browser-native tools remain implemented with TypeScript' },
       { kind: '~', text: 'Removed the old Wails/Go workspace dependency from the deployable site' },

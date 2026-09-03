@@ -458,7 +458,7 @@ export async function requestDatabaseExecute(
       result: normalized.startsWith('select')
         ? {
             columns: ['id', 'name', 'status'],
-            rows: [['1', 'Desktop Pet', 'active'], ['2', 'Database Studio', 'active']],
+            rows: [['1', 'CloudYi Assistant', 'active'], ['2', 'Database Studio', 'active']],
             affectedRows: 0,
             lastInsertId: 0,
             elapsedMilliseconds: 2,

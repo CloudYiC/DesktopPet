@@ -82,7 +82,7 @@ npm run build
         </section>
 
         <div className={styles.cta}>
-          <p>需要 Windows 提醒、系统工具或依依工作台？</p>
+          <p>需要 Windows 提醒、系统工具或云依助手桌面版？</p>
           <Link href="/desktop" className={styles.ctaLink}>
             查看桌面版
           </Link>

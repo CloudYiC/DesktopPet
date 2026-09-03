@@ -59,7 +59,7 @@ void ShowWebViewError(HWND owner, const wchar_t* stage, HRESULT result) {
   wchar_t message[256]{};
   swprintf_s(message, L"%s失败（HRESULT 0x%08X）。\n请确认已安装 WebView2 Runtime。",
              stage, static_cast<unsigned int>(result));
-  MessageBoxW(owner, message, L"依依工作台", MB_OK | MB_ICONERROR);
+  MessageBoxW(owner, message, L"云依助手", MB_OK | MB_ICONERROR);
 }
 
 }  // namespace
@@ -151,7 +151,7 @@ bool WebViewWindow::Create(HINSTANCE instance) {
 
   const std::wstring petName = Utf8ToWide(application_.PetName());
   const std::wstring title =
-      kind_ == WindowKind::Pet ? petName : L"依依工作台";
+      kind_ == WindowKind::Pet ? petName : L"云依助手";
   window_ = CreateWindowExW(
       extendedStyle, kWindowClassName, title.c_str(), style,
       bounds.left, bounds.top, bounds.right - bounds.left,

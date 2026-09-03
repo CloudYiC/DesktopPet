@@ -90,8 +90,8 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
   return (
     <section className={styles.centerView}>
       <div className={styles.centerShell}>
-        <nav className={styles.centerTabs} aria-label="工作台中心">
-          <div><span>YIYI WORKBENCH</span><strong>工作台偏好</strong></div>
+        <nav className={styles.centerTabs} aria-label="云依助手设置">
+          <div><span>CLOUDYI ASSISTANT</span><strong>助手设置</strong></div>
           {WORKBENCH_CENTER_TABS.map((item) => (
             <button
               key={item.id}
@@ -183,9 +183,9 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
           )}
 
           {tab === 'about' && (
-            <SettingsPane kicker="ABOUT CLOUDYI" title="关于依依工作台" description="桌面小助手与 CloudYi 工具箱共用一个本地优先的 Windows 客户端。">
+            <SettingsPane kicker="ABOUT CLOUDYI ASSISTANT" title="关于云依助手" description="桌面陪伴、事项提醒与本地工具共用一个本地优先的 Windows 客户端。">
               <SettingsSection title="版本信息">
-                <SettingLine label="依依工作台" detail="当前应用版本"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
+                <SettingLine label="云依助手" detail="当前应用版本"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
                 <SettingLine label="原生层" detail="C Win32 探针、C++11 应用与 WebView2 桥接"><strong className={styles.aboutValue}>C / C++11</strong></SettingLine>
                 <SettingLine label="界面层" detail="组件、动画与 SCSS Modules"><strong className={styles.aboutValue}>React 18</strong></SettingLine>
                 <SettingLine label="数据层" detail="事项、角色元数据与工作台偏好"><strong className={styles.aboutValue}>SQLite</strong></SettingLine>

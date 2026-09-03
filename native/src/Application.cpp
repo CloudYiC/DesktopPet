@@ -322,23 +322,36 @@ void UpdateDesktopShortcutIcon(const std::wstring& iconPath) {
       JoinPath(desktop, L"可爱依依桌面宠物.lnk");
   const std::wstring legacyAssistantShortcut =
       JoinPath(desktop, L"可爱依依小助手.lnk");
-  const std::wstring workbenchShortcut =
+  const std::wstring legacyWorkbenchShortcut =
       JoinPath(desktop, L"依依工作台.lnk");
-  if (!PathExists(workbenchShortcut) && PathExists(legacyAssistantShortcut)) {
-    MoveFileExW(legacyAssistantShortcut.c_str(), workbenchShortcut.c_str(),
+  const std::wstring cloudYiAssistantShortcut =
+      JoinPath(desktop, L"云依助手.lnk");
+  if (!PathExists(cloudYiAssistantShortcut) &&
+      PathExists(legacyWorkbenchShortcut)) {
+    MoveFileExW(legacyWorkbenchShortcut.c_str(),
+                cloudYiAssistantShortcut.c_str(),
                 MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
   }
-  if (!PathExists(workbenchShortcut) && PathExists(legacyPetShortcut)) {
-    MoveFileExW(legacyPetShortcut.c_str(), workbenchShortcut.c_str(),
+  if (!PathExists(cloudYiAssistantShortcut) &&
+      PathExists(legacyAssistantShortcut)) {
+    MoveFileExW(legacyAssistantShortcut.c_str(),
+                cloudYiAssistantShortcut.c_str(),
+                MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
+  }
+  if (!PathExists(cloudYiAssistantShortcut) && PathExists(legacyPetShortcut)) {
+    MoveFileExW(legacyPetShortcut.c_str(), cloudYiAssistantShortcut.c_str(),
                 MOVEFILE_COPY_ALLOWED | MOVEFILE_WRITE_THROUGH);
   }
   const std::wstring shortcut =
-      PathExists(workbenchShortcut)
-          ? workbenchShortcut
-          : (PathExists(legacyAssistantShortcut)
-                 ? legacyAssistantShortcut
-                 : (PathExists(legacyPetShortcut) ? legacyPetShortcut
-                                                  : std::wstring{}));
+      PathExists(cloudYiAssistantShortcut)
+          ? cloudYiAssistantShortcut
+          : (PathExists(legacyWorkbenchShortcut)
+                 ? legacyWorkbenchShortcut
+                 : (PathExists(legacyAssistantShortcut)
+                        ? legacyAssistantShortcut
+                        : (PathExists(legacyPetShortcut)
+                               ? legacyPetShortcut
+                               : std::wstring{})));
   if (shortcut.empty()) return;
 
   Microsoft::WRL::ComPtr<IShellLinkW> shellLink;
@@ -1307,7 +1320,7 @@ void Application::AddTrayIcon() {
   if (trayIcon_.hIcon == nullptr) {
     trayIcon_.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
   }
-  const std::wstring tooltip = L"依依工作台";
+  const std::wstring tooltip = L"云依助手";
   StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                  tooltip.c_str());
   trayIconAdded_ = Shell_NotifyIconW(NIM_ADD, &trayIcon_) == TRUE;
@@ -1329,14 +1342,14 @@ void Application::ShowTrayMenu() {
   GetCursorPos(&cursor);
 
   HMENU menu = CreatePopupMenu();
-  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开依依工作台");
+  AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开云依助手");
   const std::wstring petName = Utf8ToWide(petName_);
   const bool dashboardVisible =
       dashboardWindow_ != nullptr &&
       IsWindowVisible(dashboardWindow_->Handle()) != FALSE;
   const std::wstring visibilityLabel =
       dashboardVisible
-          ? petName + L"会在关闭工作台后回来"
+          ? petName + L"会在关闭云依助手后回来"
           : (IsWindowVisible(petWindow_->Handle()) ? L"暂时隐藏" + petName
                                                    : L"显示" + petName);
   AppendMenuW(menu, dashboardVisible ? MF_GRAYED : MF_STRING,
@@ -1412,11 +1425,11 @@ void Application::UpdateBranding() {
     petWindow_->SetTitle(petName);
   }
   if (dashboardWindow_ != nullptr) {
-    dashboardWindow_->SetTitle(L"依依工作台");
+    dashboardWindow_->SetTitle(L"云依助手");
   }
   if (trayIconAdded_) {
     trayIcon_.uFlags = NIF_TIP;
-    const std::wstring tooltip = L"依依工作台";
+    const std::wstring tooltip = L"云依助手";
     StringCchCopyW(trayIcon_.szTip, ARRAYSIZE(trayIcon_.szTip),
                    tooltip.c_str());
     Shell_NotifyIconW(NIM_MODIFY, &trayIcon_);

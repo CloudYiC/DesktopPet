@@ -634,7 +634,7 @@ function NumberFormatRunner() {
 function JsonRunner() {
   const [mode, setMode] = useState<'format' | 'minify'>('format')
   const [input, setInput] = useState(
-    '{"name":"可爱依依 · CloudYi","local":true,"tools":["json","wasm"]}',
+    '{"name":"云依助手","local":true,"tools":["json","wasm"]}',
   )
   const [output, setOutput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -731,7 +731,7 @@ function RegexRunner() {
   const [pattern, setPattern] = useState('\\b\\w{5}\\b')
   const [flags, setFlags] = useState('gi')
   const [sample, setSample] = useState(
-    'CloudYiCFAW keeps local tools fast, searchable, and portable.',
+    'CloudYi Assistant keeps local tools fast, searchable, and portable.',
   )
   const [output, setOutput] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -767,8 +767,8 @@ function RegexRunner() {
 }
 
 function DiffRunner() {
-  const [left, setLeft] = useState('CloudYiCFAW\nlocal tools\nsigned plugins')
-  const [right, setRight] = useState('CloudYiCFAW\nbrowser tools\nsigned plugins')
+  const [left, setLeft] = useState('CloudYi Assistant\nlocal tools\nsigned plugins')
+  const [right, setRight] = useState('CloudYi Assistant\nbrowser tools\nsigned plugins')
   const diff = useMemo(() => buildLineDiff(left, right), [left, right])
 
   return (

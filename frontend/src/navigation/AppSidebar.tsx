@@ -71,16 +71,16 @@ export function AppSidebar(props: AppSidebarProps) {
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <div className={styles.brandMark}>依</div>
-        <div><strong>依依工作台</strong><span>{props.petName} · CloudYi 工具箱</span></div>
+        <div><strong>云依助手</strong><span>{props.petName} · 本地工具箱</span></div>
       </div>
 
       <div className={styles.scrollArea}>
         <section className={styles.navGroup}>
           <button className={styles.groupHeading} type="button" aria-expanded={toolsExpanded} onClick={toggleTools}>
-            <span>CloudYiCSC</span><em>{toolsExpanded ? '−' : '+'}</em>
+            <span>云依工具</span><em>{toolsExpanded ? '−' : '+'}</em>
           </button>
           {toolsExpanded && (
-            <nav aria-label="CloudYi 工具箱">
+            <nav aria-label="云依助手工具箱">
               <button
                 type="button"
                 className={props.activeView === 'toolbox' && props.activeCategory === null ? styles.activeNav : undefined}
@@ -141,7 +141,7 @@ export function AppSidebar(props: AppSidebarProps) {
           type="button"
           onClick={() => props.onViewChange('account')}
         >
-          <i>依</i><span><strong>工作台中心</strong><small>主题、模块与本机数据</small></span><em>›</em>
+          <i>云</i><span><strong>助手设置</strong><small>主题、模块与本机数据</small></span><em>›</em>
         </button>
       </div>
     </aside>

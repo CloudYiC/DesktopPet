@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.11.1",
+  "latestVersion": "0.11.6",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "依依工作台 0.11.1",
-  "releaseNotes": "Windows x64 installer with the desktop pet, reminders, CloudYi tools, system center, port manager, and local plugin registry.",
-  "publishedAt": "2026-08-01T00:00:00.000Z",
+  "title": "云依助手 0.11.6",
+  "releaseNotes": "Windows x64 installer for CloudYi Assistant with the desktop companion, reminders, local tools, system center, port manager, and local module registry.",
+  "publishedAt": "2026-09-03T00:00:00.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://github.com/CloudYiC/DesktopPet/releases",
-      "sha256": "",
-      "size": 0,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.6.exe",
+      "sha256": "21847E030FC25CB7A18B2D225AF5E6A948DC1AEF80B9355BFD178160B4430540",
+      "size": 23177472,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://github.com/CloudYiC/DesktopPet/releases"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.6.exe"
   }
 }

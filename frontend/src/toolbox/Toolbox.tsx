@@ -730,14 +730,14 @@ function defaultOperation(toolId: string) {
 
 function sampleInput(toolId: string) {
   if (toolId === 'json-format') return '{"name":"可爱依依","features":["reminder","toolbox"]}';
-  if (toolId === 'regex') return 'CloudYi tools now live with 可爱依依 on your desktop.';
+  if (toolId === 'regex') return '云依助手的本地工具现在和可爱依依住在一起。';
   if (toolId === 'diff') return '可爱依依\n提醒事项\n桌面互动';
   if (toolId === 'url-encode') return 'https://example.com/search?q=可爱依依';
   if (toolId === 'numfmt') return '-1234567890.50';
   if (toolId === 'timestamp') return String(Date.now());
   if (toolId === 'uuid') return '5';
   if (toolId === 'password') return '24';
-  return '可爱依依 CloudYi';
+  return '云依助手 可爱依依';
 }
 
 function workspaceInputLabel(toolId: string) {

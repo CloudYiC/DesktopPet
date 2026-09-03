@@ -22,13 +22,13 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "依依工作台项目\0"
-            VALUE "FileDescription", "依依工作台\0"
+            VALUE "CompanyName", "云依助手项目\0"
+            VALUE "FileDescription", "云依助手\0"
             VALUE "FileVersion", "0.11.6.0\0"
             VALUE "InternalName", "CuteYiyiDesktopPet\0"
             VALUE "LegalCopyright", "Copyright (c) 2026\0"
             VALUE "OriginalFilename", "CuteYiyiDesktopPet.exe\0"
-            VALUE "ProductName", "依依工作台\0"
+            VALUE "ProductName", "云依助手\0"
             VALUE "ProductVersion", "0.11.6\0"
         END
     END

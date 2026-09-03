@@ -68,13 +68,13 @@ export function Nav() {
     <>
       <header className={styles.nav}>
         <div className={styles.inner}>
-          <Link href="/" className={styles.brand} aria-label="可爱依依 CloudYi 首页">
+          <Link href="/" className={styles.brand} aria-label="云依助手首页">
             <span className={styles.brandMark}>
               <img src="/icon.svg" alt="" className={styles.brandIcon} />
             </span>
             <span className={styles.brandText}>
-              <strong>可爱依依 · CloudYi</strong>
-              <small>Web Toolbox</small>
+              <strong>云依助手</strong>
+              <small>CloudYi Assistant</small>
             </span>
           </Link>
 

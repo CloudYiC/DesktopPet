@@ -180,7 +180,7 @@ try {
         throw "Installer build failed with exit code $LASTEXITCODE."
     }
 
-    $installer = Join-Path $outputRoot "YiyiWorkbench-Setup-$appVersion.exe"
+    $installer = Join-Path $outputRoot "CloudYiAssistant-Setup-$appVersion.exe"
     if (-not (Test-Path -LiteralPath $installer)) {
         throw "Installer output was not created: $installer"
     }

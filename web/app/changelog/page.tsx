@@ -6,7 +6,7 @@ import styles from './changelog.module.scss'
 export const metadata: Metadata = {
   title: 'Changelog',
   description: `Every ${SITE_NAME_ZH} / ${SITE_NAME_EN} release and plugin-store change.`,
-  keywords: [SITE_NAME_ZH, SITE_NAME_EN, 'CloudYiCFAW changelog', '云一会儿 更新日志'],
+  keywords: [SITE_NAME_ZH, SITE_NAME_EN, 'CloudYi Assistant changelog', '云依助手更新日志'],
   alternates: {
     canonical: '/changelog/',
   },

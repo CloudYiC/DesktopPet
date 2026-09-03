@@ -79,7 +79,7 @@ export function ToolIndex({ tools, categories }: ToolIndexProps) {
       <section className={styles.hero} aria-labelledby="tool-index-title">
         <div className={styles.heroCopy}>
           <h1 id="tool-index-title" className={styles.title}>
-            可爱依依 · CloudYi 工具箱
+            云依助手工具箱
           </h1>
           <p className={styles.lead}>
             浏览器直接运行的本地优先工具；无需上传内容，也无需安装桌面客户端。

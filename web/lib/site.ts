@@ -2,18 +2,19 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://faw.cloudy
   /\/$/,
   '',
 )
-export const SITE_NAME_ZH = '可爱依依 · CloudYi'
-export const SITE_NAME_EN = 'Cute Yiyi Web Toolbox'
+export const SITE_NAME_ZH = '云依助手'
+export const SITE_NAME_EN = 'CloudYi Assistant'
 export const SITE_TITLE = `${SITE_NAME_ZH} - ${SITE_NAME_EN}`
 
 export const SITE_DESCRIPTION =
-  '可爱依依 · CloudYi 是本地优先的开发工具箱。Hash、Base64、Hex、URL、JSON、JWT、UUID、密码、时间戳、正则和文本比较均可直接在浏览器中运行。'
+  '云依助手是本地优先的开发工具箱。Hash、Base64、Hex、URL、JSON、JWT、UUID、密码、时间戳、正则和文本比较均可直接在浏览器中运行。'
 
 export const SITE_KEYWORDS = [
+  '云依助手',
+  'CloudYi Assistant',
   '可爱依依',
   'CloudYi',
-  'CloudYiCFAW',
-  'cloudyicfaw',
+  '云依助手工具箱',
   'developer tools',
   'local-first tools',
   'browser tools',

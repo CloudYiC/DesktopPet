@@ -1,6 +1,6 @@
-# 可爱依依 · CloudYi / Cute Yiyi Web Toolbox
+# 云依助手 / CloudYi Assistant
 
-> A local-first browser toolbox migrated from CloudYiCSC and maintained beside the Cute Yiyi Windows desktop companion.
+> A local-first browser toolbox migrated from CloudYiCSC and maintained alongside the CloudYi Assistant Windows client.
 
 Site: https://faw.cloudyic.com/
 Repository: https://github.com/CloudYiC/DesktopPet

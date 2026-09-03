@@ -94,7 +94,7 @@ const structuredData = {
       '@type': 'WebSite',
       '@id': absoluteUrl('/#website'),
       name: `${SITE_NAME_ZH} / ${SITE_NAME_EN}`,
-      alternateName: [SITE_NAME_ZH, SITE_NAME_EN, 'cloudyicfaw'],
+      alternateName: [SITE_NAME_ZH, SITE_NAME_EN],
       url: SITE_URL,
       description: SITE_DESCRIPTION,
       inLanguage: ['zh-CN', 'en'],

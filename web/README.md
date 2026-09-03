@@ -1,4 +1,4 @@
-# 可爱依依 · CloudYi Web
+# 云依助手 Web
 
 这是从旧 CloudYiCSC 迁入当前仓库的独立 Web 前端。它使用 React 18、Next.js、
 TypeScript 和 SCSS Modules，并在构建时把可移植 C 工具核心编译成 WebAssembly。

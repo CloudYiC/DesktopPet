@@ -26,7 +26,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     keywords: [
       SITE_NAME_ZH,
       SITE_NAME_EN,
-      'cloudyicfaw',
       tool.name,
       tool.shortName,
       tool.category,
@@ -76,7 +75,7 @@ export default async function ToolPage({ params }: Params) {
 
       <nav className={styles.crumbs} aria-label="breadcrumb">
         <Link href="/" className={styles.crumbLink}>
-          可爱依依 · CloudYi
+          云依助手
         </Link>
         <span className={styles.crumbSep}>/</span>
         <Link href="/" className={styles.crumbLink}>
