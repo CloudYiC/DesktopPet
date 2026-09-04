@@ -2,7 +2,7 @@
 
 > A local-first browser toolbox migrated from CloudYiCSC and maintained alongside the CloudYi Assistant Windows client.
 
-Site: https://faw.cloudyic.com/
+Site: https://assistant.cloudyic.com/
 Repository: https://github.com/CloudYiC/DesktopPet
 
 ## Browser tools

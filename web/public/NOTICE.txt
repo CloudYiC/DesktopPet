@@ -1,0 +1,8 @@
+Migrated code notice
+
+This site contains code copied or substantially derived from the former
+CloudYiC/CloudYiC-FAW repository at commit
+6feaa85b158a0b8a80e67564700cdf2267b3b3e2.
+
+That migrated code remains available under the MIT license included in
+LICENSE.txt.

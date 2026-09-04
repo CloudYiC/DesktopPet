@@ -1,4 +1,4 @@
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://faw.cloudyic.com').replace(
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://assistant.cloudyic.com').replace(
   /\/$/,
   '',
 )
