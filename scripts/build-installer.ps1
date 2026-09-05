@@ -24,7 +24,8 @@ $nsisSetupHash = '3BC2B06253A7E4957111BE152AC6A536E0C7478A706E19DA814038DB5D7064
 $installerCache = Join-Path $outRoot 'installer\prerequisites'
 $outputRoot = Join-Path $outRoot 'dist'
 $installerScript = Join-Path $projectRoot 'installer\CuteYiyiDesktopPet.nsi'
-$appIcon = Join-Path $projectRoot 'native\resources\CuteYiyiDesktopPet.ico'
+$appIcon = Join-Path $outRoot `
+    'generated\app-icons\CuteYiyiDesktopPet.ico'
 $appExe = Join-Path $releaseRoot 'CuteYiyiDesktopPet.exe'
 $uiRoot = Join-Path $releaseRoot 'ui'
 
@@ -112,6 +113,9 @@ try {
     if (-not (Test-Path -LiteralPath $appExe) -or
         -not (Test-Path -LiteralPath (Join-Path $uiRoot 'index.html'))) {
         throw 'Release application files are missing. Build the Release configuration first.'
+    }
+    if (-not (Test-Path -LiteralPath $appIcon)) {
+        throw 'Generated application icon is missing. Build the Release configuration first.'
     }
 
     if (-not (Test-Path -LiteralPath $makensis)) {

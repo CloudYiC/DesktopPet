@@ -15,12 +15,34 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$outRoot = Join-Path $projectRoot 'out'
+$generatedIconRoot = Join-Path $outRoot 'generated\app-icons'
+$generatedAppPng = Join-Path $generatedIconRoot 'app-icon.png'
+$generatedAppIco = Join-Path $generatedIconRoot 'CuteYiyiDesktopPet.ico'
+$publicCharacterSource = Join-Path $projectRoot `
+    'frontend\public\assets\milo-sprite.png'
+$privateCharacterSource = Join-Path $projectRoot `
+    'artifacts\private-characters\default-girl.png'
 
 & (Join-Path $PSScriptRoot 'check-cxx11.ps1')
 & (Join-Path $PSScriptRoot 'bootstrap-native-deps.ps1')
 
-# Regenerate both the web favicon and Windows icon resource from one source.
-& (Join-Path $PSScriptRoot 'generate-app-icons.ps1')
+# Generate build-only branding without copying private artwork into a tracked
+# source directory. Public clones deterministically fall back to the mouse.
+$appIconSource = $publicCharacterSource
+$appIconLayout = 'Sprite4x2'
+if (Test-Path -LiteralPath $privateCharacterSource) {
+    $appIconSource = $privateCharacterSource
+    $appIconLayout = 'Single'
+    Write-Host 'Application branding: packaged pink Yiyi character'
+} else {
+    Write-Host 'Application branding: public mouse fallback'
+}
+& (Join-Path $PSScriptRoot 'generate-app-icons.ps1') `
+    -SourceSprite $appIconSource `
+    -SourceLayout $appIconLayout `
+    -PngOutput $generatedAppPng `
+    -IcoOutput $generatedAppIco
 
 if (-not $SkipFrontend) {
     Push-Location (Join-Path $projectRoot 'frontend')
@@ -45,11 +67,18 @@ if (-not $SkipFrontend) {
     }
 }
 
+# The generated favicon follows the selected native brand icon. Both outputs
+# remain below ignored build directories when the private character is used.
+$generatedAppPngOutput = Join-Path $projectRoot `
+    'frontend\dist\assets\app-icon.png'
+New-Item -ItemType Directory -Force `
+    -Path (Split-Path -Parent $generatedAppPngOutput) | Out-Null
+Copy-Item -LiteralPath $generatedAppPng `
+    -Destination $generatedAppPngOutput -Force
+
 # Personal character artwork stays under the ignored artifacts directory. When
 # present locally it is copied only into generated UI output and the installer;
 # public source builds remain functional and fall back to the mouse character.
-$privateCharacterSource = Join-Path $projectRoot `
-    'artifacts\private-characters\default-girl.png'
 $privateCharacterOutput = Join-Path $projectRoot `
     'frontend\dist\assets\private-default-girl.png'
 if (Test-Path -LiteralPath $privateCharacterSource) {
@@ -63,10 +92,11 @@ if (Test-Path -LiteralPath $privateCharacterSource) {
 }
 
 # All generated files stay below out/ so source directories remain reproducible.
-$buildRoot = Join-Path $projectRoot 'out\build'
+$buildRoot = Join-Path $outRoot 'build'
 
 cmake -S $projectRoot -B $buildRoot `
-    -G 'Visual Studio 17 2022' -A x64
+    -G 'Visual Studio 17 2022' -A x64 `
+    "-DCLOUDYI_APP_ICON=$generatedAppIco"
 if ($LASTEXITCODE -ne 0) {
     throw "CMake configure failed with exit code $LASTEXITCODE."
 }

@@ -113,16 +113,18 @@ CloudYiCSC 的界面顺序、C/C++11 边界、已完成工具和后续迁移规�
 out/build/native/Debug/CuteYiyiDesktopPet.exe
 ```
 
-构建时会先调用 `scripts/generate-app-icons.ps1`，从内置小鼠精灵图的第一帧生成：
+构建时会先调用 `scripts/generate-app-icons.ps1`。本机存在被忽略的
+`artifacts/private-characters/default-girl.png` 时，使用粉色依依生成构建专用图标；
+公开源码缺少私人素材时，自动回退到内置小鼠精灵图。生成结果只写入：
 
 ```text
-frontend/public/assets/app-icon.png
-native/resources/CuteYiyiDesktopPet.ico
+out/generated/app-icons/app-icon.png
+out/generated/app-icons/CuteYiyiDesktopPet.ico
 ```
 
 ICO 内含 `16/20/24/32/40/48/64/128/256` 像素帧，分别供资源管理器、窗口、
-任务栏、系统托盘、安装程序和卸载程序选用。需要调整品牌图标时，应修改生成脚本
-或源精灵图并重新运行脚本，不需要手工编辑二进制 ICO。
+任务栏、系统托盘、安装程序和卸载程序选用。私人原图和生成图标均不会作为源码
+提交；完整安装包仍会嵌入所选品牌图标和默认角色素材。
 
 构建 Release 版本：
 
@@ -144,7 +146,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.11.6.exe
+out/dist/CloudYiAssistant-Setup-0.11.7.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -155,6 +157,8 @@ out/dist/CloudYiAssistant-Setup-0.11.6.exe
 - 自动检测并安装 Visual C++ x64 运行库
 - 自动检测并按需安装 WebView2 Evergreen Runtime
 - 覆盖安装升级时自动关闭旧进程
+- 粉色依依作为安装程序、主程序和初始托盘的静态图标
+- 十六进制报文分析器默认作为本地工具启用
 - 卸载时一并清除名称、设置、提醒、自定义角色以及旧版迁移数据
 
 WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并需要联网。
@@ -162,7 +166,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.11.6.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.11.7.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。

@@ -3,18 +3,19 @@
 Generates the application PNG and multi-resolution Windows ICO assets.
 
 .DESCRIPTION
-Uses the first frame of the bundled mouse sprite to produce a deterministic
-brand icon. The ICO contains native-size PNG frames for the executable, window,
-notification area, installer, and uninstaller.
+Produces a deterministic brand icon from either the bundled 4x2 mouse sprite
+or a single transparent character image. The ICO contains native-size PNG
+frames for the executable, window, notification area, installer, and uninstaller.
 #>
 param(
     [string]$SourceSprite,
+    [ValidateSet('Sprite4x2', 'Single')]
+    [string]$SourceLayout = 'Sprite4x2',
     [string]$PngOutput,
     [string]$IcoOutput
 )
 
-# Generates the application icon from the first frame of the built-in mouse
-# sprite. Keeping this transformation scripted makes future branding changes
+# Keeping this transformation scripted makes future branding changes
 # reproducible instead of relying on an opaque, manually edited ICO file.
 
 $ErrorActionPreference = 'Stop'
@@ -58,7 +59,10 @@ function New-ScaledIconBitmap {
         [Parameter(Mandatory)]
         [System.Drawing.Image]$Source,
         [Parameter(Mandatory)]
-        [int]$Size
+        [int]$Size,
+        [Parameter(Mandatory)]
+        [ValidateSet('Sprite4x2', 'Single')]
+        [string]$Layout
     )
 
     $bitmap = [System.Drawing.Bitmap]::new(
@@ -96,10 +100,18 @@ function New-ScaledIconBitmap {
             $innerPath.Dispose()
         }
 
-        # The first 4x2 sprite cell contains the neutral front-facing mascot.
-        # Crop around the face and scarf so the silhouette remains legible at
-        # Windows notification-area sizes such as 16x16 and 20x20.
-        $sourceBounds = [System.Drawing.RectangleF]::new(38, 68, 318, 342)
+        if ($Layout -eq 'Single') {
+            # A single transparent character is cropped to its upper body. The
+            # tighter crop keeps the face recognizable in 16x16 tray icons.
+            $sourceBounds = [System.Drawing.RectangleF]::new(
+                $Source.Width * 0.15,
+                $Source.Height * 0.02,
+                $Source.Width * 0.70,
+                $Source.Height * 0.70)
+        } else {
+            # The first 4x2 sprite cell contains the neutral front-facing mouse.
+            $sourceBounds = [System.Drawing.RectangleF]::new(38, 68, 318, 342)
+        }
         $destinationBounds = [System.Drawing.RectangleF]::new(
             42 * $scale, 34 * $scale, 428 * $scale, 450 * $scale)
         $graphics.DrawImage(
@@ -135,7 +147,8 @@ foreach ($outputPath in @($PngOutput, $IcoOutput)) {
 
 $sourceImage = [System.Drawing.Image]::FromFile($SourceSprite)
 try {
-    $master = New-ScaledIconBitmap -Source $sourceImage -Size 512
+    $master = New-ScaledIconBitmap `
+        -Source $sourceImage -Size 512 -Layout $SourceLayout
     try {
         $master.Save($PngOutput, [System.Drawing.Imaging.ImageFormat]::Png)
     } finally {
@@ -143,7 +156,8 @@ try {
     }
 
     $frames = foreach ($size in @(16, 20, 24, 32, 40, 48, 64, 128, 256)) {
-        $bitmap = New-ScaledIconBitmap -Source $sourceImage -Size $size
+        $bitmap = New-ScaledIconBitmap `
+            -Source $sourceImage -Size $size -Layout $SourceLayout
         try {
             [pscustomobject]@{
                 Size = $size

@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react';
 import { TOOL_DEFINITIONS } from '../toolbox/catalog';
 
 const STORAGE_KEY = 'yiyi.plugins.installed.v2';
+const PACKET_INSPECTOR_DEFAULT_MIGRATION_KEY =
+  'yiyi.plugins.packet-inspector-default-local.v1';
 type PluginState = Record<string, boolean>;
 
 const DEFAULT_LOCAL_TOOLS = new Set([
@@ -10,6 +12,7 @@ const DEFAULT_LOCAL_TOOLS = new Set([
   'diff',
   'password',
   'url-encode',
+  'packet-inspector',
   'system-inspector',
   'port-manager',
   'software-uninstaller',
@@ -26,6 +29,20 @@ function readState(): PluginState {
   );
   try {
     const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '{}') as PluginState;
+    /*
+     * Older releases created a complete registry snapshot while the packet
+     * inspector still defaulted to Available. That snapshot can contain a
+     * synthetic `false` even though the user never disabled the new tool.
+     * Ignore it exactly once; later explicit disable actions remain honored.
+     */
+    if (window.localStorage.getItem(PACKET_INSPECTOR_DEFAULT_MIGRATION_KEY) !== '1') {
+      delete saved['packet-inspector'];
+      try {
+        window.localStorage.setItem(PACKET_INSPECTOR_DEFAULT_MIGRATION_KEY, '1');
+      } catch {
+        // Storage restrictions must not discard the rest of the saved registry.
+      }
+    }
     return { ...defaults, ...saved };
   } catch {
     return defaults;

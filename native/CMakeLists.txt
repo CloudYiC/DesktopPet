@@ -3,6 +3,28 @@ set(MILO_SQLITE_ROOT "${MILO_DEPS_ROOT}/sqlite/sqlite-amalgamation-3530300")
 set(MILO_WEBVIEW2_ROOT "${MILO_DEPS_ROOT}/webview2/build/native")
 set(MILO_JSON_INCLUDE "${MILO_DEPS_ROOT}/nlohmann/include")
 
+# The official build script selects a generated private character icon when the
+# local artwork exists. Direct/public CMake builds retain the tracked mouse icon.
+set(CLOUDYI_APP_ICON
+  "${CMAKE_CURRENT_SOURCE_DIR}/resources/CuteYiyiDesktopPet.ico"
+  CACHE FILEPATH "ICO file embedded in the CloudYi Assistant executable")
+get_filename_component(CLOUDYI_APP_ICON "${CLOUDYI_APP_ICON}" ABSOLUTE)
+if(NOT EXISTS "${CLOUDYI_APP_ICON}")
+  message(FATAL_ERROR "Application icon does not exist: ${CLOUDYI_APP_ICON}")
+endif()
+set(CLOUDYI_GENERATED_RESOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+file(MAKE_DIRECTORY "${CLOUDYI_GENERATED_RESOURCE_DIR}")
+configure_file(
+  "${CLOUDYI_APP_ICON}"
+  "${CLOUDYI_GENERATED_RESOURCE_DIR}/CuteYiyiDesktopPet.ico"
+  COPYONLY
+)
+configure_file(
+  resources/CuteYiyiDesktopPet.rc.in
+  "${CLOUDYI_GENERATED_RESOURCE_DIR}/CuteYiyiDesktopPet.rc"
+  COPYONLY
+)
+
 foreach(required_file
     "${MILO_SQLITE_ROOT}/sqlite3.c"
     "${MILO_WEBVIEW2_ROOT}/include/WebView2.h"
@@ -70,7 +92,7 @@ if(MSVC)
 endif()
 
 add_executable(MiloDesktopPet WIN32
-  resources/CuteYiyiDesktopPet.rc
+  "${CLOUDYI_GENERATED_RESOURCE_DIR}/CuteYiyiDesktopPet.rc"
   src/main.cpp
   src/Application.cpp
   src/CharacterImage.cpp

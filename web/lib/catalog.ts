@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.11.7-desktop',
+    date: '2026-09-05',
+    items: [
+      { kind: '+', text: 'Desktop Hex and Wireshark packet inspector with protocol and byte maps' },
+      { kind: '~', text: 'Packet inspector is enabled as a local desktop tool by default' },
+      { kind: '~', text: 'Windows executable and installer use the packaged pink Yiyi brand icon' },
+    ],
+  },
+  {
     version: 'v0.12.0-web',
     date: '2026-08-01',
     items: [
