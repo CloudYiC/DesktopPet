@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.11.8-desktop',
+    date: '2026-09-05',
+    items: [
+      { kind: '~', text: 'Improved text, controls, spacing, and responsive layouts across every desktop workspace' },
+      { kind: '~', text: 'Added Per-Monitor V2 DPI awareness and removed fractional whole-page UI scaling' },
+      { kind: '~', text: 'Improved desktop and web packet-inspector readability at narrow window sizes' },
+    ],
+  },
+  {
     version: 'v0.11.7-desktop',
     date: '2026-09-05',
     items: [

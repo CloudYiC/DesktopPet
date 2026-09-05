@@ -468,7 +468,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.11.7";
+    const std::string marker = "CuteYiyiDesktopPet 0.11.8";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 

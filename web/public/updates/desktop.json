@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.11.7",
+  "latestVersion": "0.11.8",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.11.7",
-  "releaseNotes": "Windows x64 installer with pink Yiyi branding and the desktop Hex/Wireshark packet inspector enabled by default, including protocol layers, byte offsets, byte counts, and custom private-protocol fields.",
-  "publishedAt": "2026-09-05T12:23:57.547Z",
+  "title": "云依助手 0.11.8",
+  "releaseNotes": "Improves text and control readability throughout the desktop workbench, adds Windows Per-Monitor V2 DPI scaling, and refines narrow-window layouts for the packet inspector and assistant settings.",
+  "publishedAt": "2026-09-05T15:02:23.226Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.7.exe",
-      "sha256": "BF39564B2CDC74DAF31C9FC7F7CDA49E2D34BC6E0955028BD5CA4364B8EED983",
-      "size": 23149651,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.8.exe",
+      "sha256": "9FCD2721F2C3298AE59228D261EAACFB9615DC67AD291127AA01BB4E7D38E321",
+      "size": 23149910,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.7.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.8.exe"
   }
 }

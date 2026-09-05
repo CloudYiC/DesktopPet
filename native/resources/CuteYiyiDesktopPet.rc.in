@@ -10,8 +10,8 @@ IDI_CUTE_YIYI_APP ICON "CuteYiyiDesktopPet.ico"
 1 24 "CloudYiAssistant.manifest"
 
 1 VERSIONINFO
- FILEVERSION 0,11,7,0
- PRODUCTVERSION 0,11,7,0
+ FILEVERSION 0,11,8,0
+ PRODUCTVERSION 0,11,8,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -28,12 +28,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "云依助手项目\0"
             VALUE "FileDescription", "云依助手\0"
-            VALUE "FileVersion", "0.11.7.0\0"
+            VALUE "FileVersion", "0.11.8.0\0"
             VALUE "InternalName", "CuteYiyiDesktopPet\0"
             VALUE "LegalCopyright", "Copyright (c) 2026\0"
             VALUE "OriginalFilename", "CuteYiyiDesktopPet.exe\0"
             VALUE "ProductName", "云依助手\0"
-            VALUE "ProductVersion", "0.11.7\0"
+            VALUE "ProductVersion", "0.11.8\0"
         END
     END
     BLOCK "VarFileInfo"
