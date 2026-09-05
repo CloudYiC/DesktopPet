@@ -8,7 +8,7 @@ $teal-dark: var(--theme-primary-deep);
 .workspace {
   display: grid;
   margin-top: 24px;
-  gap: 16px;
+  gap: 14px;
   padding-bottom: 30px;
 }
 
@@ -34,29 +34,29 @@ $teal-dark: var(--theme-primary-deep);
 
     > i {
       display: grid;
-      width: 54px;
-      height: 54px;
+      width: 50px;
+      height: 50px;
       flex: 0 0 auto;
       place-items: center;
       color: $teal-dark;
       background: #dff0ed;
       border-radius: 17px;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-style: normal;
       font-weight: 850;
     }
 
     > span { display: grid; gap: 3px; }
-    small { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: .16em; }
-    strong { color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.5rem; font-weight: 600; }
-    em { color: $muted; font-size: 0.8125rem; font-style: normal; line-height: 1.5; }
+    small { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: .16em; }
+    strong { color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.375rem; font-weight: 600; }
+    em { color: $muted; font-size: 0.75rem; font-style: normal; line-height: 1.5; }
   }
 }
 
 .safetyBar {
   display: grid;
-  min-height: 78px;
-  padding: 14px 16px;
+  min-height: 70px;
+  padding: 12px 14px;
   align-items: center;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 14px;
@@ -64,8 +64,8 @@ $teal-dark: var(--theme-primary-deep);
   border: 1px solid rgba(22, 139, 133, .12);
   border-radius: 17px;
 
-  span { color: $muted; font-size: 0.75rem; line-height: 1.55; }
-  strong { display: block; margin-bottom: 3px; color: $teal-dark; font-size: 0.8125rem; }
+  span { color: $muted; font-size: 0.6875rem; line-height: 1.55; }
+  strong { display: block; margin-bottom: 3px; color: $teal-dark; font-size: 0.75rem; }
   button {
     min-height: 40px;
     padding: 0 15px;
@@ -93,7 +93,7 @@ $teal-dark: var(--theme-primary-deep);
 
 .contentGrid {
   display: grid;
-  min-height: 570px;
+  min-height: 520px;
   grid-template-columns: minmax(300px, .85fr) minmax(460px, 1.55fr);
   gap: 14px;
 }
@@ -110,7 +110,7 @@ $teal-dark: var(--theme-primary-deep);
 .inventory {
   display: grid;
   max-height: 680px;
-  padding: 16px;
+  padding: 14px;
   grid-template-rows: auto 1fr;
   gap: 12px;
 
@@ -119,18 +119,18 @@ $teal-dark: var(--theme-primary-deep);
     gap: 10px;
 
     > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: .14em; }
+    span { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: .14em; }
     strong { color: $ink; font-size: 0.75rem; }
     input {
       width: 100%;
-      min-height: 42px;
+      min-height: 38px;
       padding: 0 12px;
       color: $ink;
       background: $sand;
       border: 1px solid rgba(86, 66, 52, .08);
       border-radius: 10px;
       outline: none;
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       &:focus { border-color: rgba(22, 139, 133, .4); }
     }
   }
@@ -147,10 +147,10 @@ $teal-dark: var(--theme-primary-deep);
     display: grid;
     width: 100%;
     min-width: 0;
-    min-height: 62px;
-    padding: 11px;
+    min-height: 56px;
+    padding: 9px;
     align-items: center;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
     gap: 9px;
     color: inherit;
     cursor: pointer;
@@ -161,8 +161,8 @@ $teal-dark: var(--theme-primary-deep);
 
     > i {
       display: grid;
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       place-items: center;
       color: $teal-dark;
       background: #e4f2ef;
@@ -173,9 +173,9 @@ $teal-dark: var(--theme-primary-deep);
     }
     > span { min-width: 0; }
     strong, small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    strong { color: $ink; font-size: 0.8125rem; }
-    small { margin-top: 4px; color: $muted; font-size: 0.75rem; }
-    em { padding: 5px 7px; color: #81756d; background: #f1ebe4; border-radius: 6px; font-size: 0.75rem; font-style: normal; white-space: nowrap; }
+    strong { color: $ink; font-size: 0.75rem; }
+    small { margin-top: 3px; color: $muted; font-size: 0.6875rem; }
+    em { padding: 4px 6px; color: #81756d; background: #f1ebe4; border-radius: 6px; font-size: 0.6875rem; font-style: normal; white-space: nowrap; }
     &:hover { background: #f8f3ed; }
   }
 
@@ -190,9 +190,9 @@ $teal-dark: var(--theme-primary-deep);
 
 .detail {
   display: grid;
-  padding: 20px;
+  padding: 18px;
   align-content: start;
-  gap: 14px;
+  gap: 12px;
 }
 
 .empty {
@@ -200,7 +200,7 @@ $teal-dark: var(--theme-primary-deep);
   min-height: 350px;
   place-items: center;
   color: $muted;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .softwareSummary {
@@ -209,9 +209,9 @@ $teal-dark: var(--theme-primary-deep);
   justify-content: space-between;
   gap: 16px;
 
-  span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: .14em; }
-  h3 { margin: 5px 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.3125rem; font-weight: 600; }
-  p { margin: 0; color: $muted; font-size: 0.75rem; line-height: 1.5; }
+  span { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: .14em; }
+  h3 { margin: 5px 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.1875rem; font-weight: 600; }
+  p { margin: 0; color: $muted; font-size: 0.6875rem; line-height: 1.5; }
 }
 
 .summaryActions {
@@ -220,7 +220,7 @@ $teal-dark: var(--theme-primary-deep);
   gap: 7px;
 
   button {
-    min-height: 42px;
+    min-height: 40px;
     padding: 0 14px;
     color: #fff;
     cursor: pointer;
@@ -237,14 +237,14 @@ $teal-dark: var(--theme-primary-deep);
 .metadata {
   display: grid;
   margin: 0;
-  padding: 14px 16px;
+  padding: 12px 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 16px;
   background: $sand;
   border-radius: 13px;
 
   div { min-width: 0; }
-  dt { color: $muted; font-size: 0.75rem; }
+  dt { color: $muted; font-size: 0.6875rem; }
   dd { margin: 5px 0 0; overflow: hidden; color: $ink; font-size: 0.75rem; font-weight: 650; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
 
   .metadataWide {
@@ -263,21 +263,21 @@ $teal-dark: var(--theme-primary-deep);
     align-items: flex-end;
     justify-content: space-between;
     gap: 12px;
-    span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: .14em; }
-    h3 { margin: 4px 0 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1rem; font-weight: 600; }
-    small { color: $muted; font-size: 0.75rem; }
+    span { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: .14em; }
+    h3 { margin: 4px 0 0; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 0.9375rem; font-weight: 600; }
+    small { color: $muted; font-size: 0.6875rem; }
   }
 }
 
 .scanEmpty {
-  padding: 25px 18px;
+  padding: 22px 16px;
   color: $muted;
   background: #f8f3ed;
   border: 1px dashed rgba(86, 66, 52, .16);
   border-radius: 13px;
   text-align: center;
-  strong { color: $ink; font-size: 0.8125rem; }
-  p { max-width: 500px; margin: 7px auto 0; font-size: 0.75rem; line-height: 1.65; }
+  strong { color: $ink; font-size: 0.75rem; }
+  p { max-width: 500px; margin: 7px auto 0; font-size: 0.6875rem; line-height: 1.65; }
 }
 
 .residualList {
@@ -289,7 +289,7 @@ $teal-dark: var(--theme-primary-deep);
   > label {
     display: grid;
     min-width: 0;
-    padding: 12px;
+    padding: 10px;
     align-items: center;
     grid-template-columns: auto 34px minmax(0, 1fr) auto;
     gap: 9px;
@@ -303,13 +303,13 @@ $teal-dark: var(--theme-primary-deep);
     > span { min-width: 0; }
     strong, code, p { display: block; }
     strong { color: $ink; font-size: 0.75rem; }
-    code { margin-top: 5px; overflow: hidden; color: $muted; font-family: Consolas, monospace; font-size: 0.75rem; text-overflow: ellipsis; white-space: nowrap; }
-    p { margin: 5px 0 0; color: $teal-dark; font-size: 0.75rem; line-height: 1.5; }
+    code { margin-top: 4px; overflow: hidden; color: $muted; font-family: Consolas, monospace; font-size: 0.6875rem; text-overflow: ellipsis; white-space: nowrap; }
+    p { margin: 4px 0 0; color: $teal-dark; font-size: 0.6875rem; line-height: 1.5; }
     > em { display: grid; justify-items: end; gap: 4px; font-style: normal; }
-    b { padding: 4px 7px; color: #a34d42; background: #ffe4de; border-radius: 5px; font-size: 0.75rem; }
+    b { padding: 4px 7px; color: #a34d42; background: #ffe4de; border-radius: 5px; font-size: 0.6875rem; }
     .highConfidence { color: #167d5c; background: #dff5e9; }
     .mediumConfidence { color: #936100; background: #fff0c9; }
-    small { color: $muted; font-size: 0.75rem; white-space: nowrap; }
+    small { color: $muted; font-size: 0.6875rem; white-space: nowrap; }
   }
 
   .personalResidual { background: #fff5f1; border-color: rgba(196, 94, 78, .15); }
@@ -325,20 +325,20 @@ $teal-dark: var(--theme-primary-deep);
   border-radius: 13px;
 
   label { display: grid; gap: 6px; }
-  span { color: #8d574e; font-size: 0.75rem; font-weight: 750; }
+  span { color: #8d574e; font-size: 0.6875rem; font-weight: 750; }
   input {
-    min-height: 42px;
+    min-height: 40px;
     padding: 0 12px;
     color: $ink;
     background: #fff;
     border: 1px solid rgba(163, 77, 66, .16);
     border-radius: 9px;
     outline: none;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     &:focus { border-color: rgba(163, 77, 66, .4); }
   }
   button {
-    min-height: 42px;
+    min-height: 40px;
     padding: 0 15px;
     color: #fff;
     cursor: pointer;

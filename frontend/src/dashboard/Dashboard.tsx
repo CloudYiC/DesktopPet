@@ -499,13 +499,15 @@ export function Dashboard() {
       />
 
       <main ref={contentRegion} className={styles.content}>
-        <header className={styles.header}>
-          <div>
-            <span className={styles.kicker}>{viewKicker}</span>
-            <h1>{viewHeading}</h1>
-            <p>{viewDescription}</p>
-          </div>
-        </header>
+        {activeView !== 'toolbox' && (
+          <header className={styles.header}>
+            <div>
+              <span className={styles.kicker}>{viewKicker}</span>
+              <h1>{viewHeading}</h1>
+              <p>{viewDescription}</p>
+            </div>
+          </header>
+        )}
 
         {error && activeView === 'settings' && (
           <div className={styles.errorMessage}>{error}</div>
