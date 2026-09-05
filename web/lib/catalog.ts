@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.11.9-desktop',
+    date: '2026-09-06',
+    items: [
+      { kind: '~', text: 'Removed repeated introductory headings from CloudYi toolbox list pages' },
+      { kind: '~', text: 'Rebalanced typography, controls, spacing, and narrow-window layouts across desktop tools' },
+      { kind: '~', text: 'Fixed clipping in the assistant interaction cloud at narrow and high-DPI window sizes' },
+    ],
+  },
+  {
     version: 'v0.11.8-desktop',
     date: '2026-09-05',
     items: [

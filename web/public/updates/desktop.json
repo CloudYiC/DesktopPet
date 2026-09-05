@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.11.8",
+  "latestVersion": "0.11.9",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.11.8",
-  "releaseNotes": "Improves text and control readability throughout the desktop workbench, adds Windows Per-Monitor V2 DPI scaling, and refines narrow-window layouts for the packet inspector and assistant settings.",
-  "publishedAt": "2026-09-05T15:02:23.226Z",
+  "title": "云依助手 0.11.9",
+  "releaseNotes": "Removes repeated introductory headings from CloudYi toolbox pages, rebalances desktop tool sizing, and fixes clipping in the assistant interaction cloud at narrow and high-DPI window sizes.",
+  "publishedAt": "2026-09-05T20:34:58.906Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.8.exe",
-      "sha256": "9FCD2721F2C3298AE59228D261EAACFB9615DC67AD291127AA01BB4E7D38E321",
-      "size": 23149910,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.9.exe",
+      "sha256": "1511DA8FBE54EE4DA59192D278651FB22A771B2881F50DC86D235FDCBAC26899",
+      "size": 23149985,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.8.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.9.exe"
   }
 }
