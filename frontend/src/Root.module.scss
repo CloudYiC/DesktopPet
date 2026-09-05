@@ -12,6 +12,20 @@
   box-sizing: border-box;
 }
 
+// Text-size preferences change typography only. Keeping layout geometry at
+// native scale avoids the fractional whole-page rasterization caused by zoom.
+:global(html) {
+  font-size: 1rem;
+}
+
+:global(html[data-workspace-text-size='compact']) {
+  font-size: 0.9375rem;
+}
+
+:global(html[data-workspace-text-size='large']) {
+  font-size: 1.0625rem;
+}
+
 :global(button),
 :global(input) {
   font: inherit;
@@ -19,6 +33,21 @@
 
 :global(button) {
   -webkit-tap-highlight-color: transparent;
+}
+
+:global(button:focus-visible),
+:global(input:focus-visible),
+:global(select:focus-visible),
+:global(textarea:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--theme-primary, #168b85) 70%, white);
+  outline-offset: 2px;
+}
+
+// Component styles assign semantic caption sizes explicitly. Reset the browser
+// default `smaller` rule so an unqualified <small> never drops below the
+// readability floor by another 16.7%.
+:global(small) {
+  font-size: inherit;
 }
 
 .petRoot,
@@ -44,7 +73,6 @@
   --theme-accent: #eaa06e;
   --theme-canvas: #f8f4ee;
   --theme-soft: #f8e9dc;
-  --theme-ui-scale: 1;
 
   color: var(--theme-ink);
   background: var(--theme-canvas);
@@ -72,12 +100,4 @@
   --theme-accent: #e2a06f;
   --theme-canvas: #fbf1f2;
   --theme-soft: #f4dfe3;
-}
-
-:global(html[data-workspace-text-size='compact']) .dashboardRoot {
-  --theme-ui-scale: 0.94;
-}
-
-:global(html[data-workspace-text-size='large']) .dashboardRoot {
-  --theme-ui-scale: 1.08;
 }

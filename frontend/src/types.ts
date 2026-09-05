@@ -17,7 +17,7 @@ export type CharacterLayout = 'single' | 'sheet';
 /** Light workspace palettes available before the dedicated dark theme ships. */
 export type WorkspaceTheme = 'warm' | 'cloud' | 'rose';
 
-/** Whole-interface scale applied by the dashboard WebView. */
+/** Readability preset used by the dashboard typography system. */
 export type WorkspaceTextSize = 'compact' | 'comfortable' | 'large';
 
 /** Image formats produced by the local Canvas/native-save workflow. */

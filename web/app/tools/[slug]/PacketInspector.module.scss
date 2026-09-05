@@ -40,7 +40,7 @@
 .panelHead > div > span {
   color: #0b8982;
   font-family: var(--cy-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.16em;
 }
@@ -207,7 +207,7 @@
   span,
   small {
     color: var(--packet-muted);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
   }
 
@@ -310,14 +310,14 @@
       margin-top: 3px;
       overflow: hidden;
       color: var(--packet-muted);
-      font-size: 10px;
+      font-size: 11px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     code {
       color: #73837f;
-      font-size: 10px;
+      font-size: 11px;
       white-space: nowrap;
     }
   }
@@ -328,8 +328,8 @@
 
   button {
     width: 100%;
-    min-height: 51px;
-    padding: 8px 11px 8px 26px;
+    min-height: 56px;
+    padding: 9px 11px 9px 26px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -371,20 +371,20 @@
 
     strong {
       color: #344b46;
-      font-size: 11px;
+      font-size: 12px;
     }
 
     small,
     code {
       margin-top: 3px;
       color: #83918e;
-      font-size: 9px;
+      font-size: 11px;
     }
 
     em {
       color: #147f78;
       font-family: var(--cy-font-mono);
-      font-size: 10px;
+      font-size: 11px;
       font-style: normal;
       font-weight: 800;
     }
@@ -405,7 +405,7 @@
 .hexHeader,
 .byteRow {
   display: grid;
-  grid-template-columns: 48px minmax(352px, 1fr) 132px;
+  grid-template-columns: 54px minmax(420px, 1fr) 144px;
   gap: 9px;
   align-items: center;
 }
@@ -414,7 +414,7 @@
   padding: 0 7px 7px;
   color: #889792;
   font-family: var(--cy-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
 
   span:nth-child(2) {
@@ -440,29 +440,29 @@
   border-radius: 9px;
   background: #fff9ee;
   color: #8b693f;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.55;
 }
 
 .byteRow {
-  min-height: 28px;
+  min-height: 32px;
 }
 
 .rowOffset {
   color: #7f9d95;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .byteCells {
   display: grid;
-  grid-template-columns: repeat(16, minmax(19px, 1fr));
+  grid-template-columns: repeat(16, minmax(23px, 1fr));
   gap: 3px;
 }
 
 .byteCell,
 .byteBlank {
   min-width: 0;
-  height: 25px;
+  height: 28px;
 }
 
 .byteCell {
@@ -473,7 +473,7 @@
   color: color-mix(in srgb, var(--byte-color) 54%, white);
   cursor: pointer;
   font-family: var(--cy-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
 
   &:hover {
@@ -492,7 +492,7 @@
 .ascii {
   overflow: hidden;
   color: #a5bbb5;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   white-space: nowrap;
 }
@@ -508,7 +508,7 @@
     align-items: center;
     gap: 5px;
     color: var(--packet-muted);
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 700;
   }
 
@@ -535,7 +535,7 @@
     height: 39px;
     padding: 0 9px;
     border-radius: 9px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 
@@ -547,7 +547,7 @@
   background: linear-gradient(135deg, #15958f, #08776f);
   color: #ffffff;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
 
@@ -580,7 +580,7 @@
     }
 
     strong {
-      font-size: 11px;
+      font-size: 12px;
     }
 
     small {
@@ -588,7 +588,7 @@
       overflow: hidden;
       color: var(--packet-muted);
       font-family: var(--cy-font-mono);
-      font-size: 9px;
+      font-size: 11px;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
@@ -598,7 +598,7 @@
       background: transparent;
       color: #b25d59;
       cursor: pointer;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 800;
     }
   }

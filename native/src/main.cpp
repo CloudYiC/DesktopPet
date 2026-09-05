@@ -6,6 +6,12 @@
 #include "Milo/Utils.h"
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
+  // The manifest selects Per-Monitor V2 before startup. Keep the API call as a
+  // defensive fallback for builds launched outside the Visual Studio generator;
+  // ERROR_ACCESS_DENIED simply means the manifest has already set the context.
+  SetProcessDpiAwarenessContext(
+      DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
   // A named per-user-session mutex enforces one scheduler and one tray icon.
   HANDLE instanceMutex =
       CreateMutexW(nullptr, TRUE, L"Local\\MiloDesktopPet.Singleton.v1");

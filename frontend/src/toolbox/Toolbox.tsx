@@ -25,10 +25,11 @@ import { PacketInspector } from './PacketInspector';
 interface ToolboxProps {
   category: ToolCategoryId | null;
   onOpenCategory(category: ToolCategoryId): void;
+  onWorkspaceChange(): void;
 }
 
 /** CloudYi tool catalog and workbench embedded in the pet dashboard. */
-export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
+export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: ToolboxProps) {
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'default' | 'local' | 'available'>('default');
@@ -58,6 +59,10 @@ export function Toolbox({ category, onOpenCategory }: ToolboxProps) {
   useEffect(() => {
     if (activeTool && pluginState[activeTool.id] === false) setActiveToolId(null);
   }, [activeTool, pluginState]);
+
+  useEffect(() => {
+    onWorkspaceChange();
+  }, [activeToolId, onWorkspaceChange]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {

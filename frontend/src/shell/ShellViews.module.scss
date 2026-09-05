@@ -15,7 +15,7 @@ $teal-dark: var(--theme-primary-deep);
 
 .storeHero {
   display: grid;
-  padding: 23px 25px;
+  padding: 25px 27px;
   align-items: center;
   grid-template-columns: 1fr auto;
   gap: 22px;
@@ -26,28 +26,29 @@ $teal-dark: var(--theme-primary-deep);
   > div:first-child > span,
   > div:first-child h2,
   > div:first-child p { display: block; }
-  > div:first-child > span { color: $teal; font-size: 8px; font-weight: 800; letter-spacing: 0.2em; }
-  h2 { margin: 7px 0 5px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 23px; font-weight: 600; }
-  p { margin: 0; color: #766960; font-size: 10px; line-height: 1.7; }
+  > div:first-child > span { color: $teal; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.2em; }
+  h2 { margin: 7px 0 5px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.4375rem; font-weight: 600; }
+  p { margin: 0; color: #766960; font-size: 0.75rem; line-height: 1.65; }
 
   > div:last-child {
     display: grid;
     min-width: 190px;
-    padding: 14px 18px;
+    min-height: 66px;
+    padding: 15px 19px;
     align-items: center;
     grid-template-columns: auto 1fr auto 1fr;
     gap: 7px;
     background: color-mix(in srgb, $paper 76%, transparent);
     border-radius: 17px;
 
-    strong { color: $teal-dark; font-family: Georgia, serif; font-size: 24px; }
-    span { color: $muted; font-size: 8px; }
+    strong { color: $teal-dark; font-family: Georgia, serif; font-size: 1.5rem; }
+    span { color: $muted; font-size: 0.75rem; }
   }
 }
 
 .storeSearch {
   display: grid;
-  min-height: 48px;
+  min-height: 52px;
   padding: 0 15px;
   align-items: center;
   grid-template-columns: 24px 1fr auto;
@@ -56,9 +57,9 @@ $teal-dark: var(--theme-primary-deep);
   border: 1px solid rgba(86, 66, 52, 0.08);
   border-radius: 14px;
 
-  > span { color: $teal; font-size: 15px; }
-  input { width: 100%; color: $ink; background: transparent; border: 0; outline: 0; font-size: 10px; }
-  em { color: $muted; font-size: 8px; font-style: normal; }
+  > span { color: $teal; font-size: 0.9375rem; }
+  input { width: 100%; color: $ink; background: transparent; border: 0; outline: 0; font-size: 0.8125rem; line-height: 1.4; }
+  em { color: $muted; font-size: 0.75rem; font-style: normal; line-height: 1.4; }
 }
 
 .pluginGrid {
@@ -69,8 +70,8 @@ $teal-dark: var(--theme-primary-deep);
   article {
     display: grid;
     min-width: 0;
-    min-height: 142px;
-    padding: 16px;
+    min-height: 166px;
+    padding: 18px;
     grid-template-columns: 42px 1fr;
     grid-template-rows: 1fr auto;
     gap: 11px;
@@ -78,11 +79,11 @@ $teal-dark: var(--theme-primary-deep);
     border: 1px solid rgba(86, 66, 52, 0.08);
     border-radius: 17px;
 
-    > i { display: grid; width: 42px; height: 42px; place-items: center; color: $teal-dark; background: #e4f2ef; border-radius: 13px; font-size: 10px; font-style: normal; font-weight: 850; }
-    > div span { color: $teal; font-size: 7px; font-weight: 800; letter-spacing: 0.12em; }
-    h3 { margin: 5px 0 4px; color: $ink; font-size: 13px; }
-    p { margin: 0; color: $muted; font-size: 8px; line-height: 1.6; }
-    button { width: fit-content; padding: 7px 10px; grid-column: 2; color: $teal-dark; cursor: pointer; background: #e4f2ef; border: 0; border-radius: 8px; font-size: 8px; font-weight: 750; }
+    > i { display: grid; width: 42px; height: 42px; place-items: center; color: $teal-dark; background: #e4f2ef; border-radius: 13px; font-size: 0.75rem; font-style: normal; font-weight: 850; }
+    > div span { color: $teal; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.12em; }
+    h3 { margin: 6px 0 5px; color: $ink; font-size: 0.875rem; line-height: 1.4; }
+    p { margin: 0; color: $muted; font-size: 0.75rem; line-height: 1.6; }
+    button { width: fit-content; min-height: 36px; padding: 8px 12px; grid-column: 2; color: $teal-dark; cursor: pointer; background: #e4f2ef; border: 0; border-radius: 9px; font-size: 0.75rem; font-weight: 750; }
     button:disabled { color: #8f8279; cursor: default; background: #eee7df; }
   }
 }
@@ -95,7 +96,7 @@ $teal-dark: var(--theme-primary-deep);
   gap: 5px;
   list-style: none;
 
-  li { padding: 4px 7px; color: #7c6e65; background: #f3ece4; border-radius: 999px; font-size: 7px; }
+  li { padding: 5px 8px; color: #7c6e65; background: #f3ece4; border-radius: 999px; font-size: 0.75rem; line-height: 1.35; }
 }
 
 .pluginDisabled {
@@ -107,7 +108,7 @@ $teal-dark: var(--theme-primary-deep);
   display: grid;
   min-height: 520px;
   overflow: hidden;
-  grid-template-columns: 158px minmax(0, 1fr);
+  grid-template-columns: 176px minmax(0, 1fr);
   background: color-mix(in srgb, $paper 72%, transparent);
   border: 1px solid rgba(86, 66, 52, 0.08);
   border-radius: 24px;
@@ -116,7 +117,7 @@ $teal-dark: var(--theme-primary-deep);
 
 .centerTabs {
   display: flex;
-  padding: 22px 14px;
+  padding: 24px 14px;
   flex-direction: column;
   gap: 7px;
   background: color-mix(in srgb, $sand 72%, $paper);
@@ -129,14 +130,14 @@ $teal-dark: var(--theme-primary-deep);
 
     span,
     strong { display: block; }
-    span { color: $teal; font-size: 6px; font-weight: 850; letter-spacing: 0.16em; }
-    strong { margin-top: 5px; color: $ink; font-size: 11px; }
+    span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: 0.16em; }
+    strong { margin-top: 6px; color: $ink; font-size: 0.875rem; line-height: 1.35; }
   }
 
   > button {
     display: grid;
-    min-height: 39px;
-    padding: 0 9px;
+    min-height: 44px;
+    padding: 7px 10px;
     align-items: center;
     grid-template-columns: 25px 1fr;
     color: $muted;
@@ -144,12 +145,13 @@ $teal-dark: var(--theme-primary-deep);
     background: transparent;
     border: 0;
     border-radius: 10px;
-    font-size: 8px;
+    font-size: 0.75rem;
+    line-height: 1.35;
     font-weight: 750;
     text-align: left;
     transition: 160ms ease;
 
-    i { color: $teal; font-size: 9px; font-style: normal; text-align: center; }
+    i { color: $teal; font-size: 0.75rem; font-style: normal; text-align: center; }
     &:hover { color: $ink; background: color-mix(in srgb, $paper 65%, transparent); }
   }
 
@@ -162,7 +164,7 @@ $teal-dark: var(--theme-primary-deep);
 
 .centerContent {
   min-width: 0;
-  padding: 20px;
+  padding: 22px;
 }
 
 .settingsPane {
@@ -172,9 +174,9 @@ $teal-dark: var(--theme-primary-deep);
   > header {
     padding: 7px 4px 2px;
 
-    > span { color: $teal; font-size: 7px; font-weight: 850; letter-spacing: 0.18em; }
-    h2 { margin: 5px 0 4px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 23px; font-weight: 600; }
-    p { margin: 0; color: $muted; font-size: 8px; line-height: 1.6; }
+    > span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: 0.18em; }
+    h2 { margin: 5px 0 4px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.4375rem; font-weight: 600; }
+    p { margin: 0; color: $muted; font-size: 0.75rem; line-height: 1.6; }
   }
 }
 
@@ -185,12 +187,12 @@ $teal-dark: var(--theme-primary-deep);
   border-radius: 17px;
 
   > h3 {
-    padding: 11px 15px;
+    padding: 13px 16px;
     margin: 0;
     color: $teal;
     background: color-mix(in srgb, $sand 48%, transparent);
     border-bottom: 1px solid rgba(86, 66, 52, 0.06);
-    font-size: 7px;
+    font-size: 0.75rem;
     font-weight: 850;
     letter-spacing: 0.12em;
   }
@@ -198,14 +200,15 @@ $teal-dark: var(--theme-primary-deep);
 
 .themeChoices {
   display: grid;
-  padding: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 9px;
 
   > button {
     display: grid;
     min-width: 0;
-    padding: 9px;
+    min-height: 68px;
+    padding: 11px;
     align-items: center;
     grid-template-columns: 35px 1fr;
     gap: 8px;
@@ -220,25 +223,25 @@ $teal-dark: var(--theme-primary-deep);
     span,
     strong,
     small { display: block; min-width: 0; }
-    strong { font-size: 8px; }
-    small { margin-top: 2px; overflow: hidden; color: $muted; font-size: 6px; text-overflow: ellipsis; white-space: nowrap; }
+    strong { font-size: 0.8125rem; line-height: 1.35; }
+    small { margin-top: 3px; overflow: hidden; color: $muted; font-size: 0.75rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
   }
 
   .choiceActive { border-color: $teal; box-shadow: 0 0 0 2px color-mix(in srgb, $teal 12%, transparent); }
 }
 
 .settingHint {
-  padding: 0 15px 13px;
+  padding: 0 16px 15px;
   margin: 0;
   color: $muted;
-  font-size: 7px;
+  font-size: 0.75rem;
   line-height: 1.6;
 }
 
 .settingLine {
   display: grid;
-  min-height: 63px;
-  padding: 11px 15px;
+  min-height: 78px;
+  padding: 13px 16px;
   align-items: center;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
@@ -246,8 +249,8 @@ $teal-dark: var(--theme-primary-deep);
   & + & { border-top: 1px solid rgba(86, 66, 52, 0.07); }
   > span > strong,
   > span > small { display: block; }
-  > span > strong { color: $ink; font-size: 9px; }
-  > span > small { max-width: 420px; margin-top: 3px; color: $muted; font-size: 7px; line-height: 1.5; }
+  > span > strong { color: $ink; font-size: 0.8125rem; line-height: 1.4; }
+  > span > small { max-width: 420px; margin-top: 4px; color: $muted; font-size: 0.75rem; line-height: 1.5; }
 }
 
 .segmentedControl {
@@ -259,14 +262,14 @@ $teal-dark: var(--theme-primary-deep);
 
   button {
     min-width: 48px;
-    min-height: 29px;
-    padding: 0 8px;
+    min-height: 36px;
+    padding: 0 10px;
     color: $muted;
     cursor: pointer;
     background: transparent;
     border: 0;
     border-radius: 8px;
-    font-size: 7px;
+    font-size: 0.75rem;
     font-weight: 750;
   }
 
@@ -290,12 +293,13 @@ $teal-dark: var(--theme-primary-deep);
 
 .summaryCards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
 
   article {
     min-width: 0;
-    padding: 16px;
+    min-height: 110px;
+    padding: 18px;
     background: linear-gradient(145deg, $paper, color-mix(in srgb, $sand 65%, $paper));
     border: 1px solid rgba(86, 66, 52, 0.08);
     border-radius: 16px;
@@ -303,26 +307,26 @@ $teal-dark: var(--theme-primary-deep);
     span,
     strong,
     small { display: block; }
-    span { color: $muted; font-size: 7px; }
-    strong { margin-top: 7px; overflow: hidden; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
-    small { margin-top: 5px; color: $teal; font-size: 6px; font-weight: 800; letter-spacing: 0.1em; }
+    span { color: $muted; font-size: 0.75rem; line-height: 1.4; }
+    strong { margin-top: 7px; overflow: hidden; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.25rem; text-overflow: ellipsis; white-space: nowrap; }
+    small { margin-top: 6px; color: $teal; font-size: 0.75rem; font-weight: 800; line-height: 1.4; letter-spacing: 0.1em; }
   }
 }
 
 .secondaryButton {
-  min-height: 31px;
-  padding: 0 11px;
+  min-height: 36px;
+  padding: 0 12px;
   color: $teal-dark;
   cursor: pointer;
   background: color-mix(in srgb, $teal 12%, $paper);
   border: 0;
   border-radius: 8px;
-  font-size: 7px;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
-.statusPill { padding: 6px 9px; color: $teal-dark; background: color-mix(in srgb, $teal 11%, $paper); border-radius: 999px; font-size: 7px; white-space: nowrap; }
-.aboutValue { color: $ink; font-family: Georgia, serif; font-size: 10px; white-space: nowrap; }
+.statusPill { padding: 7px 10px; color: $teal-dark; background: color-mix(in srgb, $teal 11%, $paper); border-radius: 999px; font-size: 0.75rem; line-height: 1.35; white-space: nowrap; }
+.aboutValue { color: $ink; font-family: Georgia, serif; font-size: 0.8125rem; line-height: 1.4; white-space: nowrap; }
 
 @media (max-width: 760px) {
   .storeHero { grid-template-columns: 1fr; }

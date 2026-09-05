@@ -90,7 +90,7 @@ $cream: #fffaf0;
     border-radius: 999px;
     box-shadow: 0 10px 25px rgba(22, 139, 133, 0.28);
     font-family: Georgia, "Noto Serif SC", serif;
-    font-size: 15px;
+    font-size: 0.9375rem;
     white-space: nowrap;
     animation: petCelebrationMessage 1.9s ease both;
   }
@@ -99,7 +99,7 @@ $cream: #fffaf0;
     position: absolute;
     top: -22px;
     color: #eda54a;
-    font-size: 17px;
+    font-size: 1.0625rem;
     font-style: normal;
     animation: petConfettiFall 1.65s cubic-bezier(0.18, 0.72, 0.28, 1) both;
   }
@@ -304,7 +304,7 @@ $cream: #fffaf0;
     max-width: 100%;
     overflow: hidden;
     overflow-wrap: anywhere;
-    font-size: clamp(19px, 5vw, 25px);
+    font-size: clamp(1.1875rem, 5vw, 1.5625rem);
     line-height: 1.25;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -314,7 +314,8 @@ $cream: #fffaf0;
 .signKicker {
   margin-bottom: 5px;
   color: var(--alert-accent);
-  font-size: 11px;
+  font-size: 0.75rem;
+  line-height: 1.35;
   font-weight: 900;
   letter-spacing: 0.18em;
 }
@@ -322,7 +323,8 @@ $cream: #fffaf0;
 .signHint {
   margin-top: 5px;
   color: rgba($ink, 0.68);
-  font-size: 11px;
+  font-size: 0.75rem;
+  line-height: 1.45;
   font-weight: 650;
 }
 
@@ -333,14 +335,15 @@ $cream: #fffaf0;
 
   button {
     min-width: 84px;
-    padding: 7px 13px;
+    min-height: 36px;
+    padding: 8px 14px;
     color: #fff;
     cursor: pointer;
     background: $teal;
     border: 0;
     border-radius: 999px;
     box-shadow: 0 5px 12px rgba(22, 139, 133, 0.24);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 800;
     transition: transform 150ms ease, box-shadow 150ms ease;
 
@@ -366,12 +369,14 @@ $cream: #fffaf0;
   z-index: 8;
   bottom: 11px;
   left: 50%;
-  padding: 5px 10px;
+  min-height: 30px;
+  padding: 6px 11px;
   color: rgba($ink, 0.66);
   background: rgba(255, 250, 240, 0.86);
   border-radius: 999px;
   box-shadow: 0 5px 16px rgba(72, 53, 43, 0.1);
-  font-size: 10px;
+  font-size: 0.75rem;
+  line-height: 1.35;
   font-weight: 700;
   white-space: nowrap;
   transform: translateX(-50%);
@@ -382,7 +387,7 @@ $cream: #fffaf0;
   position: absolute;
   z-index: 9;
   color: #f0a633;
-  font-size: 25px;
+  font-size: 1.5625rem;
   text-shadow: 0 3px 8px rgba(218, 119, 40, 0.22);
   animation: sparklePop 1.25s ease-in-out infinite;
 }
@@ -402,7 +407,7 @@ $cream: #fffaf0;
   bottom: 61px;
   left: 47px;
   color: $teal;
-  font-size: 10px;
+  font-size: 0.625rem;
   animation-delay: 760ms;
 }
 
@@ -439,7 +444,7 @@ $cream: #fffaf0;
 
   strong {
     overflow: hidden;
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.4;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -467,7 +472,8 @@ $cream: #fffaf0;
 .bubbleEyebrow {
   margin-bottom: 3px;
   color: $teal;
-  font-size: 10px;
+  font-size: 0.75rem;
+  line-height: 1.35;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -479,13 +485,14 @@ $cream: #fffaf0;
   margin-top: 9px;
 
   button {
-    padding: 5px 10px;
+    min-height: 34px;
+    padding: 7px 11px;
     color: #fff;
     cursor: pointer;
     background: $teal;
     border: 0;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 0.75rem;
     font-weight: 700;
 
     &:last-child {
@@ -502,8 +509,8 @@ $cream: #fffaf0;
   left: 12px;
   display: flex;
   width: 296px;
-  min-height: 122px;
-  padding: 16px 17px 17px;
+  min-height: 138px;
+  padding: 18px 18px 19px;
   flex-direction: column;
   color: $ink;
   background:
@@ -540,7 +547,7 @@ $cream: #fffaf0;
   > strong {
     margin: 1px 0 10px;
     font-family: Georgia, "Noto Serif SC", serif;
-    font-size: 16px;
+    font-size: 1rem;
     line-height: 1.25;
   }
 }
@@ -549,7 +556,7 @@ $cream: #fffaf0;
   top: 24px;
   left: 42px;
   width: 236px;
-  min-height: 88px;
+  min-height: 98px;
   padding: 17px 21px;
   justify-content: center;
   text-align: center;
@@ -561,7 +568,8 @@ $cream: #fffaf0;
 
 .cloudEyebrow {
   color: $teal;
-  font-size: 9px;
+  font-size: 0.75rem;
+  line-height: 1.35;
   font-weight: 900;
   letter-spacing: 0.14em;
 }
@@ -574,7 +582,8 @@ $cream: #fffaf0;
   button {
     display: grid;
     min-width: 0;
-    padding: 8px 9px;
+    min-height: 56px;
+    padding: 9px 10px;
     grid-template-columns: 24px 1fr;
     grid-template-rows: auto auto;
     column-gap: 7px;
@@ -597,20 +606,22 @@ $cream: #fffaf0;
       grid-row: 1 / 3;
       align-self: center;
       color: $teal;
-      font-size: 21px;
+      font-size: 1.3125rem;
       text-align: center;
     }
 
     b {
       overflow: hidden;
-      font-size: 11px;
+      font-size: 0.8125rem;
+      line-height: 1.35;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     small {
       color: rgba($ink, 0.58);
-      font-size: 8px;
+      font-size: 0.75rem;
+      line-height: 1.35;
       white-space: nowrap;
     }
   }
@@ -622,13 +633,14 @@ $cream: #fffaf0;
   gap: 7px;
 
   button {
-    padding: 7px 5px;
+    min-height: 34px;
+    padding: 8px 6px;
     color: $ink;
     cursor: pointer;
     background: rgba(245, 238, 228, 0.86);
     border: 1px solid transparent;
     border-radius: 999px;
-    font-size: 9px;
+    font-size: 0.75rem;
     font-weight: 800;
 
     &:hover,
@@ -649,7 +661,7 @@ $cream: #fffaf0;
 
 .cloudFeedbackText {
   margin: 3px 0 0 !important;
-  font-size: 13px !important;
+  font-size: 0.8125rem !important;
 }
 
 .spriteShell {
@@ -822,7 +834,7 @@ $cream: #fffaf0;
   right: 54px;
   display: none;
   color: #ffd052;
-  font-size: 24px;
+  font-size: 1.5rem;
   text-shadow:
     0 2px 0 #a86834,
     0 4px 9px rgba(100, 66, 37, 0.22);
@@ -912,7 +924,7 @@ $cream: #fffaf0;
   right: 76px;
   bottom: 205px;
   color: #e66f70;
-  font-size: 18px;
+  font-size: 1.125rem;
   text-shadow: 0 3px 8px rgba(164, 64, 66, 0.2);
 }
 
@@ -923,14 +935,14 @@ $cream: #fffaf0;
 .heartTwo {
   margin: -15px 5px 0 0;
   color: #f19a79;
-  font-size: 13px;
+  font-size: 0.8125rem;
   animation-delay: 220ms !important;
 }
 
 .heartThree {
   margin: 12px -12px 0 0;
   color: #e9b04e;
-  font-size: 10px;
+  font-size: 0.625rem;
   animation-delay: 420ms !important;
 }
 
@@ -939,14 +951,14 @@ $cream: #fffaf0;
   bottom: 215px;
   color: $teal;
   font-family: Georgia, serif;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-style: normal;
   font-weight: 800;
 }
 
 .sleepTwo {
   margin: -25px -18px 0 0;
-  font-size: 24px;
+  font-size: 1.5rem;
   animation-delay: 650ms !important;
 }
 
@@ -985,7 +997,7 @@ $cream: #fffaf0;
   right: 43px;
   bottom: 194px;
   color: #efad38;
-  font-size: 27px;
+  font-size: 1.6875rem;
   text-shadow: 0 3px 8px rgba(218, 119, 40, 0.22);
 }
 
@@ -995,8 +1007,9 @@ $cream: #fffaf0;
   right: 15px;
   bottom: 12px;
   display: flex;
-  max-width: 190px;
-  padding: 7px 11px 7px 7px;
+  max-width: 220px;
+  min-height: 38px;
+  padding: 7px 12px 7px 7px;
   align-items: center;
   gap: 8px;
   color: $ink;
@@ -1007,17 +1020,18 @@ $cream: #fffaf0;
   box-shadow: 0 7px 22px rgba(72, 53, 43, 0.14);
 
   span {
-    padding: 5px 7px;
+    padding: 6px 8px;
     color: #fff;
     background: $teal;
     border-radius: 999px;
-    font-size: 10px;
+    font-size: 0.75rem;
     font-weight: 800;
   }
 
   strong {
     overflow: hidden;
-    font-size: 11px;
+    font-size: 0.8125rem;
+    line-height: 1.35;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

@@ -1,6 +1,7 @@
 import {
   ChangeEvent,
   FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -168,6 +169,10 @@ export function Dashboard() {
   const celebrationTimer = useRef<number>();
   const actionPreviewTimer = useRef<number>();
   const restoredNavigation = useRef(false);
+  const contentRegion = useRef<HTMLElement>(null);
+  const scrollContentToTop = useCallback(() => {
+    contentRegion.current?.scrollTo({ top: 0, left: 0 });
+  }, []);
 
   useEffect(() => {
     // Native state snapshots are authoritative; local state only drives form UI.
@@ -226,6 +231,10 @@ export function Dashboard() {
       category: activeToolCategory ?? '',
     });
   }, [activeToolCategory, activeView]);
+
+  useEffect(() => {
+    scrollContentToTop();
+  }, [activeToolCategory, activeView, scrollContentToTop]);
 
   const reminders = useMemo(
     () => [...state.reminders].sort((left, right) => left.dueAt - right.dueAt),
@@ -489,7 +498,7 @@ export function Dashboard() {
         onCreateDemoReminder={createDemoReminder}
       />
 
-      <main className={styles.content}>
+      <main ref={contentRegion} className={styles.content}>
         <header className={styles.header}>
           <div>
             <span className={styles.kicker}>{viewKicker}</span>
@@ -506,6 +515,7 @@ export function Dashboard() {
           <Toolbox
             category={activeToolCategory}
             onOpenCategory={(category) => setActiveToolCategory(category)}
+            onWorkspaceChange={scrollContentToTop}
           />
         ) : activeView === 'marketplace' ? (
           <PluginStoreView />

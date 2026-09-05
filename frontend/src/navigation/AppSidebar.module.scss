@@ -17,15 +17,15 @@ $teal-dark: var(--theme-primary-deep);
 
 .brand {
   display: flex;
-  min-height: 48px;
+  min-height: 54px;
   padding: 0 8px;
   align-items: center;
   gap: 11px;
 
   strong,
   span { display: block; }
-  strong { color: $ink; font-size: 15px; letter-spacing: 0.04em; }
-  span { margin-top: 2px; color: $muted; font-size: 8px; }
+  strong { color: $ink; font-size: 0.9375rem; letter-spacing: 0.04em; }
+  span { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.4; }
 }
 
 .brandMark {
@@ -39,7 +39,7 @@ $teal-dark: var(--theme-primary-deep);
   border-radius: 14px 14px 8px 14px;
   box-shadow: 0 8px 18px rgba(22, 139, 133, 0.2);
   font-family: Georgia, serif;
-  font-size: 19px;
+  font-size: 1.1875rem;
   font-style: italic;
   font-weight: 700;
 }
@@ -60,20 +60,21 @@ $teal-dark: var(--theme-primary-deep);
 .groupHeading {
   display: flex;
   width: 100%;
-  padding: 7px 9px;
+  min-height: 32px;
+  padding: 8px 9px;
   align-items: center;
   justify-content: space-between;
   color: #9b8d84;
   cursor: pointer;
   background: transparent;
   border: 0;
-  font-size: 8px;
+  font-size: 0.75rem;
   font-weight: 850;
   letter-spacing: 0.16em;
   text-align: left;
   text-transform: uppercase;
 
-  em { color: #b6a89f; font-size: 13px; font-style: normal; }
+  em { color: #b6a89f; font-size: 0.8125rem; font-style: normal; }
 }
 
 .navGroup nav {
@@ -83,17 +84,18 @@ $teal-dark: var(--theme-primary-deep);
   button {
     display: grid;
     width: 100%;
-    min-height: 39px;
-    padding: 7px 10px;
+    min-height: 44px;
+    padding: 8px 10px;
     align-items: center;
     grid-template-columns: 28px 1fr auto;
-    gap: 5px;
+    gap: 7px;
     color: #75685f;
     cursor: pointer;
     background: transparent;
     border: 0;
     border-radius: 11px;
-    font-size: 10px;
+    font-size: 0.8125rem;
+    line-height: 1.35;
     font-weight: 650;
     text-align: left;
     transition: 140ms ease;
@@ -106,7 +108,7 @@ $teal-dark: var(--theme-primary-deep);
       height: 25px;
       place-items: center;
       color: $teal;
-      font-size: 9px;
+      font-size: 0.75rem;
       font-style: normal;
       font-weight: 800;
     }
@@ -119,14 +121,14 @@ $teal-dark: var(--theme-primary-deep);
 
     > small {
       display: grid;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 5px;
+      min-width: 23px;
+      height: 23px;
+      padding: 0 6px;
       place-items: center;
       color: #fff;
       background: $teal;
       border-radius: 999px;
-      font-size: 8px;
+      font-size: 0.75rem;
     }
   }
 
@@ -138,7 +140,8 @@ $teal-dark: var(--theme-primary-deep);
   display: grid;
   width: calc(100% - 8px);
   margin: 7px 4px 0;
-  padding: 9px;
+  min-height: 60px;
+  padding: 10px;
   align-items: center;
   grid-template-columns: 38px 1fr;
   gap: 9px;
@@ -161,8 +164,8 @@ $teal-dark: var(--theme-primary-deep);
 
   span small,
   span strong { display: block; }
-  span small { color: $muted; font-size: 8px; }
-  span strong { margin-top: 2px; color: $ink; font-size: 9px; }
+  span small { color: $muted; font-size: 0.75rem; line-height: 1.35; }
+  span strong { margin-top: 3px; color: $ink; font-size: 0.8125rem; line-height: 1.35; }
 
   > em {
     position: absolute;
@@ -181,13 +184,14 @@ $teal-dark: var(--theme-primary-deep);
 .testReminder {
   width: calc(100% - 8px);
   margin: 6px 4px 0;
-  padding: 7px;
+  min-height: 36px;
+  padding: 8px;
   color: $teal-dark;
   cursor: pointer;
   background: transparent;
   border: 1px dashed rgba(22, 139, 133, 0.25);
   border-radius: 10px;
-  font-size: 8px;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
@@ -203,8 +207,8 @@ $teal-dark: var(--theme-primary-deep);
 .profileButton {
   display: grid;
   width: 100%;
-  min-height: 52px;
-  padding: 8px 10px;
+  min-height: 58px;
+  padding: 9px 10px;
   align-items: center;
   grid-template-columns: 30px 1fr auto;
   gap: 8px;
@@ -225,16 +229,16 @@ $teal-dark: var(--theme-primary-deep);
     color: $teal-dark;
     background: #e5f2ef;
     border-radius: 10px;
-    font-size: 11px;
+    font-size: 0.75rem;
     font-style: normal;
     font-weight: 800;
   }
 
   span strong,
   span small { display: block; }
-  span strong { color: $ink; font-size: 9px; }
-  span small { margin-top: 2px; color: $muted; font-size: 7px; }
-  > em { color: #b8aaa1; font-size: 16px; font-style: normal; }
+  span strong { color: $ink; font-size: 0.75rem; line-height: 1.35; }
+  span small { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.35; }
+  > em { color: #b8aaa1; font-size: 1rem; font-style: normal; }
 }
 
 .profileButton > i {

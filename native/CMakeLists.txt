@@ -24,6 +24,11 @@ configure_file(
   "${CLOUDYI_GENERATED_RESOURCE_DIR}/CuteYiyiDesktopPet.rc"
   COPYONLY
 )
+configure_file(
+  resources/CloudYiAssistant.manifest
+  "${CLOUDYI_GENERATED_RESOURCE_DIR}/CloudYiAssistant.manifest"
+  COPYONLY
+)
 
 foreach(required_file
     "${MILO_SQLITE_ROOT}/sqlite3.c"
@@ -109,6 +114,13 @@ add_executable(MiloDesktopPet WIN32
 set_target_properties(MiloDesktopPet PROPERTIES
   OUTPUT_NAME "CuteYiyiDesktopPet"
 )
+
+if(MSVC)
+  # The resource script embeds a PerMonitorV2 manifest. Disable the linker's
+  # generated manifest so it cannot replace resource ID 1 with a DPI-unaware
+  # default manifest.
+  target_link_options(MiloDesktopPet PRIVATE /MANIFEST:NO)
+endif()
 
 target_include_directories(MiloDesktopPet PRIVATE include resources)
 
