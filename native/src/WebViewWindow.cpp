@@ -23,6 +23,7 @@ constexpr UINT kAutoTuckTimerId = 3;
 constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr ULONGLONG kHoldDurationMs = 12000;
 constexpr ULONGLONG kMoveOutDurationMs = 850;
+constexpr wchar_t kTrustedUiOrigin[] = L"https://milo.local/";
 
 template <typename T>
 T ClampValue(T value, T lower, T upper) {
@@ -53,6 +54,14 @@ double EaseInOutCubic(double value) {
 LONG Interpolate(LONG start, LONG end, double progress) {
   return static_cast<LONG>(
       std::lround(start + static_cast<double>(end - start) * progress));
+}
+
+bool IsTrustedUiUri(const wchar_t* uri) {
+  if (uri == nullptr) return false;
+  const std::wstring value(uri);
+  const std::wstring origin(kTrustedUiOrigin);
+  return value.size() >= origin.size() &&
+         value.compare(0, origin.size(), origin) == 0;
 }
 
 void ShowWebViewError(HWND owner, const wchar_t* stage, HRESULT result) {
@@ -580,6 +589,13 @@ void WebViewWindow::ConfigureWebView() {
       Microsoft::WRL::Callback<ICoreWebView2WebMessageReceivedEventHandler>(
           [this](ICoreWebView2*,
                  ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+            LPWSTR sourceUri = nullptr;
+            const HRESULT sourceResult = args->get_Source(&sourceUri);
+            const bool trustedSource =
+                SUCCEEDED(sourceResult) && IsTrustedUiUri(sourceUri);
+            if (sourceUri != nullptr) CoTaskMemFree(sourceUri);
+            if (!trustedSource) return S_OK;
+
             LPWSTR rawMessage = nullptr;
             const HRESULT messageResult =
                 args->get_WebMessageAsJson(&rawMessage);
@@ -596,6 +612,22 @@ void WebViewWindow::ConfigureWebView() {
           })
           .Get(),
       &messageToken);
+
+  EventRegistrationToken navigationToken{};
+  webView_->add_NavigationStarting(
+      Microsoft::WRL::Callback<ICoreWebView2NavigationStartingEventHandler>(
+          [](ICoreWebView2*,
+             ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+            LPWSTR targetUri = nullptr;
+            const HRESULT uriResult = args->get_Uri(&targetUri);
+            const bool trustedTarget =
+                SUCCEEDED(uriResult) && IsTrustedUiUri(targetUri);
+            if (targetUri != nullptr) CoTaskMemFree(targetUri);
+            if (!trustedTarget) args->put_Cancel(TRUE);
+            return S_OK;
+          })
+          .Get(),
+      &navigationToken);
 
   webView_->Navigate(PageUrl().c_str());
 }

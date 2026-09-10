@@ -152,6 +152,61 @@ export interface PortEntry {
   processName: string;
 }
 
+/** Transport modes supported by the Windows network-debugging workspace. */
+export type NetworkMode = 'tcp-client' | 'tcp-server' | 'udp';
+
+/** Validated endpoint configuration passed to the native Winsock service. */
+export interface NetworkStartOptions {
+  mode: NetworkMode;
+  localHost: string;
+  localPort: number;
+  remoteHost: string;
+  remotePort: number;
+  /** Required before binding a listener to a non-loopback interface. */
+  allowLan: boolean;
+}
+
+/** One TCP client accepted by the local server, or the active remote peer. */
+export interface NetworkPeer {
+  id: string;
+  address: string;
+  port: number;
+}
+
+/** Current state and bounded traffic counters for the native network session. */
+export interface NetworkSessionSnapshot {
+  mode: NetworkMode;
+  state: 'stopped' | 'starting' | 'connecting' | 'connected' | 'listening' | 'ready' | 'error';
+  localHost: string;
+  localPort: number;
+  remoteHost: string;
+  remotePort: number;
+  peers: NetworkPeer[];
+  rxPackets: number;
+  rxBytes: number;
+  txPackets: number;
+  txBytes: number;
+  lastError?: string;
+}
+
+/** One connection, receive or send record drained from the native event queue. */
+export interface NetworkDebugEvent {
+  id: number;
+  kind: 'received' | 'sent' | 'system' | 'error';
+  timestamp: number;
+  peerId?: string;
+  peerLabel?: string;
+  dataHex?: string;
+  byteLength: number;
+  message?: string;
+}
+
+/** Atomic poll response used instead of calling WebView2 from a worker thread. */
+export interface NetworkPollResult {
+  snapshot: NetworkSessionSnapshot;
+  events: NetworkDebugEvent[];
+}
+
 /** One application registered with Windows' Programs and Features inventory. */
 export interface InstalledSoftware {
   id: string;

@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstring>
 #include <iterator>
+#include <limits>
 #include <stdexcept>
 #include <utility>
 
@@ -136,6 +137,41 @@ nlohmann::json PortEntryToJson(const PortEntry& entry) {
           {"state", entry.state},
           {"processId", entry.processId},
           {"processName", entry.processName}};
+}
+
+nlohmann::json NetworkDebugSnapshotToJson(
+    const NetworkDebugSnapshot& snapshot) {
+  nlohmann::json peers = nlohmann::json::array();
+  for (std::vector<NetworkDebugPeer>::const_iterator peer =
+           snapshot.peers.begin();
+       peer != snapshot.peers.end(); ++peer) {
+    peers.push_back({{"id", std::to_string(peer->id)},
+                     {"address", peer->address},
+                     {"port", peer->port}});
+  }
+  return {{"mode", snapshot.mode},
+          {"state", snapshot.state},
+          {"localHost", snapshot.localHost},
+          {"localPort", snapshot.localPort},
+          {"remoteHost", snapshot.remoteHost},
+          {"remotePort", snapshot.remotePort},
+          {"peers", peers},
+          {"rxPackets", snapshot.rxPackets},
+          {"rxBytes", snapshot.rxBytes},
+          {"txPackets", snapshot.txPackets},
+          {"txBytes", snapshot.txBytes},
+          {"lastError", snapshot.lastError}};
+}
+
+nlohmann::json NetworkDebugEventToJson(const NetworkDebugEvent& event) {
+  return {{"id", event.id},
+          {"kind", event.kind},
+          {"timestamp", event.timestamp},
+          {"peerId", event.peerId == 0 ? "" : std::to_string(event.peerId)},
+          {"peerLabel", event.peerLabel},
+          {"dataHex", event.dataHex},
+          {"byteLength", event.byteLength},
+          {"message", event.message}};
 }
 
 nlohmann::json InstalledSoftwareToJson(const InstalledSoftware& entry) {
@@ -300,6 +336,67 @@ bool IsValidToolCategory(const std::string& value) {
          std::end(categories);
 }
 
+bool IsValidNetworkHost(const std::string& value, bool allowEmpty) {
+  if (value.empty()) return allowEmpty;
+  if (value.size() > 253) return false;
+  return std::none_of(value.begin(), value.end(), [](unsigned char character) {
+    return character <= 0x20 || character == 0x7f;
+  });
+}
+
+bool TryParseNetworkPeerId(const std::string& value,
+                           std::uint64_t* peerId) {
+  if (peerId == nullptr) return false;
+  if (value.empty()) {
+    *peerId = 0;
+    return true;
+  }
+  std::uint64_t parsed = 0;
+  for (std::string::const_iterator character = value.begin();
+       character != value.end(); ++character) {
+    if (*character < '0' || *character > '9') return false;
+    const std::uint64_t digit = static_cast<std::uint64_t>(*character - '0');
+    if (parsed > (std::numeric_limits<std::uint64_t>::max() - digit) / 10) {
+      return false;
+    }
+    parsed = parsed * 10 + digit;
+  }
+  *peerId = parsed;
+  return true;
+}
+
+bool TryReadJsonInteger(const nlohmann::json& object, const char* key,
+                        std::int64_t minimum, std::int64_t maximum,
+                        std::int64_t* result) {
+  if (result == nullptr || !object.is_object()) return false;
+  const nlohmann::json::const_iterator value = object.find(key);
+  if (value == object.end()) return false;
+  if (value->is_number_unsigned()) {
+    const std::uint64_t number = value->get<std::uint64_t>();
+    if (maximum < 0 ||
+        number < static_cast<std::uint64_t>((std::max)(minimum, 0LL)) ||
+        number > static_cast<std::uint64_t>(maximum)) {
+      return false;
+    }
+    *result = static_cast<std::int64_t>(number);
+    return true;
+  }
+  if (!value->is_number_integer()) return false;
+  const std::int64_t number = value->get<std::int64_t>();
+  if (number < minimum || number > maximum) return false;
+  *result = number;
+  return true;
+}
+
+bool TryReadJsonString(const nlohmann::json& object, const char* key,
+                       std::string* result) {
+  if (result == nullptr || !object.is_object()) return false;
+  const nlohmann::json::const_iterator value = object.find(key);
+  if (value == object.end() || !value->is_string()) return false;
+  *result = value->get<std::string>();
+  return true;
+}
+
 bool IsSafeCharacterId(const std::string& value) {
   // Character ids are later embedded in filenames, so allow a strict subset.
   return !value.empty() && value.size() <= 64 &&
@@ -443,6 +540,7 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
 }
 
 Application::~Application() {
+  networkDebugService_.Stop();
   RemoveTrayIcon();
   dashboardWindow_.reset();
   petWindow_.reset();
@@ -468,7 +566,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.11.9";
+    const std::string marker = "CuteYiyiDesktopPet 0.12.0";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -490,6 +588,14 @@ void Application::HandleWebMessage(WebViewWindow& source,
     const nlohmann::json payload =
         message.contains("payload") ? message.at("payload")
                                     : nlohmann::json::object();
+
+    // Network access is available only to the conventional dashboard WebView.
+    // The transparent pet surface never receives socket privileges.
+    if (type.compare(0, 8, "network.") == 0 &&
+        source.Kind() != WindowKind::Dashboard) {
+      SendError(source, "网络调试功能只能从云依助手工作台使用。");
+      return;
+    }
 
     if (type == "app.ready" || type == "reminder.list") {
       SendState(&source);
@@ -702,6 +808,191 @@ void Application::HandleWebMessage(WebViewWindow& source,
                           result.succeeded ? "tool.result" : "tool.error"},
                          {"payload", responsePayload}}
               .dump());
+      return;
+    }
+    if (type == "network.start") {
+      std::string requestId;
+      std::string mode;
+      std::string localHost;
+      std::string remoteHost;
+      std::int64_t localPort = -1;
+      std::int64_t remotePort = -1;
+      bool allowLan = false;
+      const nlohmann::json::const_iterator allowLanValue =
+          payload.is_object() ? payload.find("allowLan") : payload.end();
+      const bool validShape =
+          TryReadJsonString(payload, "requestId", &requestId) &&
+          TryReadJsonString(payload, "mode", &mode) &&
+          TryReadJsonString(payload, "localHost", &localHost) &&
+          TryReadJsonString(payload, "remoteHost", &remoteHost) &&
+          TryReadJsonInteger(payload, "localPort", 0, 65535, &localPort) &&
+          TryReadJsonInteger(payload, "remotePort", 0, 65535,
+                             &remotePort) &&
+          allowLanValue != payload.end() && allowLanValue->is_boolean();
+      if (validShape) allowLan = allowLanValue->get<bool>();
+      NetworkDebugStartOptions options;
+      options.mode = mode;
+      options.localHost = localHost;
+      options.remoteHost = remoteHost;
+      options.allowLan = allowLan;
+      const bool validMode = options.mode == "tcp-client" ||
+                             options.mode == "tcp-server" ||
+                             options.mode == "udp";
+      const bool needsRemote = options.mode != "tcp-server";
+      if (!validShape || requestId.empty() || requestId.size() > 80 ||
+          !validMode ||
+          !IsValidNetworkHost(options.localHost, true) ||
+          !IsValidNetworkHost(options.remoteHost, !needsRemote) ||
+          localPort < 0 || localPort > 65535 ||
+          (needsRemote && (remotePort < 1 || remotePort > 65535))) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.start.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "网络模式、地址或端口无效。"}}}}
+                .dump());
+        return;
+      }
+      options.localPort = static_cast<std::uint16_t>(localPort);
+      options.remotePort = needsRemote
+                               ? static_cast<std::uint16_t>(remotePort)
+                               : 0;
+      try {
+        std::string serviceError;
+        if (!networkDebugService_.Start(options, &serviceError)) {
+          throw std::runtime_error(serviceError.empty()
+                                       ? "网络会话启动失败。"
+                                       : serviceError);
+        }
+        const NetworkDebugSnapshot snapshot = networkDebugService_.Snapshot();
+        source.PostJson(
+            nlohmann::json{{"type", "network.start.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"snapshot", NetworkDebugSnapshotToJson(snapshot)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.start.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "network.stop") {
+      std::string requestId;
+      if (!TryReadJsonString(payload, "requestId", &requestId) ||
+          requestId.empty() || requestId.size() > 80) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.stop.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "停止网络调试的请求无效。"}}}}
+                .dump());
+        return;
+      }
+      try {
+        networkDebugService_.Stop();
+        const NetworkDebugSnapshot snapshot = networkDebugService_.Snapshot();
+        source.PostJson(
+            nlohmann::json{{"type", "network.stop.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"snapshot", NetworkDebugSnapshotToJson(snapshot)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.stop.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "network.send") {
+      std::string requestId;
+      std::string dataHex;
+      std::string targetPeerId;
+      std::uint64_t parsedPeerId = 0;
+      if (!TryReadJsonString(payload, "requestId", &requestId) ||
+          !TryReadJsonString(payload, "dataHex", &dataHex) ||
+          !TryReadJsonString(payload, "targetPeerId", &targetPeerId) ||
+          requestId.empty() || requestId.size() > 80 || dataHex.empty() ||
+          dataHex.size() > 128U * 1024U || targetPeerId.size() > 80 ||
+          !TryParseNetworkPeerId(targetPeerId, &parsedPeerId)) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.send.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message",
+                              "发送内容为空、超过 64 KiB，或目标连接标识无效。"}}}}
+                .dump());
+        return;
+      }
+      try {
+        std::string serviceError;
+        if (!networkDebugService_.Send(dataHex, parsedPeerId,
+                                       &serviceError)) {
+          throw std::runtime_error(serviceError.empty()
+                                       ? "网络数据发送失败。"
+                                       : serviceError);
+        }
+        const NetworkDebugSnapshot snapshot = networkDebugService_.Snapshot();
+        source.PostJson(
+            nlohmann::json{{"type", "network.send.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"snapshot", NetworkDebugSnapshotToJson(snapshot)}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.send.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
+      return;
+    }
+    if (type == "network.poll") {
+      std::string requestId;
+      if (!TryReadJsonString(payload, "requestId", &requestId) ||
+          requestId.empty() || requestId.size() > 80) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.poll.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", "网络事件读取请求无效。"}}}}
+                .dump());
+        return;
+      }
+      try {
+        const NetworkDebugPollResult result = networkDebugService_.Poll();
+        nlohmann::json events = nlohmann::json::array();
+        for (std::vector<NetworkDebugEvent>::const_iterator event =
+                 result.events.begin();
+             event != result.events.end(); ++event) {
+          events.push_back(NetworkDebugEventToJson(*event));
+        }
+        source.PostJson(
+            nlohmann::json{{"type", "network.poll.result"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"snapshot", NetworkDebugSnapshotToJson(
+                                              result.snapshot)},
+                             {"events", events}}}}
+                .dump());
+      } catch (const std::exception& error) {
+        source.PostJson(
+            nlohmann::json{{"type", "network.poll.error"},
+                           {"payload",
+                            {{"requestId", requestId},
+                             {"message", error.what()}}}}
+                .dump());
+      }
       return;
     }
     if (type == "system.snapshot") {
@@ -1266,6 +1557,9 @@ void Application::ShowDashboard() {
 }
 
 void Application::CloseDashboard() {
+  // Network debugging is intentionally scoped to a visible workbench session;
+  // hiding the dashboard must never leave a listener running in the background.
+  networkDebugService_.Stop();
   if (dashboardWindow_ != nullptr) {
     dashboardWindow_->Hide();
   }
@@ -1294,6 +1588,7 @@ void Application::SavePetPosition(HWND window) {
 void Application::Quit() {
   quitting_ = true;
   restorePetAfterDashboard_ = false;
+  networkDebugService_.Stop();
   RemoveTrayIcon();
   if (dashboardWindow_ != nullptr &&
       IsWindow(dashboardWindow_->Handle())) {

@@ -7,10 +7,10 @@ Unicode True
 !include "x64.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.11.9"
+  !define APP_VERSION "0.12.0"
 !endif
 !ifndef APP_FILE_VERSION
-  !define APP_FILE_VERSION "0.11.9.0"
+  !define APP_FILE_VERSION "0.12.0.0"
 !endif
 !ifndef APP_SOURCE
   !error "APP_SOURCE must point to the Release application directory."

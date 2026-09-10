@@ -15,6 +15,7 @@
 #include <nlohmann/json.hpp>
 
 #include "Milo/ReminderStore.h"
+#include "Milo/NetworkDebugService.h"
 #include "Milo/SoftwareService.h"
 #include "Milo/WebViewWindow.h"
 
@@ -108,6 +109,8 @@ class Application final {
   ReminderStore reminders_;
   /// Revalidates registered uninstallers and cleanup paths across requests.
   SoftwareService softwareService_;
+  /// Owns the bounded asynchronous Winsock session used by Network Debugger.
+  NetworkDebugService networkDebugService_;
   std::wstring uiDirectory_;
   std::wstring webViewDataDirectory_;
   std::wstring characterDirectory_;

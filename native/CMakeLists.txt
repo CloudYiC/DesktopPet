@@ -75,6 +75,7 @@ endif()
 add_library(cloudyi_win32_c STATIC
   win32_c/src/file_dialog.c
   win32_c/src/icon_file.c
+  win32_c/src/network_debug.c
   win32_c/src/software_inventory.c
   win32_c/src/system_metrics.c
 )
@@ -103,6 +104,7 @@ add_executable(MiloDesktopPet WIN32
   src/CharacterImage.cpp
   src/DatabaseService.cpp
   src/ImageService.cpp
+  src/NetworkDebugService.cpp
   src/ReminderStore.cpp
   src/SoftwareService.cpp
   src/SystemService.cpp
@@ -262,6 +264,30 @@ if(BUILD_TESTING)
     )
   endif()
   add_test(NAME MiloSystemServiceTests COMMAND MiloSystemServiceTests)
+
+  add_executable(MiloNetworkDebugServiceTests
+    tests/NetworkDebugServiceTests.cpp
+    src/NetworkDebugService.cpp
+  )
+  target_include_directories(MiloNetworkDebugServiceTests PRIVATE include)
+  target_compile_definitions(MiloNetworkDebugServiceTests PRIVATE
+    UNICODE
+    _UNICODE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
+  )
+  target_link_libraries(MiloNetworkDebugServiceTests PRIVATE
+    cloudyi_win32_c
+    ws2_32
+  )
+  if(MSVC)
+    target_compile_options(MiloNetworkDebugServiceTests PRIVATE
+      /W4 /permissive- /utf-8
+    )
+  endif()
+  add_test(NAME MiloNetworkDebugServiceTests
+    COMMAND MiloNetworkDebugServiceTests)
+  set_tests_properties(MiloNetworkDebugServiceTests PROPERTIES TIMEOUT 30)
 
   add_executable(MiloSoftwareServiceTests
     tests/SoftwareServiceTests.cpp

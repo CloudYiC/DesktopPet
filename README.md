@@ -47,6 +47,8 @@
 - 云依工具分类位于侧边栏顶部，宠物功能随后排列，模块管理与助手设置固定在底部；代码与数据库工具统一归入“数据处理”，图片转换统一归入“文件处理”，不再显示独立代码、AI、图片或数据库分类
 - 已内置 JSON 格式化、正则表达式、文本比较、Base64、Hex、URL 编解码、MD5 与 SHA-256
 - 网络与协议中提供十六进制报文分析器：可粘贴普通 Hex 或 Wireshark hexdump，按偏移查看 Ethernet、VLAN、ARP、IPv4/IPv6、TCP、UDP、ICMP 与未知载荷，并为私有协议保存自定义字段
+- Windows 桌面客户端内置网络调试助手，支持 TCP 客户端、可接入多个连接的 TCP 服务端和 UDP；可按文本或 Hex 收发，追加 LF/CRLF、定时自动发送，并查看接收块日志和 RX/TX 统计
+- 网络调试助手默认只监听本机回环地址；监听局域网地址前必须明确确认，不修改 Windows 防火墙，关闭工作台或退出应用后也不会继续后台监听
 - 已内置数字格式化、Unix 时间戳转换、UUID v4/v7 和安全密码生成器
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
@@ -93,6 +95,8 @@ CloudYiCSC 的界面顺序、C/C++11 边界、已完成工具和后续迁移规�
 [`docs/cloudyi-integration.md`](docs/cloudyi-integration.md)。
 报文识别模式、自定义协议边界与两端实现说明见
 [`docs/packet-inspector.md`](docs/packet-inspector.md)。
+网络调试助手的模式、收发规则与监听安全边界见
+[`docs/network-debugger.md`](docs/network-debugger.md)。
 系统信息范围、端口结束进程保护和模块启停边界见
 [`docs/system-permissions.md`](docs/system-permissions.md)，数据库文件与 SQL 安全边界见
 [`docs/database-studio.md`](docs/database-studio.md)，图片输入输出边界见
@@ -146,7 +150,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.11.9.exe
+out/dist/CloudYiAssistant-Setup-0.12.0.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -159,6 +163,7 @@ out/dist/CloudYiAssistant-Setup-0.11.9.exe
 - 覆盖安装升级时自动关闭旧进程
 - 粉色依依作为安装程序、主程序和初始托盘的静态图标
 - 十六进制报文分析器默认作为本地工具启用
+- 网络调试助手随桌面客户端提供 TCP/UDP 原生收发能力
 - 卸载时一并清除名称、设置、提醒、自定义角色以及旧版迁移数据
 
 WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并需要联网。
@@ -166,7 +171,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.11.9.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.0.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。
@@ -198,6 +203,8 @@ npm run dev
 Wails 的独立 React 18 静态站点。它保留 13 个可直接在浏览器运行的工具，其中
 Base64、Hex、URL、MD5、SHA-256、UUID、密码、时间戳和数字格式化复用 C/WebAssembly；
 十六进制报文分析器使用同等的浏览器本地解析与字节可视化，不上传报文内容。
+网络调试助手仅由 Windows 桌面客户端提供，不加入独立 `web/` 部署版；浏览器静态站点
+不会开放 TCP/UDP 套接字或在后台监听端口。
 
 ```powershell
 .\scripts\build-web.ps1

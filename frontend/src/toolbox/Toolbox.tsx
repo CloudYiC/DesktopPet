@@ -21,6 +21,7 @@ import { DatabaseStudio } from './DatabaseStudio';
 import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
+import { NetworkDebugger } from './NetworkDebugger';
 
 interface ToolboxProps {
   category: ToolCategoryId | null;
@@ -93,6 +94,9 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
     }
     if (activeTool.id === 'packet-inspector') {
       return <PacketInspector tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'network-debugger') {
+      return <NetworkDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
     }
     return <ToolWorkspace tool={activeTool} onBack={() => setActiveToolId(null)} />;
   }

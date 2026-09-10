@@ -13,6 +13,7 @@ const DEFAULT_LOCAL_TOOLS = new Set([
   'password',
   'url-encode',
   'packet-inspector',
+  'network-debugger',
   'system-inspector',
   'port-manager',
   'software-uninstaller',

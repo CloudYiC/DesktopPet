@@ -17,6 +17,8 @@ export type ToolRuntime = 'c-core' | 'react' | 'native-system';
 
 export type ToolPermission =
   | '本地计算'
+  | '打开本地网络连接'
+  | '监听本地网络端口'
   | '读取系统信息'
   | '读取端口与进程'
   | '结束端口占用进程'
@@ -57,6 +59,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { id: 'password', name: '密码生成器', shortName: 'Password', description: '使用系统安全随机源按规则生成本地密码。', category: 'data', glyph: '***', runtime: 'c-core' },
   { id: 'url-encode', name: 'URL 编解码', shortName: 'URL', description: '使用 RFC 3986 C 核心处理 URL 或组件。', category: 'network', glyph: '%', runtime: 'c-core' },
   { id: 'packet-inspector', name: '十六进制报文分析器', shortName: 'Packet', description: '粘贴抓包 Hex，查看字节偏移、协议层与自定义字段。', category: 'network', glyph: 'HEX', runtime: 'c-core' },
+  { id: 'network-debugger', name: '网络调试助手', shortName: 'Net Assist', description: '建立 TCP/UDP 连接，按文本或 Hex 收发并统计网络数据。', category: 'network', glyph: 'NET', runtime: 'native-system' },
   { id: 'system-inspector', name: '系统中心', shortName: 'System', description: '只读查看 Windows、硬件、显示、网络和资源状态。', category: 'system', glyph: 'PC', runtime: 'native-system' },
   { id: 'port-manager', name: '端口管理', shortName: 'Ports', description: '查看 IPv4 TCP/UDP 端口，并经确认结束非关键进程。', category: 'system', glyph: ':80', runtime: 'native-system' },
   { id: 'software-uninstaller', name: '软件卸载', shortName: 'Uninstall', description: '启动注册卸载程序，并审核清理配置、插件、缓存与程序残留。', category: 'system', glyph: 'APP', runtime: 'native-system' },
@@ -81,6 +84,9 @@ export function permissionsForTool(tool: ToolDefinition): ToolPermission[] {
   if (tool.id === 'system-inspector') return ['读取系统信息'];
   if (tool.id === 'port-manager') {
     return ['读取端口与进程', '结束端口占用进程'];
+  }
+  if (tool.id === 'network-debugger') {
+    return ['打开本地网络连接', '监听本地网络端口'];
   }
   if (tool.id === 'software-uninstaller') {
     return ['读取已安装软件', '启动注册卸载程序', '清理已确认的软件残留'];

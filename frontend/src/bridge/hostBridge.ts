@@ -16,6 +16,9 @@ import type {
   InstalledSoftware,
   SoftwareCleanupPlan,
   SoftwareOperationResult,
+  NetworkStartOptions,
+  NetworkSessionSnapshot,
+  NetworkPollResult,
 } from '../types';
 
 /**
@@ -310,6 +313,7 @@ if (nativeBridge) {
         message.type.startsWith('database.') ||
         message.type.startsWith('image.') ||
         message.type.startsWith('software.') ||
+        message.type.startsWith('network.') ||
         message.type.startsWith('ports.list.') ||
         message.type.startsWith('ports.terminate.')) {
       const requestId = message.payload?.requestId ?? '';
@@ -542,6 +546,68 @@ export async function terminatePortProcess(entry: PortEntry): Promise<string> {
     },
   );
   return response.message;
+}
+
+const stoppedNetworkSnapshot: NetworkSessionSnapshot = {
+  mode: 'tcp-client',
+  state: 'stopped',
+  localHost: '127.0.0.1',
+  localPort: 0,
+  remoteHost: '127.0.0.1',
+  remotePort: 9000,
+  peers: [],
+  rxPackets: 0,
+  rxBytes: 0,
+  txPackets: 0,
+  txBytes: 0,
+};
+
+/** Starts an asynchronous Winsock session in the Windows desktop host. */
+export async function requestNetworkStart(
+  options: NetworkStartOptions,
+): Promise<NetworkSessionSnapshot> {
+  if (!nativeBridge) {
+    throw new Error('网络调试助手只能在 Windows 桌面客户端中建立真实连接。');
+  }
+  const response = await requestNativePayload<{ snapshot: NetworkSessionSnapshot }>(
+    'network.start',
+    { ...options },
+    20_000,
+  );
+  return response.snapshot;
+}
+
+/** Stops the active network session and releases all sockets. */
+export async function requestNetworkStop(): Promise<NetworkSessionSnapshot> {
+  if (!nativeBridge) return stoppedNetworkSnapshot;
+  const response = await requestNativePayload<{ snapshot: NetworkSessionSnapshot }>(
+    'network.stop',
+    {},
+    20_000,
+  );
+  return response.snapshot;
+}
+
+/** Queues one binary-safe Hex payload for the selected peer or target. */
+export async function requestNetworkSend(
+  dataHex: string,
+  targetPeerId = '',
+): Promise<NetworkSessionSnapshot> {
+  if (!nativeBridge) {
+    throw new Error('网络调试助手只能在 Windows 桌面客户端中发送数据。');
+  }
+  const response = await requestNativePayload<{ snapshot: NetworkSessionSnapshot }>(
+    'network.send',
+    { dataHex, targetPeerId },
+    20_000,
+  );
+  return response.snapshot;
+}
+
+/** Drains native socket events without crossing WebView2 apartment threads. */
+export async function requestNetworkPoll(): Promise<NetworkPollResult> {
+  if (!nativeBridge) return { snapshot: stoppedNetworkSnapshot, events: [] };
+  return requestNativePayload<NetworkPollResult>('network.poll', {}, 10_000);
 }
 
 const mockInstalledSoftware: InstalledSoftware[] = [
