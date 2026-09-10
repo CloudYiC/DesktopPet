@@ -9,7 +9,6 @@ $peach: var(--theme-accent);
 .workspace {
   display: grid;
   min-width: 0;
-  margin-top: 24px;
   padding-bottom: 28px;
   gap: 14px;
 }
@@ -324,16 +323,19 @@ $peach: var(--theme-accent);
 .dataWorkspace {
   display: grid;
   min-width: 0;
-  grid-template-rows: minmax(330px, 1fr) auto;
+  align-content: start;
+  grid-template-rows: auto auto;
   gap: 12px;
 }
 
 .receivePanel {
+  --receive-log-height: clamp(300px, 38vh, 420px);
+
   position: relative;
   display: grid;
-  min-height: 380px;
+  min-height: 0;
   padding: 14px;
-  grid-template-rows: auto minmax(280px, 1fr);
+  grid-template-rows: auto var(--receive-log-height);
   gap: 11px;
 }
 
@@ -383,12 +385,16 @@ $peach: var(--theme-accent);
 .logConsole {
   min-width: 0;
   min-height: 0;
+  height: var(--receive-log-height);
   overflow: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
   color: #dbe7e4;
   background: #202725;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  scrollbar-gutter: stable;
   scrollbar-color: #67726f #202725;
 }
 
@@ -615,7 +621,7 @@ $peach: var(--theme-accent);
   .peerPanel { grid-column: 1 / -1; }
   .peerList { max-height: 140px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dataWorkspace { grid-template-rows: auto auto; }
-  .receivePanel { min-height: 350px; }
+  .receivePanel { --receive-log-height: clamp(280px, 36vh, 360px); }
 }
 
 @media (max-width: 840px) {
@@ -639,7 +645,6 @@ $peach: var(--theme-accent);
 }
 
 @media (max-width: 520px) {
-  .workspace { margin-top: 16px; }
   .workspaceTitle > i { width: 44px; height: 44px; border-radius: 14px; }
   .sessionStatus { grid-template-columns: 10px repeat(2, minmax(0, 1fr)); gap: 7px 9px; }
   .endpoint { display: none; }
@@ -647,7 +652,7 @@ $peach: var(--theme-accent);
   .addressField,
   .portField { grid-column: 1; }
   .peerList { grid-template-columns: 1fr; }
-  .receivePanel { min-height: 310px; padding: 11px; grid-template-rows: auto minmax(240px, 1fr); }
+  .receivePanel { --receive-log-height: 260px; padding: 11px; }
   .toolbarActions { display: grid; width: 100%; grid-template-columns: auto repeat(4, max-content); justify-content: start; }
   .checkControl { padding: 0 3px; }
   .sendPanel { padding: 11px; }

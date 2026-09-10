@@ -157,7 +157,6 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
             <article key={tool.id} className={available ? styles.availableTool : undefined}>
               <div className={styles.toolGlyph}>{tool.glyph}</div>
               <div className={styles.toolCopy}>
-                <span>{runtimeLabel(tool)}</span>
                 <h3>{tool.name}</h3>
                 <p>{tool.description}</p>
               </div>

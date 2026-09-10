@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -141,12 +142,12 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
     };
   }, [active, poll]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const log = logRef.current;
     if (!log || !autoScroll || !followTailRef.current) return;
     log.scrollTop = log.scrollHeight;
     setHasUnseenData(false);
-  }, [autoScroll, events]);
+  }, [autoScroll, events, receiveMode, showTimestamps]);
 
   useEffect(() => {
     if (mode === 'tcp-server') {
@@ -469,7 +470,18 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
                   <button type="button" className={receiveMode === 'hex' ? styles.activeSmallTab : undefined} onClick={() => setReceiveMode('hex')}>HEX</button>
                 </div>
                 <label className={styles.checkControl}><input type="checkbox" checked={showTimestamps} onChange={(event) => setShowTimestamps(event.target.checked)} /><span>时间</span></label>
-                <label className={styles.checkControl}><input type="checkbox" checked={autoScroll} onChange={(event) => setAutoScroll(event.target.checked)} /><span>自动滚动</span></label>
+                <label className={styles.checkControl}>
+                  <input
+                    type="checkbox"
+                    checked={autoScroll}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      setAutoScroll(enabled);
+                      if (enabled) followTailRef.current = true;
+                    }}
+                  />
+                  <span>自动滚动</span>
+                </label>
                 <button type="button" className={styles.textButton} onClick={() => void copyLog()}>复制</button>
                 <button type="button" className={styles.textButton} onClick={clearLog}>清空</button>
               </div>

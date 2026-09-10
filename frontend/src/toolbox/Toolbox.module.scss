@@ -9,10 +9,11 @@ $peach: var(--theme-accent);
 .toolbox,
 .workspace {
   display: grid;
-  margin-top: 24px;
   gap: 16px;
   padding-bottom: 28px;
 }
+
+.toolbox { margin-top: 24px; }
 
 .toolboxHero {
   display: grid;
@@ -259,15 +260,8 @@ $peach: var(--theme-accent);
 .toolCopy {
   min-width: 0;
 
-  span {
-    color: $teal;
-    font-size: 0.6875rem;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-  }
-
   h3 {
-    margin: 4px 0;
+    margin: 1px 0 4px;
     color: $ink;
     font-size: 0.875rem;
   }
