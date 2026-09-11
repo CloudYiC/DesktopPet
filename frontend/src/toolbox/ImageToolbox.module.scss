@@ -12,7 +12,6 @@ $paper: var(--theme-paper, #fffaf3);
   > div { display: flex; align-items: center; gap: 13px; }
   i { display: grid; width: 49px; height: 49px; place-items: center; color: $teal-dark; background: #e0f1ee; border-radius: 15px; font-size: 0.75rem; font-style: normal; font-weight: 850; }
   span { display: grid; gap: 3px; }
-  small { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: .18em; }
   strong { font-family: Georgia, "Noto Serif SC", serif; font-size: 1.5rem; font-weight: 600; }
   em { color: $muted; font-size: 0.75rem; font-style: normal; line-height: 1.5; }
 }

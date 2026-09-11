@@ -20,11 +20,9 @@ $peach: var(--theme-accent);
   > div { display: flex; align-items: center; gap: 13px; }
   > div > i { display: grid; width: 48px; height: 48px; place-items: center; color: $teal-dark; background: #dff0ed; border-radius: 15px; font-size: 0.75rem; font-style: normal; font-weight: 850; }
   > div > span,
-  > div small,
   > div strong,
   > div em { display: block; }
-  > div small { color: $teal; font-size: 0.6875rem; font-weight: 850; letter-spacing: 0.16em; }
-  > div strong { margin-top: 4px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.375rem; font-weight: 600; }
+  > div strong { color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.375rem; font-weight: 600; }
   > div em { margin-top: 4px; color: $muted; font-size: 0.75rem; font-style: normal; line-height: 1.5; }
 }
 

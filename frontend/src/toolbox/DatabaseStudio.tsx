@@ -166,7 +166,7 @@ export function DatabaseStudio({ tool, onBack }: DatabaseStudioProps) {
         <button type="button" onClick={onBack}>← 返回工具列表</button>
         <div>
           <i>{tool.glyph}</i>
-          <span><small>SQLITE C API · LOCAL FILE</small><strong>{tool.name}</strong><em>{tool.description}</em></span>
+          <span><strong>{tool.name}</strong><em>{tool.description}</em></span>
         </div>
       </header>
 

@@ -332,7 +332,6 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
         <div className={styles.workspaceTitle}>
           <i>{tool.glyph}</i>
           <div>
-            <span>WINDOWS NATIVE · LOCAL SOCKET</span>
             <h2>{tool.name}</h2>
             <p>{tool.description}</p>
           </div>

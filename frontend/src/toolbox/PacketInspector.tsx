@@ -201,7 +201,6 @@ export function PacketInspector({ tool, onBack }: PacketInspectorProps) {
         <div className={styles.workspaceTitle}>
           <i>{tool.glyph}</i>
           <div>
-            <span>C CORE · C++11 BRIDGE</span>
             <h2>{tool.name}</h2>
             <p>把偏移、协议层、字段值与原始字节放在同一张工作台中。</p>
           </div>

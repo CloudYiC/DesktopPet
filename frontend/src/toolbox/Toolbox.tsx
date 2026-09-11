@@ -186,19 +186,13 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
   );
 }
 
-function runtimeLabel(tool: ToolDefinition) {
-  if (tool.runtime === 'c-core') return 'C CORE';
-  if (tool.runtime === 'react') return 'REACT LOCAL';
-  return 'WINDOWS NATIVE';
-}
-
 function WorkspaceHeading({ tool, onBack }: ToolWorkspaceProps) {
   return (
     <header className={styles.workspaceHeader}>
       <button type="button" onClick={onBack}>← 返回工具列表</button>
       <div className={styles.workspaceTitle}>
         <i>{tool.glyph}</i>
-        <div><span>{runtimeLabel(tool)} · PERMISSION GATED</span><h2>{tool.name}</h2><p>{tool.description}</p></div>
+        <div><h2>{tool.name}</h2><p>{tool.description}</p></div>
       </div>
     </header>
   );
@@ -626,7 +620,7 @@ function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
         <button type="button" onClick={onBack}>← 返回工具列表</button>
         <div className={styles.workspaceTitle}>
           <i>{tool.glyph}</i>
-          <div><span>{tool.runtime === 'c-core' ? 'C CORE · C++11 BRIDGE' : 'LOCAL REACT TOOL'}</span><h2>{tool.name}</h2><p>{tool.description}</p></div>
+          <div><h2>{tool.name}</h2><p>{tool.description}</p></div>
         </div>
       </header>
 

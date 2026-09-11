@@ -51,14 +51,8 @@ $peach: var(--theme-accent);
   }
 
   > div { min-width: 0; }
-  span {
-    color: $teal;
-    font-size: 0.6875rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-  }
   h2 {
-    margin: 3px 0;
+    margin: 0 0 3px;
     color: $ink;
     font-family: Georgia, "Noto Serif SC", serif;
     font-size: 1.375rem;
