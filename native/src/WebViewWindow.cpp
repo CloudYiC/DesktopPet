@@ -24,6 +24,13 @@ constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr ULONGLONG kHoldDurationMs = 12000;
 constexpr ULONGLONG kMoveOutDurationMs = 850;
 constexpr wchar_t kTrustedUiOrigin[] = L"https://milo.local/";
+constexpr int kDashboardPreferredWidth = 1280;
+constexpr int kDashboardPreferredHeight = 800;
+constexpr int kDashboardFallbackWidth = 720;
+constexpr int kDashboardFallbackHeight = 560;
+constexpr int kDashboardWorkAreaMargin = 48;
+constexpr LONG kDashboardMinimumTrackWidth = 760;
+constexpr LONG kDashboardMinimumTrackHeight = 560;
 
 template <typename T>
 T ClampValue(T value, T lower, T upper) {
@@ -150,9 +157,15 @@ bool WebViewWindow::Create(HINSTANCE instance) {
     // The merged CloudYi workbench benefits from a wider editor while still
     // leaving a margin on smaller displays. The window remains resizable.
     const int width = (std::min)(
-        availableWidth, (std::max)(720, (std::min)(1120, availableWidth - 48)));
+        availableWidth,
+        (std::max)(kDashboardFallbackWidth,
+                   (std::min)(kDashboardPreferredWidth,
+                              availableWidth - kDashboardWorkAreaMargin)));
     const int height = (std::min)(
-        availableHeight, (std::max)(560, (std::min)(740, availableHeight - 48)));
+        availableHeight,
+        (std::max)(kDashboardFallbackHeight,
+                   (std::min)(kDashboardPreferredHeight,
+                              availableHeight - kDashboardWorkAreaMargin)));
     const int left = workArea.left + (availableWidth - width) / 2;
     const int top = workArea.top + (availableHeight - height) / 2;
     bounds = {left, top, left + width, top + height};
@@ -408,7 +421,8 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
     case WM_GETMINMAXINFO:
       if (kind_ == WindowKind::Dashboard) {
         auto* limits = reinterpret_cast<MINMAXINFO*>(lParam);
-        limits->ptMinTrackSize = {760, 560};
+        limits->ptMinTrackSize = {kDashboardMinimumTrackWidth,
+                                  kDashboardMinimumTrackHeight};
       }
       return 0;
 

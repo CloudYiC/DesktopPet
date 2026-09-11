@@ -11,7 +11,7 @@ $peach: var(--theme-accent);
   display: grid;
   width: 100%;
   height: 100%;
-  grid-template-columns: 244px 1fr;
+  grid-template-columns: 216px minmax(0, 1fr);
   overflow: hidden;
   background:
     radial-gradient(circle at 88% 8%, color-mix(in srgb, $peach 13%, transparent), transparent 24%),
@@ -249,7 +249,7 @@ $peach: var(--theme-accent);
 
 .content {
   min-width: 0;
-  padding: 30px 36px 30px;
+  padding: 30px;
   overflow: auto;
 }
 
@@ -1539,7 +1539,7 @@ $peach: var(--theme-accent);
 
 @media (max-width: 780px) {
   .appShell {
-    grid-template-columns: 180px 1fr;
+    grid-template-columns: 180px minmax(0, 1fr);
   }
 
   .content {

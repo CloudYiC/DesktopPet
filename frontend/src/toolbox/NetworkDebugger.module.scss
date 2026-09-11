@@ -115,7 +115,7 @@ $peach: var(--theme-accent);
   display: grid;
   min-width: 0;
   align-items: center;
-  grid-template-columns: 10px repeat(4, auto);
+  grid-template-columns: 10px repeat(4, minmax(0, 1fr));
   gap: 7px 15px;
 
   > div { min-width: 0; }
@@ -154,8 +154,8 @@ $peach: var(--theme-accent);
 .debuggerLayout {
   display: grid;
   min-width: 0;
-  align-items: stretch;
-  grid-template-columns: minmax(238px, 272px) minmax(0, 1fr);
+  align-items: start;
+  grid-template-columns: minmax(210px, 240px) minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -413,7 +413,8 @@ $peach: var(--theme-accent);
 
 .logEntry {
   display: grid;
-  min-width: max-content;
+  width: 100%;
+  min-width: 0;
   padding: 8px 10px;
   grid-template-columns: 180px minmax(260px, 1fr);
   gap: 10px;
@@ -470,7 +471,7 @@ $peach: var(--theme-accent);
 .sendPanel {
   display: grid;
   padding: 14px;
-  grid-template-columns: minmax(230px, 1fr) auto;
+  grid-template-columns: minmax(200px, 1fr) auto;
   grid-template-rows: auto minmax(86px, auto);
   gap: 9px 12px;
 
@@ -512,7 +513,7 @@ $peach: var(--theme-accent);
 
 .sendControls {
   display: grid;
-  width: 202px;
+  width: 188px;
   min-width: 0;
   align-content: start;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -613,7 +614,7 @@ $peach: var(--theme-accent);
   .modeBar { align-items: stretch; flex-direction: column; }
   .sessionStatus { grid-template-columns: 10px repeat(4, minmax(0, 1fr)); }
   .debuggerLayout { grid-template-columns: 1fr; }
-  .connectionPanel { display: grid; grid-template-columns: minmax(150px, 0.7fr) minmax(320px, 1.3fr) 130px; align-items: end; }
+  .connectionPanel { display: grid; grid-template-columns: minmax(136px, 0.7fr) minmax(240px, 1.3fr) 112px; align-items: end; }
   .panelHeading { align-self: center; }
   .connectionPanel > .startButton,
   .connectionPanel > .stopButton { align-self: end; }
