@@ -7,6 +7,21 @@
   gap: var(--cy-space-5);
 }
 
+.packetPage {
+  width: calc(100% - 40px);
+  max-width: 1600px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 20px 0 32px;
+}
+
+@media (max-width: 720px) {
+  .packetPage {
+    width: calc(100% - 24px);
+    padding-top: 12px;
+  }
+}
+
 .crumbs {
   display: flex;
   align-items: center;

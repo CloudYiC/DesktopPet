@@ -6,6 +6,7 @@ import { isRunnableTool, isWasmNativeTool } from '../../../lib/runnableTools'
 import { SITE_NAME_EN, SITE_NAME_ZH, absoluteUrl } from '../../../lib/site'
 import { RecentToolTracker } from './RecentToolTracker'
 import { ToolRunner } from './ToolRunner'
+import { PacketInspector } from './PacketInspector'
 import styles from './tool.module.scss'
 
 interface Params {
@@ -63,6 +64,21 @@ export default async function ToolPage({ params }: Params) {
     isAccessibleForFree: true,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     softwareVersion: tool.version,
+  }
+
+  // Packet inspection needs the full detail width for linked byte and field panes.
+  // Its shared workbench supplies the heading and back navigation itself.
+  if (tool.id === 'packet-inspector') {
+    return (
+      <div className={styles.packetPage}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(toolJsonLd) }}
+        />
+        <RecentToolTracker toolId={tool.id} />
+        <PacketInspector />
+      </div>
+    )
   }
 
   return (

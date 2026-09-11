@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.5-desktop',
+    date: '2026-09-11',
+    items: [
+      { kind: '~', text: 'Redesigned packet inspection with linked protocol, byte, ASCII and field panes' },
+      { kind: '+', text: 'Added offset navigation, 8/16/32-byte rows, range selection and precise endian interpretation' },
+      { kind: '~', text: 'Preserved editable local custom fields and virtualized full 64 KiB packet scrolling' },
+    ],
+  },
+  {
     version: 'v0.12.4-desktop',
     date: '2026-09-11',
     items: [
