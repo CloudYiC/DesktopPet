@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.11.9",
+  "latestVersion": "0.12.4",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.11.9",
-  "releaseNotes": "Removes repeated introductory headings from CloudYi toolbox pages, rebalances desktop tool sizing, and fixes clipping in the assistant interaction cloud at narrow and high-DPI window sizes.",
-  "publishedAt": "2026-09-05T20:34:58.906Z",
+  "title": "云依助手 0.12.4",
+  "releaseNotes": "Redesigns the desktop network debugger with a balanced operation column, a full-height receive log, and fixed internal log scrolling.",
+  "publishedAt": "2026-09-11T08:00:58.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.9.exe",
-      "sha256": "1511DA8FBE54EE4DA59192D278651FB22A771B2881F50DC86D235FDCBAC26899",
-      "size": 23149985,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.4.exe",
+      "sha256": "A75229B80FA590AEFB4485FFBC8A60BB2734C2E0ED9E55463798B922D83DE37F",
+      "size": 23191553,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.11.9.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.4.exe"
   }
 }

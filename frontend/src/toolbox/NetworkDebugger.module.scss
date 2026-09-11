@@ -148,9 +148,23 @@ $peach: var(--theme-accent);
 .debuggerLayout {
   display: grid;
   min-width: 0;
-  align-items: start;
-  grid-template-columns: minmax(210px, 240px) minmax(0, 1fr);
-  gap: 12px;
+  min-height: 0;
+  height: clamp(600px, calc(100dvh - 184px), 650px);
+  align-items: stretch;
+  grid-template-columns: minmax(286px, 316px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+// The operation column intentionally groups the two input-heavy panels so the
+// receive log can use one uninterrupted, full-height reading surface.
+.operationColumn {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  grid-template-rows: auto minmax(328px, 1fr);
+  gap: 14px;
+  scrollbar-gutter: stable;
 }
 
 .connectionPanel,
@@ -187,7 +201,7 @@ $peach: var(--theme-accent);
     letter-spacing: 0.16em;
   }
   h3 {
-    margin: 3px 0 0;
+    margin: 0;
     color: $ink;
     font-family: Georgia, "Noto Serif SC", serif;
     font-size: 0.9375rem;
@@ -314,26 +328,24 @@ $peach: var(--theme-accent);
 
 .selectedPeer { color: $teal-dark !important; background: #e9f5f2 !important; border-color: rgba(22, 139, 133, 0.22) !important; }
 
-.dataWorkspace {
-  display: grid;
-  min-width: 0;
-  align-content: start;
-  grid-template-rows: auto auto;
-  gap: 12px;
-}
-
 .receivePanel {
-  --receive-log-height: clamp(300px, 38vh, 420px);
-
   position: relative;
   display: grid;
   min-height: 0;
+  height: 100%;
   padding: 14px;
-  grid-template-rows: auto var(--receive-log-height);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 11px;
 }
 
-.receiveToolbar { align-items: center; }
+.receiveToolbar {
+  align-items: center;
+
+  > div:first-child {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
 
 .toolbarActions {
   display: flex;
@@ -379,7 +391,7 @@ $peach: var(--theme-accent);
 .logConsole {
   min-width: 0;
   min-height: 0;
-  height: var(--receive-log-height);
+  height: 100%;
   overflow: auto;
   overflow-anchor: none;
   overscroll-behavior: contain;
@@ -487,6 +499,26 @@ $peach: var(--theme-accent);
 
     &:focus { border-color: color-mix(in srgb, $teal 45%, transparent); }
   }
+}
+
+.operationColumn > .sendPanel {
+  min-height: 0;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(96px, 1fr) auto;
+
+  > header { grid-column: auto; }
+
+  > textarea {
+    min-height: 96px;
+    height: 100%;
+    resize: none;
+  }
+}
+
+.operationColumn .sendControls {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .sendHeaderMeta {
@@ -604,23 +636,36 @@ $peach: var(--theme-accent);
   50% { box-shadow: 0 0 0 5px rgba(232, 162, 67, 0.14); }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .modeBar { align-items: stretch; flex-direction: column; }
   .sessionStatus { grid-template-columns: 10px repeat(4, minmax(0, 1fr)); }
-  .debuggerLayout { grid-template-columns: 1fr; }
-  .connectionPanel { display: grid; grid-template-columns: minmax(136px, 0.7fr) minmax(240px, 1.3fr) 112px; align-items: end; }
-  .panelHeading { align-self: center; }
-  .connectionPanel > .startButton,
-  .connectionPanel > .stopButton { align-self: end; }
-  .exposureNotice,
-  .peerPanel { grid-column: 1 / -1; }
-  .peerList { max-height: 140px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dataWorkspace { grid-template-rows: auto auto; }
-  .receivePanel { --receive-log-height: clamp(280px, 36vh, 360px); }
+  .debuggerLayout {
+    min-height: 0;
+    height: auto;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'connection'
+      'receive'
+      'send';
+  }
+  .operationColumn { display: contents; }
+  .connectionPanel { grid-area: connection; }
+  .operationColumn > .sendPanel {
+    height: auto;
+    grid-area: send;
+    grid-template-rows: auto minmax(110px, auto) auto;
+  }
+  .receivePanel {
+    height: auto;
+    grid-area: receive;
+    grid-template-rows: auto clamp(300px, 42vh, 390px);
+  }
 }
 
 @media (max-width: 840px) {
-  .connectionPanel { display: flex; align-items: stretch; }
+  .operationColumn .sendControls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .operationColumn .autoSendControl { grid-column: auto; }
+  .operationColumn .sendButton { grid-column: 1 / -1; }
 }
 
 @media (max-width: 720px) {
@@ -647,13 +692,16 @@ $peach: var(--theme-accent);
   .addressField,
   .portField { grid-column: 1; }
   .peerList { grid-template-columns: 1fr; }
-  .receivePanel { --receive-log-height: 260px; padding: 11px; }
+  .receivePanel { padding: 11px; grid-template-rows: auto 260px; }
   .toolbarActions { display: grid; width: 100%; grid-template-columns: auto repeat(4, max-content); justify-content: start; }
   .checkControl { padding: 0 3px; }
   .sendPanel { padding: 11px; }
-  .sendControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sendControls,
+  .operationColumn .sendControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .autoSendControl,
-  .sendButton { grid-column: 1 / -1; }
+  .sendButton,
+  .operationColumn .autoSendControl,
+  .operationColumn .sendButton { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

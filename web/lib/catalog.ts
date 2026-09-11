@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.4-desktop',
+    date: '2026-09-11',
+    items: [
+      { kind: '~', text: 'Reorganized connection and send controls into one balanced operation column' },
+      { kind: '~', text: 'Expanded the receive log into a full-height fixed reading area' },
+      { kind: '~', text: 'Kept growing traffic inside the log\'s own scrollbar and prioritized it on narrow windows' },
+    ],
+  },
+  {
     version: 'v0.11.9-desktop',
     date: '2026-09-06',
     items: [

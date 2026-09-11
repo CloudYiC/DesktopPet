@@ -358,156 +358,111 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
       </div>
 
       <div className={styles.debuggerLayout}>
-        <aside className={styles.connectionPanel}>
-          <div className={styles.panelHeading}>
-            <div><span>CONNECTION</span><h3>连接设置</h3></div>
-            <small>{selectedMode.description}</small>
-          </div>
-
-          <div className={styles.formGrid}>
-            <label className={styles.addressField}>
-              <span>本地地址</span>
-              <select
-                value={localHost}
-                disabled={active || busy}
-                onChange={(event) => {
-                  setLocalHost(event.target.value);
-                  setAllowLan(false);
-                }}
-              >
-                {mode === 'tcp-client' && <option value="">自动选择出站网卡</option>}
-                <option value="127.0.0.1">127.0.0.1 · 仅本机</option>
-                <option value="0.0.0.0">0.0.0.0 · 全部网卡</option>
-              </select>
-            </label>
-            <label className={styles.portField}>
-              <span>本地端口</span>
-              <input
-                value={localPort}
-                disabled={active || busy}
-                inputMode="numeric"
-                placeholder={mode === 'tcp-client' ? '0 · 自动' : '9000'}
-                onChange={(event) => setLocalPort(event.target.value)}
-              />
-            </label>
-
-            {mode !== 'tcp-server' && (
-              <>
-                <label className={styles.addressField}>
-                  <span>远端主机</span>
-                  <input
-                    value={remoteHost}
-                    disabled={active || busy}
-                    spellCheck={false}
-                    placeholder="127.0.0.1 或主机名"
-                    onChange={(event) => setRemoteHost(event.target.value)}
-                  />
-                </label>
-                <label className={styles.portField}>
-                  <span>远端端口</span>
-                  <input
-                    value={remotePort}
-                    disabled={active || busy}
-                    inputMode="numeric"
-                    placeholder="9000"
-                    onChange={(event) => setRemotePort(event.target.value)}
-                  />
-                </label>
-              </>
-            )}
-          </div>
-
-          {requiresLanConfirmation && !active && (
-            <label className={styles.exposureNotice}>
-              <input type="checkbox" checked={allowLan} onChange={(event) => setAllowLan(event.target.checked)} />
-              <span>
-                <strong>{mode === 'tcp-client' ? '允许外部网络连接' : '允许局域网访问'}</strong>
-                {mode === 'tcp-client'
-                  ? '系统将自动选择出站网卡，用于连接本机以外的远端地址。'
-                  : '将对所有本机网卡开放，请确认防火墙与局域网环境可信。'}
-              </span>
-            </label>
-          )}
-
-          <button
-            type="button"
-            className={active ? styles.stopButton : styles.startButton}
-            disabled={busy || (requiresLanConfirmation && !allowLan)}
-            onClick={() => void (active ? stopSession() : startSession())}
-          >
-            {busy ? '处理中…' : sessionAction(mode, active)}
-          </button>
-
-          {mode === 'tcp-server' && (
-            <section className={styles.peerPanel} aria-label="TCP 客户端列表">
-              <div><strong>已连接客户端</strong><span>{peers.length}</span></div>
-              {peers.length ? (
-                <div className={styles.peerList}>
-                  {peers.map((peer) => (
-                    <button
-                      key={peer.id}
-                      type="button"
-                      className={targetPeerId === peer.id ? styles.selectedPeer : undefined}
-                      onClick={() => setTargetPeerId(peer.id)}
-                    >
-                      <span>{peer.address}:{peer.port}</span><small>{peer.id}</small>
-                    </button>
-                  ))}
-                </div>
-              ) : <p>监听后，新的 TCP 客户端会显示在这里。</p>}
-            </section>
-          )}
-        </aside>
-
-        <main className={styles.dataWorkspace}>
-          <section className={styles.receivePanel}>
-            <header className={styles.receiveToolbar}>
-              <div><span>RECEIVE LOG</span><h3>收发记录</h3></div>
-              <div className={styles.toolbarActions}>
-                <div className={styles.smallTabs} aria-label="数据显示方式">
-                  <button type="button" className={receiveMode === 'text' ? styles.activeSmallTab : undefined} onClick={() => setReceiveMode('text')}>文本</button>
-                  <button type="button" className={receiveMode === 'hex' ? styles.activeSmallTab : undefined} onClick={() => setReceiveMode('hex')}>HEX</button>
-                </div>
-                <label className={styles.checkControl}><input type="checkbox" checked={showTimestamps} onChange={(event) => setShowTimestamps(event.target.checked)} /><span>时间</span></label>
-                <label className={styles.checkControl}>
-                  <input
-                    type="checkbox"
-                    checked={autoScroll}
-                    onChange={(event) => {
-                      const enabled = event.target.checked;
-                      setAutoScroll(enabled);
-                      if (enabled) followTailRef.current = true;
-                    }}
-                  />
-                  <span>自动滚动</span>
-                </label>
-                <button type="button" className={styles.textButton} onClick={() => void copyLog()}>复制</button>
-                <button type="button" className={styles.textButton} onClick={clearLog}>清空</button>
-              </div>
-            </header>
-
-            <div ref={logRef} className={styles.logConsole} role="log" aria-label="网络收发记录" onScroll={handleLogScroll}>
-              {!events.length && (
-                <div className={styles.emptyLog}>
-                  <strong>等待网络数据</strong>
-                  <span>建立连接后，收到和发出的字节都会按顺序显示在这里。</span>
-                </div>
-              )}
-              {events.map((event, index) => (
-                <LogEntry
-                  key={`${event.id}-${index}`}
-                  event={event}
-                  mode={receiveMode}
-                  showTimestamp={showTimestamps}
-                />
-              ))}
+        <div className={styles.operationColumn}>
+          <aside className={styles.connectionPanel}>
+            <div className={styles.panelHeading}>
+              <div><h3>连接设置</h3></div>
+              <small>{selectedMode.description}</small>
             </div>
-            {hasUnseenData && <button type="button" className={styles.newDataButton} onClick={scrollToLatest}>有新数据 · 查看最新</button>}
-          </section>
+
+            <div className={styles.formGrid}>
+              <label className={styles.addressField}>
+                <span>本地地址</span>
+                <select
+                  value={localHost}
+                  disabled={active || busy}
+                  onChange={(event) => {
+                    setLocalHost(event.target.value);
+                    setAllowLan(false);
+                  }}
+                >
+                  {mode === 'tcp-client' && <option value="">自动选择出站网卡</option>}
+                  <option value="127.0.0.1">127.0.0.1 · 仅本机</option>
+                  <option value="0.0.0.0">0.0.0.0 · 全部网卡</option>
+                </select>
+              </label>
+              <label className={styles.portField}>
+                <span>本地端口</span>
+                <input
+                  value={localPort}
+                  disabled={active || busy}
+                  inputMode="numeric"
+                  placeholder={mode === 'tcp-client' ? '0 · 自动' : '9000'}
+                  onChange={(event) => setLocalPort(event.target.value)}
+                />
+              </label>
+
+              {mode !== 'tcp-server' && (
+                <>
+                  <label className={styles.addressField}>
+                    <span>远端主机</span>
+                    <input
+                      value={remoteHost}
+                      disabled={active || busy}
+                      spellCheck={false}
+                      placeholder="127.0.0.1 或主机名"
+                      onChange={(event) => setRemoteHost(event.target.value)}
+                    />
+                  </label>
+                  <label className={styles.portField}>
+                    <span>远端端口</span>
+                    <input
+                      value={remotePort}
+                      disabled={active || busy}
+                      inputMode="numeric"
+                      placeholder="9000"
+                      onChange={(event) => setRemotePort(event.target.value)}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+
+            {requiresLanConfirmation && !active && (
+              <label className={styles.exposureNotice}>
+                <input type="checkbox" checked={allowLan} onChange={(event) => setAllowLan(event.target.checked)} />
+                <span>
+                  <strong>{mode === 'tcp-client' ? '允许外部网络连接' : '允许局域网访问'}</strong>
+                  {mode === 'tcp-client'
+                    ? '系统将自动选择出站网卡，用于连接本机以外的远端地址。'
+                    : '将对所有本机网卡开放，请确认防火墙与局域网环境可信。'}
+                </span>
+              </label>
+            )}
+
+            <button
+              type="button"
+              className={active ? styles.stopButton : styles.startButton}
+              disabled={busy || (requiresLanConfirmation && !allowLan)}
+              onClick={() => void (active ? stopSession() : startSession())}
+            >
+              {busy ? '处理中…' : sessionAction(mode, active)}
+            </button>
+
+            {mode === 'tcp-server' && (
+              <section className={styles.peerPanel} aria-label="TCP 客户端列表">
+                <div><strong>已连接客户端</strong><span>{peers.length}</span></div>
+                {peers.length ? (
+                  <div className={styles.peerList}>
+                    {peers.map((peer) => (
+                      <button
+                        key={peer.id}
+                        type="button"
+                        className={targetPeerId === peer.id ? styles.selectedPeer : undefined}
+                        onClick={() => setTargetPeerId(peer.id)}
+                      >
+                        <span>{peer.address}:{peer.port}</span><small>{peer.id}</small>
+                      </button>
+                    ))}
+                  </div>
+                ) : <p>监听后，新的 TCP 客户端会显示在这里。</p>}
+              </section>
+            )}
+          </aside>
 
           <section className={styles.sendPanel}>
             <header>
-              <div><span>SEND DATA</span><h3>发送数据</h3></div>
+              <div><h3>发送数据</h3></div>
               <div className={styles.sendHeaderMeta}>
                 <div className={styles.smallTabs} aria-label="发送数据方式">
                   <button type="button" className={sendMode === 'text' ? styles.activeSmallTab : undefined} onClick={() => setSendMode('text')}>文本</button>
@@ -560,7 +515,52 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
               </button>
             </div>
           </section>
-        </main>
+        </div>
+
+        <section className={styles.receivePanel}>
+          <header className={styles.receiveToolbar}>
+            <div><h3>收发记录</h3></div>
+            <div className={styles.toolbarActions}>
+              <div className={styles.smallTabs} aria-label="数据显示方式">
+                <button type="button" className={receiveMode === 'text' ? styles.activeSmallTab : undefined} onClick={() => setReceiveMode('text')}>文本</button>
+                <button type="button" className={receiveMode === 'hex' ? styles.activeSmallTab : undefined} onClick={() => setReceiveMode('hex')}>HEX</button>
+              </div>
+              <label className={styles.checkControl}><input type="checkbox" checked={showTimestamps} onChange={(event) => setShowTimestamps(event.target.checked)} /><span>时间</span></label>
+              <label className={styles.checkControl}>
+                <input
+                  type="checkbox"
+                  checked={autoScroll}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setAutoScroll(enabled);
+                    if (enabled) followTailRef.current = true;
+                  }}
+                />
+                <span>自动滚动</span>
+              </label>
+              <button type="button" className={styles.textButton} onClick={() => void copyLog()}>复制</button>
+              <button type="button" className={styles.textButton} onClick={clearLog}>清空</button>
+            </div>
+          </header>
+
+          <div ref={logRef} className={styles.logConsole} role="log" aria-label="网络收发记录" onScroll={handleLogScroll}>
+            {!events.length && (
+              <div className={styles.emptyLog}>
+                <strong>等待网络数据</strong>
+                <span>建立连接后，收到和发出的字节都会按顺序显示在这里。</span>
+              </div>
+            )}
+            {events.map((event, index) => (
+              <LogEntry
+                key={`${event.id}-${index}`}
+                event={event}
+                mode={receiveMode}
+                showTimestamp={showTimestamps}
+              />
+            ))}
+          </div>
+          {hasUnseenData && <button type="button" className={styles.newDataButton} onClick={scrollToLatest}>有新数据 · 查看最新</button>}
+        </section>
       </div>
 
       {(notice || error) && (

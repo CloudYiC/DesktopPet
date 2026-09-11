@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 
-project(CloudYiAssistant VERSION 0.12.3 LANGUAGES C CXX)
+project(CloudYiAssistant VERSION 0.12.4 LANGUAGES C CXX)
 
 include(CTest)
 
