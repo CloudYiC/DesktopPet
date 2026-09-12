@@ -6,16 +6,6 @@ $paper: var(--theme-paper, #fffaf3);
 
 .imageToolbox { min-height: 100%; color: $ink; }
 
-.workspaceHeader {
-  display: grid; gap: 13px;
-  > button { width: max-content; padding: 0; color: $teal-dark; cursor: pointer; background: none; border: 0; font-size: 0.75rem; font-weight: 750; }
-  > div { display: flex; align-items: center; gap: 13px; }
-  i { display: grid; width: 49px; height: 49px; place-items: center; color: $teal-dark; background: #e0f1ee; border-radius: 15px; font-size: 0.75rem; font-style: normal; font-weight: 850; }
-  span { display: grid; gap: 3px; }
-  strong { font-family: Georgia, "Noto Serif SC", serif; font-size: 1.5rem; font-weight: 600; }
-  em { color: $muted; font-size: 0.75rem; font-style: normal; line-height: 1.5; }
-}
-
 .dropZone {
   display: grid; min-height: 380px; margin-top: 18px; padding: 34px; place-items: center; align-content: center; text-align: center;
   background: color-mix(in srgb, $paper 87%, transparent); border: 1.5px dashed rgba(22, 139, 133, .34); border-radius: 27px; transition: 160ms ease;

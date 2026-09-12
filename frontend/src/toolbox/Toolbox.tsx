@@ -22,6 +22,7 @@ import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
 import { NetworkDebugger } from './NetworkDebugger';
+import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 
 interface ToolboxProps {
   category: ToolCategoryId | null;
@@ -187,15 +188,7 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
 }
 
 function WorkspaceHeading({ tool, onBack }: ToolWorkspaceProps) {
-  return (
-    <header className={styles.workspaceHeader}>
-      <button type="button" onClick={onBack}>← 返回工具列表</button>
-      <div className={styles.workspaceTitle}>
-        <i>{tool.glyph}</i>
-        <div><h2>{tool.name}</h2><p>{tool.description}</p></div>
-      </div>
-    </header>
-  );
+  return <ToolWorkspaceHeader title={tool.name} onBack={onBack} />;
 }
 
 function SystemCenterWorkspace({ tool, onBack }: ToolWorkspaceProps) {
@@ -616,13 +609,7 @@ function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
 
   return (
     <section className={styles.workspace}>
-      <header className={styles.workspaceHeader}>
-        <button type="button" onClick={onBack}>← 返回工具列表</button>
-        <div className={styles.workspaceTitle}>
-          <i>{tool.glyph}</i>
-          <div><h2>{tool.name}</h2><p>{tool.description}</p></div>
-        </div>
-      </header>
+      <WorkspaceHeading tool={tool} onBack={onBack} />
 
       <div className={styles.operationBar}>
         <OperationControls

@@ -8,6 +8,7 @@ import {
   rangeText, readCustomFields, type ByteRange, type CustomField, type CustomFieldType,
 } from './workbenchModel';
 import styles from './PacketWorkbench.module.scss';
+import { ToolWorkspaceHeader } from '../tool-workspace/ToolWorkspaceHeader';
 
 export interface PacketWorkbenchProps {
   title?: string;
@@ -303,10 +304,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
       onKeyDown={(event) => {
         if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !(tab === 'custom' && editorOpen)) { event.preventDefault(); void runAnalysis(); }
       }}>
-      <header className={styles.workspaceHeader}>
-        {onBack ? <button type="button" onClick={onBack}>← 返回工具列表</button> : <a href={backHref ?? '/tools/'}>← 返回工具列表</a>}
-        <span className={styles.separator}>/</span><h2>{title}</h2>
-      </header>
+      <ToolWorkspaceHeader title={title} onBack={onBack} backHref={backHref} />
 
       <section className={styles.inputCard} aria-label="报文输入">
         <header className={styles.inputHeading}>

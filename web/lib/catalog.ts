@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.6-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Unified all desktop tool headers into compact back navigation and title rows' },
+      { kind: '~', text: 'Reduced sidebar width and tool-page insets without changing the initial window size' },
+      { kind: '~', text: 'Kept tool descriptions in the catalog and preserved assistant pages and safety prompts' },
+    ],
+  },
+  {
     version: 'v0.12.5-desktop',
     date: '2026-09-11',
     items: [

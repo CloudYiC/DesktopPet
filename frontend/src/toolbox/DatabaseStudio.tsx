@@ -11,6 +11,7 @@ import type {
   DatabaseQueryResult,
 } from '../types';
 import type { ToolDefinition } from './catalog';
+import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import styles from './DatabaseStudio.module.scss';
 
 interface DatabaseStudioProps {
@@ -162,13 +163,7 @@ export function DatabaseStudio({ tool, onBack }: DatabaseStudioProps) {
 
   return (
     <section className={styles.databaseStudio}>
-      <header className={styles.workspaceHeader}>
-        <button type="button" onClick={onBack}>← 返回工具列表</button>
-        <div>
-          <i>{tool.glyph}</i>
-          <span><strong>{tool.name}</strong><em>{tool.description}</em></span>
-        </div>
-      </header>
+      <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
 
       <div className={styles.databaseToolbar}>
         <div className={styles.fileIdentity}>

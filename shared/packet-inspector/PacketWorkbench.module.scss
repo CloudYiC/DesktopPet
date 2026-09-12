@@ -38,30 +38,6 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
   h3 { font-size: 0.9375rem; font-weight: 700; line-height: 1.4; }
 }
 
-.workspaceHeader {
-  display: flex;
-  min-height: 30px;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-
-  > button, > a {
-    display: inline-flex;
-    padding: 0;
-    align-items: center;
-    gap: 6px;
-    color: $teal-dark;
-    background: transparent;
-    border: 0;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-  h2 { font-size: 1.1875rem; font-weight: 700; line-height: 1.3; }
-}
-
-.separator { color: color-mix(in srgb, $muted 65%, transparent); font-size: 1.125rem; }
-
 .inputCard,
 .protocolSummary,
 .layerPanel,
@@ -407,7 +383,6 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 }
 
 @container (max-width: 780px) {
-  .workspaceHeader { gap: 8px; h2 { font-size: 1.0625rem; } }
   .inspectorGrid { height: auto; grid-template-columns: 1fr; }
   .layerPanel { display: grid; max-height: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 10px 16px; overflow: visible; }
   .layerTreeArea { min-height: 0; max-height: 260px; }

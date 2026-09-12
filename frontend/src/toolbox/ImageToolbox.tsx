@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'r
 import { requestImageSave } from '../bridge/hostBridge';
 import type { ImageExportFormat } from '../types';
 import type { ToolDefinition } from './catalog';
+import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import styles from './ImageToolbox.module.scss';
 
 interface ImageToolboxProps {
@@ -262,10 +263,7 @@ export function ImageToolbox({ tool, onBack }: ImageToolboxProps) {
 
   return (
     <section className={styles.imageToolbox}>
-      <header className={styles.workspaceHeader}>
-        <button type="button" onClick={onBack}>← 返回工具列表</button>
-        <div><i>{tool.glyph}</i><span><strong>{tool.name}</strong><em>{tool.description}</em></span></div>
-      </header>
+      <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
 
       {!source ? (
         <div

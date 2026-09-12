@@ -9,7 +9,7 @@ $teal-dark: var(--theme-primary-deep);
   display: flex;
   min-width: 0;
   height: 100%;
-  padding: 22px 14px 14px;
+  padding: 18px 10px 12px;
   flex-direction: column;
   background: color-mix(in srgb, $paper 90%, transparent);
   border-right: 1px solid rgba(86, 66, 52, 0.08);
@@ -18,14 +18,16 @@ $teal-dark: var(--theme-primary-deep);
 .brand {
   display: flex;
   min-height: 54px;
-  padding: 0 8px;
+  padding: 0 6px;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
+
+  > div:last-child { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 
   strong,
   span { display: block; }
   strong { color: $ink; font-size: 0.9375rem; letter-spacing: 0.04em; }
-  span { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.4; }
+  span { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.4; word-break: keep-all; }
 }
 
 .brandMark {
@@ -87,8 +89,8 @@ $teal-dark: var(--theme-primary-deep);
     min-height: 44px;
     padding: 8px 10px;
     align-items: center;
-    grid-template-columns: 28px 1fr auto;
-    gap: 7px;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    gap: 6px;
     color: #75685f;
     cursor: pointer;
     background: transparent;
@@ -208,10 +210,10 @@ $teal-dark: var(--theme-primary-deep);
   display: grid;
   width: 100%;
   min-height: 58px;
-  padding: 9px 10px;
+  padding: 9px 8px;
   align-items: center;
-  grid-template-columns: 30px 1fr auto;
-  gap: 8px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 6px;
   color: inherit;
   cursor: pointer;
   background: transparent;
@@ -236,6 +238,7 @@ $teal-dark: var(--theme-primary-deep);
 
   span strong,
   span small { display: block; }
+  > span { min-width: 0; overflow-wrap: anywhere; }
   span strong { color: $ink; font-size: 0.75rem; line-height: 1.35; }
   span small { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.35; }
   > em { color: #b8aaa1; font-size: 1rem; font-style: normal; }

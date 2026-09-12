@@ -314,56 +314,6 @@ $peach: var(--theme-accent);
 .popularBadge { color: #ca511d; background: #ffe6d4; }
 .emptyCatalog { grid-column: 1 / -1; margin: 0; padding: 34px; color: $muted; background: $paper; border-radius: 14px; font-size: 0.75rem; text-align: center; }
 
-.workspaceHeader {
-  display: grid;
-  gap: 15px;
-
-  > button {
-    width: fit-content;
-    padding: 0;
-    color: $teal-dark;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-}
-
-.workspaceTitle {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-
-  > i {
-    display: grid;
-    width: 50px;
-    height: 50px;
-    flex: 0 0 auto;
-    place-items: center;
-    color: $teal-dark;
-    background: #dff0ed;
-    border-radius: 17px;
-    font-size: 0.8125rem;
-    font-style: normal;
-    font-weight: 850;
-  }
-
-  h2 {
-    margin: 0 0 3px;
-    color: $ink;
-    font-family: Georgia, "Noto Serif SC", serif;
-    font-size: 1.375rem;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 0;
-    color: $muted;
-    font-size: 0.75rem;
-  }
-}
-
 .operationBar {
   display: flex;
   min-height: 56px;

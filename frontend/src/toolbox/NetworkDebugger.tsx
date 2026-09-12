@@ -22,6 +22,7 @@ import type {
 } from '../types';
 import type { ToolDefinition } from './catalog';
 import { normalizeHexInput } from './packetParser';
+import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import styles from './NetworkDebugger.module.scss';
 
 interface NetworkDebuggerProps {
@@ -327,16 +328,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
 
   return (
     <section className={styles.workspace}>
-      <header className={styles.workspaceHeader}>
-        <button type="button" onClick={onBack}>← 返回工具列表</button>
-        <div className={styles.workspaceTitle}>
-          <i>{tool.glyph}</i>
-          <div>
-            <h2>{tool.name}</h2>
-            <p>{tool.description}</p>
-          </div>
-        </div>
-      </header>
+      <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
 
       <div className={styles.modeBar}>
         <div className={styles.modeTabs} role="tablist" aria-label="网络模式">

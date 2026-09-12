@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.5",
+  "latestVersion": "0.12.6",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.5",
-  "releaseNotes": "Redesigns packet inspection with linked protocol, byte, ASCII and field panes, offset navigation, precise endian values, editable local custom fields and virtualized 64 KiB scrolling.",
-  "publishedAt": "2026-09-11T15:43:50.000Z",
+  "title": "云依助手 0.12.6",
+  "releaseNotes": "Unifies desktop tool headers into compact back navigation and title rows, narrows the sidebar and tool-page spacing, and keeps descriptions in the tool list. Preserves the initial window size, assistant pages and safety prompts.",
+  "publishedAt": "2026-09-12T01:44:50.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.5.exe",
-      "sha256": "4FD8AF68020B34C6B525A590A275AE2EABCACC39CFBB401B84A1F743EF22CDB8",
-      "size": 23195340,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.6.exe",
+      "sha256": "E0338E65197C0AFB57DECF0437CBEA6DBE78E574A91B6C053CB065333B467D62",
+      "size": 23194753,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.5.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.6.exe"
   }
 }

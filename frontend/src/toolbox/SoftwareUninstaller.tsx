@@ -11,6 +11,7 @@ import type {
   SoftwareResidual,
 } from '../types';
 import type { ToolDefinition } from './catalog';
+import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import styles from './SoftwareUninstaller.module.scss';
 
 interface SoftwareUninstallerProps {
@@ -161,13 +162,7 @@ export function SoftwareUninstaller({ tool, onBack }: SoftwareUninstallerProps) 
 
   return (
     <section className={styles.workspace}>
-      <header className={styles.heading}>
-        <button type="button" onClick={onBack}>← 返回工具列表</button>
-        <div>
-          <i>{tool.glyph}</i>
-          <span><strong>{tool.name}</strong><em>{tool.description}</em></span>
-        </div>
-      </header>
+      <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
 
       <div className={styles.safetyBar}>
         <span><strong>两阶段保护</strong>先启动软件自己的卸载程序，再按需清理已审核残留。</span>

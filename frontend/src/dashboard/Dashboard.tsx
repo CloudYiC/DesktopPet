@@ -498,7 +498,7 @@ export function Dashboard() {
         onCreateDemoReminder={createDemoReminder}
       />
 
-      <main ref={contentRegion} className={styles.content}>
+      <main ref={contentRegion} className={`${styles.content} ${activeView === 'toolbox' ? styles.toolContent : ''}`}>
         {activeView !== 'toolbox' && (
           <header className={styles.header}>
             <div>
