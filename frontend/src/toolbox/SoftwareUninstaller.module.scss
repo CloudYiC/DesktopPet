@@ -103,12 +103,8 @@ $line: #dfe6ed;
 .error, .notice { display: flex; max-height: 58px; margin: 0; padding: 6px 10px; align-items: flex-start; gap: 12px; flex-shrink: 0; overflow: auto; border-radius: 6px; color: $deep; background: #edf6f3; font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
 .error { color: #a44335; background: #fff0eb; }
 .error > button, .notice > button { flex-shrink: 0; min-height: 22px; margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: inherit; }
-.confirmDialog { position: fixed; inset: 0; width: min(580px, calc(100vw - 36px)); max-height: calc(100dvh - 48px); margin: auto; padding: 22px; overflow: auto; border: 1px solid #d7e0e9; border-top: 4px solid #d38a7b; border-radius: 14px; color: $ink; background: $paper; box-shadow: 0 24px 80px #24354a38; font-size: .875rem; }
-.confirmDialog::backdrop { background: #172a4280; backdrop-filter: blur(2px); }
-.confirmDialog header, .confirmDialog footer { display: flex; min-width: 0; align-items: center; gap: 12px; }.confirmDialog header > button { margin-left: auto; min-height: 30px; padding: 2px 8px; border: 0; }.confirmDialog p { line-height: 1.65; overflow-wrap: anywhere; }
 .personalWarning { padding: 9px 12px; color: #966522; background: #fff3d9; border: 1px solid #f0dbae; border-radius: 7px; }
 .confirmPaths { max-height: 170px; margin: 12px 0; padding: 9px 12px 9px 30px; overflow: auto; border: 1px solid $line; border-radius: 7px; color: #5a6e84; background: #f3f6fa; font-size: .8125rem; line-height: 1.65; overflow-wrap: anywhere; }.confirmPaths li { padding: 3px 0; }.confirmPaths b { margin-left: 9px; color: #966522; font-weight: 500; }
-.confirmDialog > label { display: grid; gap: 8px; color: $ink; }.confirmDialog > footer { margin-top: 18px; justify-content: flex-end; }.dialogError { color: #a44335; }
 .uninstallIdentity { display: flex; min-width: 0; align-items: center; gap: 12px; margin-bottom: 12px; padding: 12px; border: 1px solid #dfe6ed; border-radius: 8px; background: #f3f6fa; }
 .uninstallIdentity > i { display: grid; flex-shrink: 0; width: 40px; height: 40px; place-items: center; color: $deep; background: #deefeb; border-radius: 9px; font-style: normal; font-weight: 700; }
 .uninstallIdentity > div { min-width: 0; }.uninstallIdentity strong, .uninstallIdentity span { display: block; overflow-wrap: anywhere; }.uninstallIdentity strong { color: $ink; }.uninstallIdentity span { margin-top: 4px; color: $muted; font-size: .8125rem; }

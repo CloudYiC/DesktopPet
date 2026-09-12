@@ -8,6 +8,8 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   cancelLabel?: string;
   busy?: boolean;
+  confirmDisabled?: boolean;
+  size?: 'normal' | 'wide';
   error?: string;
   tone?: 'danger' | 'primary';
   children: ReactNode;
@@ -16,7 +18,7 @@ interface ConfirmDialogProps {
 }
 
 /** Top-layer modal centered in the whole client, with native focus containment. */
-export function ConfirmDialog({ open, title, confirmLabel, cancelLabel = '取消', busy = false, error, tone = 'danger', children, onCancel, onConfirm }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, confirmLabel, cancelLabel = '取消', busy = false, confirmDisabled = false, size = 'normal', error, tone = 'danger', children, onCancel, onConfirm }: ConfirmDialogProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -35,7 +37,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel = '取消
       if (previousFocus.current?.isConnected) previousFocus.current.focus({ preventScroll: true });
     }
   }, [open]);
-  return createPortal(<dialog ref={dialog} className={styles.dialog} data-tone={tone} tabIndex={-1} aria-labelledby={titleId} aria-describedby={bodyId} aria-modal="true" aria-busy={busy} onCancel={(event) => { event.preventDefault(); if (!busy) onCancel(); }} onKeyDown={(event) => {
+  return createPortal(<dialog ref={dialog} className={styles.dialog} data-tone={tone} data-size={size} tabIndex={-1} aria-labelledby={titleId} aria-describedby={bodyId} aria-modal="true" aria-busy={busy} onCancel={(event) => { event.preventDefault(); if (!busy) onCancel(); }} onKeyDown={(event) => {
     if (event.key !== 'Tab') return;
     const element = dialog.current;
     if (!element) return;
@@ -54,7 +56,7 @@ export function ConfirmDialog({ open, title, confirmLabel, cancelLabel = '取消
     {error && <p className={styles.error} role="alert">{error}</p>}
     <footer className={styles.footer}>
       <button ref={cancel} type="button" disabled={busy} onClick={onCancel}>{cancelLabel}</button>
-      <button type="button" className={styles.confirm} disabled={busy} onClick={onConfirm}>{busy ? '处理中…' : confirmLabel}</button>
+      <button type="button" className={styles.confirm} disabled={busy || confirmDisabled} onClick={onConfirm}>{busy ? '处理中…' : confirmLabel}</button>
     </footer>
   </dialog>, document.body);
 }

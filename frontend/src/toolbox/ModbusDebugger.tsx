@@ -3,6 +3,7 @@ import { isNativeHost } from '../bridge/hostBridge';
 import { isModbusWrite, modbusCall, modbusFunctions, modbusProtocolAddress, modbusQuantityLimit, modbusReference,
   type ModbusConnection, type ModbusLog, type ModbusPoll, type ModbusRequest, type ModbusResult, type ModbusSnapshot } from '../bridge/modbusBridge';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { ToolDefinition } from './catalog';
 import styles from './ModbusDebugger.module.scss';
 
@@ -23,7 +24,6 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
   const [allowWrite, setAllowWrite] = useState(false), [auto, setAuto] = useState(false), [interval, setIntervalMs] = useState('1000');
   const [signed, setSigned] = useState(false), [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
   const [confirmation, setConfirmation] = useState<WriteConfirmation | null>(null);
-  const modal = useRef<HTMLElement>(null), confirmationTrigger = useRef<HTMLElement | null>(null);
   const alive = useRef(true), commandBusy = useRef(false), revision = useRef(0), lastResult = useRef(0), logRegion = useRef<HTMLDivElement>(null);
   const connected = snapshot.state === 'connected', locked = busy || snapshot.pending || auto || Boolean(confirmation);
   const connectionLocked = !['stopped', 'error'].includes(snapshot.state) || busy;
@@ -50,10 +50,6 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     return () => { cancelled = true; alive.current = false; ++revision.current; clearTimeout(timer); void modbusCall('stop').catch(() => {}); };
   }, [apply]);
   useEffect(() => { if (logRegion.current) logRegion.current.scrollTop = logRegion.current.scrollHeight; }, [logs]);
-  useEffect(() => {
-    if (confirmation) modal.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    else if (confirmationTrigger.current) { confirmationTrigger.current.focus(); confirmationTrigger.current = null; }
-  }, [confirmation]);
   const runCommand = useCallback(async (action: string, payload: object = {}) => {
     if (commandBusy.current) return;
     commandBusy.current = true; setBusy(true); setFeedback(''); const current = ++revision.current;
@@ -80,7 +76,7 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     if (!connected || commandBusy.current || snapshot.pending) return;
     try {
       const request = readRequest();
-      if (write) { if (!allowWrite) throw new Error('请先开启“允许写入”，每次写入仍需确认。'); setAuto(false); confirmationTrigger.current = document.activeElement as HTMLElement; setConfirmation({ ...request, endpoint: snapshot.endpoint || '', unitId: snapshot.unitId ?? connection.unitId, transport: connection.transport }); }
+      if (write) { if (!allowWrite) throw new Error('请先开启“允许写入”，每次写入仍需确认。'); setAuto(false); setConfirmation({ ...request, endpoint: snapshot.endpoint || '', unitId: snapshot.unitId ?? connection.unitId, transport: connection.transport }); }
       else { setResult(null); void runCommand('request', request); }
     } catch (error) { setAuto(false); setFeedback(errorText(error)); }
   };
@@ -125,17 +121,15 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       <footer role={snapshot.error ? 'alert' : 'status'}>{snapshot.error || feedback || (result ? `${result.written ? '设备已确认写入' : '读取成功'} · ${result.elapsedMs} ms` : '01 / 02 / 03 / 04 读取 · 05 / 06 / 15 / 16 写入')}</footer>
     </section>
     <section className={styles.logPanel}><header><h3>原始报文</h3><button disabled={!logs.length} onClick={() => void copy(logs.map((line) => `${time(line.timestamp)} ${line.direction} ${line.hex} ${line.message}`).join('\n'))}>复制</button><button disabled={!logs.length} onClick={() => setLogs([])}>清空</button></header><div className={styles.log} role="log" aria-label="Modbus 原始报文" ref={logRegion}>{logs.length ? logs.map((line) => <div key={line.id}><b className={line.direction === 'TX' ? styles.tx : styles.rx}>{line.direction}</b><time>{time(line.timestamp)}</time><code>{line.hex || line.message}</code>{line.hex && line.message && <small>{line.message}</small>}</div>) : <p>连接后的收发字节显示在这里。</p>}</div></section>
-    {confirmation && <div className={styles.modalBackdrop}><section ref={modal} role="dialog" aria-modal="true" aria-labelledby="modbus-write-title" className={styles.modal} onKeyDown={(e) => {
-      if (e.key === 'Escape') { e.preventDefault(); setConfirmation(null); }
-      if (e.key === 'Tab') {
-        const controls = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
-        const first = controls[0], last = controls[controls.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
-      }
-    }}><h3 id="modbus-write-title">确认写入设备？</h3><p>写入会修改实际设备。请核对目标、功能、地址和全部值；写入超时后不会自动重试。</p><dl><dt>目标</dt><dd>Modbus {confirmation.transport.toUpperCase()} · {confirmation.endpoint} · ID {confirmation.unitId}</dd><dt>功能</dt><dd>{modbusFunctions.find(([value]) => value === confirmation.functionCode)?.[1]}</dd><dt>协议地址 / 数量</dt><dd>{confirmation.address} / {confirmation.quantity}</dd><dt>全部写入值</dt><dd className={styles.confirmValues}>{confirmation.values?.join(', ')}</dd></dl><div><button onClick={() => setConfirmation(null)}>取消</button><button className={styles.danger} disabled={busy || !connected || !allowWrite} onClick={() => {
+    <ConfirmDialog open={Boolean(confirmation)} title="确认写入设备？" confirmLabel="确认写入" size="wide"
+      confirmDisabled={busy || snapshot.pending || !connected || !allowWrite}
+      onCancel={() => setConfirmation(null)} onConfirm={() => {
+      if (!confirmation || commandBusy.current || snapshot.pending || !connected || !allowWrite) return;
       const request: ModbusRequest = { functionCode: confirmation.functionCode, address: confirmation.address, quantity: confirmation.quantity, values: confirmation.values, confirmed: true };
       setConfirmation(null); setResult(null); void runCommand('request', request);
-    }}>确认写入</button></div></section></div>}
+    }}>
+      <p>写入会修改实际设备。请核对目标、功能、地址和全部值；写入超时后不会自动重试。</p>
+      {confirmation && <dl><dt>目标</dt><dd>Modbus {confirmation.transport.toUpperCase()} · {confirmation.endpoint} · ID {confirmation.unitId}</dd><dt>功能</dt><dd>{modbusFunctions.find(([value]) => value === confirmation.functionCode)?.[1]}</dd><dt>协议地址 / 数量</dt><dd>{confirmation.address} / {confirmation.quantity}</dd><dt>全部写入值</dt><dd className={styles.confirmValues}>{confirmation.values?.join(', ')}</dd></dl>}
+    </ConfirmDialog>
   </section>;
 }

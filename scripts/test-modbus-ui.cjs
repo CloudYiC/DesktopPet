@@ -9,7 +9,7 @@ const { chromium } = require('playwright');
   await context.addInitScript(() => {
     const listeners = new Set();
     const snapshot = { state: 'stopped', transport: 'tcp', pending: false, error: '', result: null };
-    const f = window.__modbusFixture = { snapshot, requests: [], logs: [], clipboard: [], sequence: 0, generation: 0, hold: false };
+    const f = window.__modbusFixture = { snapshot, requests: [], logs: [], clipboard: [], sequence: 0, generation: 0, hold: false, failNextRequest: false };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => f.clipboard.push(text) } });
     if (!window.chrome) window.chrome = {};
     window.chrome.webview = { addEventListener: (_name, listener) => listeners.add(listener), removeEventListener: (_name, listener) => listeners.delete(listener),
@@ -18,6 +18,11 @@ const { chromium } = require('playwright');
         if (request.type === 'app.ready') { setTimeout(() => listeners.forEach((listener) => listener({ data: { type: 'state.sync', payload: { reminders: [], now: Date.now(), petName: '依依', characters: [], openLastView: true, lastDashboardView: 'toolbox', lastToolCategory: 'network', workspaceTheme: 'warm', workspaceTextSize: 'comfortable' } } })), 10); return; }
         if (!request.type.startsWith('modbus.')) return;
         const p = request.payload || {}, action = request.type.split('.')[1];
+        if (action === 'request' && f.failNextRequest) {
+          f.failNextRequest = false;
+          setTimeout(() => listeners.forEach((listener) => listener({ data: { type: `${request.type}.error`, payload: { requestId: p.requestId, message: 'Synthetic write timeout' } } })), 10);
+          return;
+        }
         let response;
         if (action === 'ports') response = { ports: ['COM3'] };
         else {
@@ -39,7 +44,8 @@ const { chromium } = require('playwright');
       } };
   });
   const page = await context.newPage(); page.setDefaultTimeout(12000);
-  const errors = []; page.on('pageerror', (error) => errors.push(error.message));
+  const errors = [], nativeDialogs = []; page.on('pageerror', (error) => errors.push(error.message));
+  page.on('dialog', async (dialog) => { nativeDialogs.push(dialog.type()); await dialog.dismiss(); });
   const directory = path.resolve(__dirname, '../artifacts/modbus'); fs.mkdirSync(directory, { recursive: true });
   const area = () => page.getByTestId('modbus-workspace');
   const label = (text) => area().getByLabel(text, { exact: true });
@@ -82,14 +88,36 @@ const { chromium } = require('playwright');
     const dialog = page.getByRole('dialog', { name: '确认写入设备？' });
     assert.match(await dialog.innerText(), /Modbus TCP/); assert.match(await dialog.innerText(), /4660/);
     assert.equal(await label('Modbus 功能码').isDisabled(), true, 'confirmation freezes background function');
+    assert.equal(await dialog.getByRole('button', { name: '取消', exact: true }).evaluate((el) => el === document.activeElement), true, 'safe initial focus is cancel');
+    await page.keyboard.press('Shift+Tab'); assert.equal(await dialog.getByRole('button', { name: '关闭确认弹窗', exact: true }).evaluate((el) => el === document.activeElement), true);
     await page.keyboard.press('Shift+Tab'); assert.equal(await dialog.getByRole('button', { name: '确认写入', exact: true }).evaluate((el) => el === document.activeElement), true);
+    await page.keyboard.press('Tab'); assert.equal(await dialog.getByRole('button', { name: '关闭确认弹窗', exact: true }).evaluate((el) => el === document.activeElement), true);
     await page.keyboard.press('Tab'); assert.equal(await dialog.getByRole('button', { name: '取消', exact: true }).evaluate((el) => el === document.activeElement), true);
+    for (const [width, height, textSize] of [[1280, 762, 'comfortable'], [1280, 762, 'large'], [760, 600, 'large']]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, textSize);
+      const box = await dialog.boundingBox();
+      assert.ok(Math.abs(box.x + box.width / 2 - width / 2) <= 1, 'modal is centered in the entire client horizontally');
+      assert.ok(Math.abs(box.y + box.height / 2 - height / 2) <= 1, 'modal is centered in the entire client vertically');
+      assert.ok(box.x >= 15 && box.y >= 15 && box.x + box.width <= width - 15 && box.y + box.height <= height - 15, 'modal fits the client at each text size');
+      assert.equal(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth), true, 'confirmation has no horizontal scrollbar');
+      await page.screenshot({ path: path.join(directory, `confirmation-${width}-${height}-${textSize}.png`), animations: 'disabled' });
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
     await page.keyboard.press('Escape'); assert.equal(await dialog.count(), 0);
     assert.equal(await button('写入…').evaluate((el) => el === document.activeElement), true, 'cancel restores initiating focus');
     assert.equal(await requestCount(), beforeInvalid, 'keyboard cancellation never writes');
     await button('写入…').click(); await dialog.getByRole('button', { name: '确认写入', exact: true }).click(); await waitDone();
     assert.deepEqual((await lastRequest()).values, [4660]); assert.equal((await lastRequest()).confirmed, true);
     assert.equal(await label('轮询读取').isDisabled(), true, 'write operations cannot be polled');
+    const beforeFailure = await requestCount();
+    await page.evaluate(() => { window.__modbusFixture.failNextRequest = true; });
+    await button('写入…').click(); await dialog.getByRole('button', { name: '确认写入', exact: true }).click();
+    await page.getByText('Synthetic write timeout', { exact: true }).waitFor();
+    await page.waitForTimeout(350);
+    assert.equal(await requestCount(), beforeFailure + 1, 'failed write is never automatically retried');
+    assert.equal(await dialog.count(), 0, 'failed write requires a new explicit confirmation rather than a retry dialog');
     await label('Modbus 功能码').selectOption('3'); await label('轮询间隔毫秒').fill('100');
     const beforePolling = await requestCount(); await label('轮询读取').check();
     await page.waitForFunction((before) => window.__modbusFixture.requests.filter((r) => r.type === 'modbus.request').length >= before + 2, beforePolling);
@@ -112,7 +140,8 @@ const { chromium } = require('playwright');
       assert.ok((await button('连接设备').boundingBox()).width >= 80);
     }
     assert.deepEqual(errors, []);
-    console.log('PASS Modbus UI: TCP/RTU read/write layouts, reference conversion/bounds, frozen write confirmation and focus, read-only polling, fixed 500-frame log, stop cancellation. Synthetic host only.');
+    assert.deepEqual(nativeDialogs, [], 'all confirmations use the shared client dialog, not browser dialogs');
+    console.log('PASS Modbus UI: TCP/RTU read/write layouts, reference conversion/bounds, centered shared write confirmation and focus, zero-request cancellation/no automatic write retry, read-only polling, fixed 500-frame log, stop cancellation. Synthetic host only.');
   } catch (error) { await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error; }
   finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

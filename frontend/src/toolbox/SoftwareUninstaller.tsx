@@ -42,9 +42,6 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
   const [notice, setNotice] = useState('');
   const lifecycle = useRef(0);
   const pending = useRef<{ generation: number; action: Busy } | null>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const cleanupTrigger = useRef<HTMLButtonElement>(null);
-  const nameInput = useRef<HTMLInputElement>(null);
 
   const selected = entries.find((entry) => entry.id === selectedId) ?? (launchedSoftware?.id === selectedId ? launchedSoftware : null);
   const visibleEntries = useMemo(() => {
@@ -114,16 +111,6 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (confirmOpen) {
-      if (dialog.current && !dialog.current.open) dialog.current.showModal();
-      nameInput.current?.focus();
-    } else if (dialog.current?.open) {
-      dialog.current.close();
-      cleanupTrigger.current?.focus();
-    }
-  }, [confirmOpen]);
 
   const cancelScan = async () => {
     if (pending.current?.action !== 'scan') return;
@@ -268,7 +255,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
             <div className={styles.pagination}><span>共 {filtered.length} 项</span><span>每页 5 项</span><button type="button" aria-label="上一页关联项目" disabled={currentPage === 0} onClick={() => changePage(currentPage - 1)}>‹</button><span aria-live="polite">{currentPage + 1} / {pages}</span><button type="button" aria-label="下一页关联项目" disabled={currentPage + 1 >= pages} onClick={() => changePage(currentPage + 1)}>›</button></div>
             <section className={styles.pathDetail} aria-label="关联项目详情"><header><h4>{focused ? focused.kind === 'shortcut' ? '快捷方式详情' : '关联项目详情' : '项目详情'}</h4><span>{focused ? focused.confidence === 'high' ? '高可信' : '需要复核' : ''}</span><div><button type="button" disabled={!focused} onClick={() => void copyPath()}>复制路径</button><button type="button" disabled={!focused || !!busy || !plan} onClick={() => void revealFocused()}>打开位置</button></div></header><dl><dt>位置</dt><dd title={focused?.path}>{focused?.path || '选择上方项目查看完整位置'}</dd>{focused?.kind === 'shortcut' ? <><dt>目标</dt><dd title={focused.targetPath}>{focused.targetPath || '未提供可确认的目标'}</dd></> : <><dt>依据</dt><dd title={focused?.evidence}>{focused?.evidence || '—'}</dd></>}</dl></section>
           </section>}
-          <footer className={styles.cleanupBar}><span>已选 <strong>{checked.length}</strong> 项 · {sizeIncomplete ? '至少 ' : ''}{formatBytes(selectedBytes)}</span><button type="button" disabled={!checked.length || !!busy} onClick={() => setSelectedPaths(new Set())}>取消选择</button><button ref={cleanupTrigger} type="button" className={styles.danger} disabled={!plan || !checked.length || !!busy} onClick={() => { setTypedName(''); setError(''); setConfirmOpen(true); }}>清理所选…</button></footer>
+          <footer className={styles.cleanupBar}><span>已选 <strong>{checked.length}</strong> 项 · {sizeIncomplete ? '至少 ' : ''}{formatBytes(selectedBytes)}</span><button type="button" disabled={!checked.length || !!busy} onClick={() => setSelectedPaths(new Set())}>取消选择</button><button type="button" className={styles.danger} disabled={!plan || !checked.length || !!busy} onClick={() => { setTypedName(''); setError(''); setConfirmOpen(true); }}>清理所选…</button></footer>
         </>}
       </section>
     </div>
@@ -276,15 +263,12 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
       <div className={styles.uninstallIdentity}><i aria-hidden="true">{initial(selected?.displayName || '')}</i><div><strong>{selected?.displayName}</strong><span>{selected?.publisher || '未提供厂商'}{selected?.displayVersion ? ` · ${selected.displayVersion}` : ''}</span></div></div>
       <p>将打开软件自带的卸载程序，由你在其中确认卸载。完成后可返回这里复查并清理残留项目。</p>
     </ConfirmDialog>
-    <dialog ref={dialog} className={styles.confirmDialog} aria-labelledby="software-cleanup-title" onCancel={(event) => { event.preventDefault(); if (busy !== 'cleanup') setConfirmOpen(false); }}>
-      <header><h3 id="software-cleanup-title">确认清理关联项目</h3><button type="button" aria-label="关闭清理确认" disabled={busy === 'cleanup'} onClick={() => setConfirmOpen(false)}>×</button></header>
+    <ConfirmDialog open={confirmOpen} title="确认清理关联项目" confirmLabel="确认移入回收站" busy={busy === 'cleanup'} confirmDisabled={!!busy || !plan || typedName !== plan.displayName || !checked.length} error={error} size="wide" onCancel={() => { if (busy !== 'cleanup') setConfirmOpen(false); }} onConfirm={() => void cleanupResiduals()}>
       <p>将把“<strong>{plan?.displayName}</strong>”的 {checked.length} 个已审核位置移入回收站。请先完成软件卸载；仍注册的软件不会被清理。</p>
       {personalCount > 0 && <p className={styles.personalWarning}>其中 {personalCount} 项包含个人数据，可能包括设置、缓存或插件。请确认这些内容不再需要。</p>}
       <ul className={styles.confirmPaths}>{checked.map((item) => <li key={item.path}>{item.path}{item.personalData && <b>个人数据</b>}</li>)}</ul>
-      <label>输入完整软件名称以确认<input ref={nameInput} aria-label="确认清理的软件名称" value={typedName} disabled={busy === 'cleanup'} onChange={(event) => setTypedName(event.target.value)} placeholder={plan?.displayName} autoComplete="off" spellCheck={false} /></label>
-      {error && <p className={styles.dialogError} role="alert">{error}</p>}
-      <footer><button type="button" disabled={busy === 'cleanup'} onClick={() => setConfirmOpen(false)}>取消</button><button type="button" className={styles.danger} disabled={!!busy || !plan || typedName !== plan.displayName || !checked.length} onClick={() => void cleanupResiduals()}>{busy === 'cleanup' ? '正在移入回收站…' : '确认移入回收站'}</button></footer>
-    </dialog>
+      <label>输入完整软件名称以确认<input aria-label="确认清理的软件名称" value={typedName} disabled={busy === 'cleanup'} onChange={(event) => setTypedName(event.target.value)} placeholder={plan?.displayName} autoComplete="off" spellCheck={false} /></label>
+    </ConfirmDialog>
   </section>;
 }
 

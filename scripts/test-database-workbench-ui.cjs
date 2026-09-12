@@ -31,10 +31,9 @@ const { chromium } = require('playwright');
       ],
     };
     const state = window.__dbFixture = {
-      requests: [], clipboard: [], confirmations: [], confirmAnswer: true,
+      requests: [], clipboard: [],
       failNext: '', cancelledNextPick: false, delay: 100, rows: 200,
     };
-    window.confirm = (message) => { state.confirmations.push(String(message)); return state.confirmAnswer; };
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
       writeText: async (text) => { state.clipboard.push(String(text)); },
     } });
@@ -83,7 +82,9 @@ const { chromium } = require('playwright');
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   const runtimeErrors = [];
+  const nativeDialogs = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('dialog', async (dialog) => { nativeDialogs.push(dialog.message()); await dialog.dismiss(); });
   const output = path.resolve(__dirname, '../artifacts/database-workbench');
   fs.mkdirSync(output, { recursive: true });
   const button = (name) => name === '运行 SQL'
@@ -106,11 +107,22 @@ const { chromium } = require('playwright');
   async function setFixture(value) {
     return page.evaluate((value) => Object.assign(window.__dbFixture, value), value);
   }
-  async function run(sql) {
+  async function run(sql, approveWrite = false) {
     await tab('SQL 查询').click();
     await editor.fill(sql);
     await button('运行 SQL').click();
+    if (approveWrite) await page.getByRole('dialog', { name: '确认执行 SQL', exact: true }).getByRole('button', { name: '确认执行', exact: true }).click();
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some((element) => element.textContent.includes('运行 SQL') && !element.disabled));
+  }
+  async function expectCenteredDialog(dialog) {
+    await dialog.waitFor();
+    const geometry = await dialog.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height, viewportWidth: innerWidth, viewportHeight: innerHeight };
+    });
+    assert.ok(Math.abs(geometry.x + geometry.width / 2 - geometry.viewportWidth / 2) < 2, 'Dialog centers in whole client horizontally');
+    assert.ok(Math.abs(geometry.y + geometry.height / 2 - geometry.viewportHeight / 2) < 2, 'Dialog centers in whole client vertically');
+    assert.equal(await dialog.getByRole('button', { name: '取消', exact: true }).evaluate((element) => document.activeElement === element), true, 'Default focus is cancel, not a write action');
   }
   async function expectLayout(width, height) {
     const geometry = await workspace.evaluate((element) => {
@@ -279,28 +291,68 @@ const { chromium } = require('playwright');
     await page.getByRole('alert').filter({ hasText: '只读模式拒绝写入' }).waitFor();
     const readOnlyRequest = await page.evaluate(() => window.__dbFixture.requests.filter((request) => request.type === 'database.execute').at(-1));
     assert.equal(readOnlyRequest.payload.allowWrite, false, 'Read-only permission reaches the host');
-    await setFixture({ confirmAnswer: false });
     await readOnly.click();
+    const enableDialog = page.getByRole('dialog', { name: '启用数据库写入？', exact: true });
+    await expectCenteredDialog(enableDialog);
+    const beforeEnableCancel = await requestCount('database.execute');
+    await enableDialog.getByRole('button', { name: '取消', exact: true }).click();
+    assert.equal(await requestCount('database.execute'), beforeEnableCancel, 'Cancelling write mode sends no SQL');
     assert.equal(await readOnly.getAttribute('aria-checked'), 'true', 'Rejecting write confirmation preserves read-only');
-    await setFixture({ confirmAnswer: true });
     await readOnly.click();
+    await expectCenteredDialog(enableDialog);
+    await page.screenshot({ path: path.join(output, 'enable-write-confirmation.png'), fullPage: true });
+    await enableDialog.getByRole('button', { name: '启用写入', exact: true }).click();
     assert.equal(await readOnly.getAttribute('aria-checked'), 'false', 'Explicit approval enables write mode');
-    const confirmationsBeforePreview = await page.evaluate(() => window.__dbFixture.confirmations.length);
     await button('预览数据').click();
     await page.waitForFunction(() => [...document.querySelectorAll('button')].some((element) => element.textContent.includes('运行 SQL') && !element.disabled));
     const previewRequest = await page.evaluate(() => window.__dbFixture.requests.filter((request) => request.type === 'database.execute').at(-1));
     assert.equal(previewRequest.payload.allowWrite, false, 'Table preview always uses read-only host permission');
     assert.match(previewRequest.payload.sql, /SELECT \*\s+FROM "sample_01"\s+LIMIT 200;/);
-    assert.equal(await page.evaluate(() => window.__dbFixture.confirmations.length), confirmationsBeforePreview, 'Safe table preview needs no write confirmation');
+    assert.equal(await page.getByRole('dialog').count(), 0, 'Safe table preview needs no write confirmation');
     const beforeCancelledWrite = await requestCount('database.execute');
-    await setFixture({ confirmAnswer: false });
     await button('运行 SQL').click();
+    const executeDialog = page.getByRole('dialog', { name: '确认执行 SQL', exact: true });
+    await expectCenteredDialog(executeDialog);
+    await page.keyboard.press('Escape');
+    await executeDialog.waitFor({ state: 'hidden' });
     assert.equal(await requestCount('database.execute'), beforeCancelledWrite, 'Rejecting execution confirmation sends nothing');
-    await setFixture({ confirmAnswer: true });
-    await run('UPDATE sample_01 SET name = \'changed\';');
+    const frozenSql = 'UPDATE sample_01 SET name = \'changed\';';
+    await editor.fill(frozenSql);
+    await button('运行 SQL').click();
+    await expectCenteredDialog(executeDialog);
+    assert.equal(await executeDialog.getByLabel('待执行 SQL').innerText(), frozenSql, 'Review shows the precise SQL to be executed');
+    assert.match(await executeDialog.innerText(), /C:\\SyntheticFixture\\cloudyi-workbench-test.sqlite3/, 'Review shows the frozen database path');
+    assert.equal(await button('打开数据库').isDisabled(), true, 'Database target cannot change during review');
+    assert.equal(await button('关闭').isDisabled(), true);
+    assert.equal(await editor.isDisabled(), true);
+    await page.screenshot({ path: path.join(output, 'execute-write-confirmation.png'), fullPage: true });
+    // A shortcut during modal review must neither execute nor replace the frozen statement.
+    await page.keyboard.press('Control+Enter');
+    assert.equal(await requestCount('database.execute'), beforeCancelledWrite);
+    await setFixture({ delay: 350 });
+    await executeDialog.getByRole('button', { name: '确认执行', exact: true }).evaluate((element) => {
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.keyboard.press('Escape');
+    assert.equal(await executeDialog.isVisible(), true, 'Busy execution cannot be ambiguously cancelled');
+    assert.equal(await executeDialog.getByRole('button', { name: '取消', exact: true }).isDisabled(), true);
+    assert.equal(await requestCount('database.execute'), beforeCancelledWrite + 1, 'Duplicate confirmation posts exactly one write');
     await page.getByText(/执行完成，影响 1 行/).first().waitFor();
+    await executeDialog.waitFor({ state: 'hidden' });
     const writeRequest = await page.evaluate(() => window.__dbFixture.requests.filter((request) => request.type === 'database.execute').at(-1));
     assert.equal(writeRequest.payload.allowWrite, true, 'Approved write permission reaches the host');
+    assert.equal(writeRequest.payload.sql, frozenSql, 'Approved SQL exactly matches the reviewed snapshot');
+    await setFixture({ failNext: '模拟写入失败，结果不确定', delay: 100 });
+    const beforeFailedWrite = await requestCount('database.execute');
+    await run('UPDATE sample_01 SET name = \'review-again\';', true);
+    await page.getByRole('alert').filter({ hasText: '模拟写入失败，结果不确定' }).waitFor();
+    await executeDialog.waitFor({ state: 'hidden' });
+    assert.equal(await requestCount('database.execute'), beforeFailedWrite + 1, 'Failed write does not retry automatically');
+    await button('运行 SQL').click();
+    await expectCenteredDialog(executeDialog);
+    assert.equal(await requestCount('database.execute'), beforeFailedWrite + 1, 'Retry requires a new explicit review');
+    await executeDialog.getByRole('button', { name: '取消', exact: true }).click();
     await readOnly.click();
     assert.equal(await readOnly.getAttribute('aria-checked'), 'true');
 
@@ -348,6 +400,7 @@ const { chromium } = require('playwright');
     assert.equal(await button('复制结果').isDisabled(), true, 'New database discards previous query results');
     await expectLayout(1280, 800);
     assert.deepEqual(runtimeErrors, [], 'No uncaught browser errors');
+    assert.deepEqual(nativeDialogs, [], 'No browser-native alert or confirm dialogs');
     console.log('PASS: 20-tool catalog, database rename, synthetic native bridge, grouped schema/search, structure/DDL tabs, results/TSV, split resize, independent scrolling, six viewport sizes, duplicate-query guard, errors, read-only/write confirmations, connection cancellation/close/new.');
     console.log(`Screenshots: ${output}`);
   } finally {

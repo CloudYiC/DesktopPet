@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.2",
+  "latestVersion": "0.13.3",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.2",
-  "releaseNotes": "Refreshes System Center, Port Manager and Software Uninstaller with coordinated slate-blue surfaces and category and status colors. System Center retains all fields in four detail tabs. Port operations stay fully visible with an internally scrolling table and responsive long values. Custom process, uninstall and cleanup confirmations are centered in the whole client. Removes the permanent port safety footer while preserving explicit confirmation and native protections. All 20 built-in tools and the packaged pink Yiyi character are retained.",
-  "publishedAt": "2026-09-12T16:43:37Z",
+  "title": "云依助手 0.13.3",
+  "releaseNotes": "Unifies all desktop business confirmations under one client-centered dialog, including database write enablement and SQL execution, Modbus writes, character deletion, process termination, uninstall and named residual cleanup. Preserves cancel-first focus, reviewed targets, full-name checks and native protections. Database approvals freeze SQL and database identity and cannot be reused after an error. Keeps Windows file pickers, startup-error fallbacks and Yiyi interaction clouds unchanged. All 20 tools and the packaged pink Yiyi character are retained.",
+  "publishedAt": "2026-09-12T17:47:18Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.2.exe",
-      "sha256": "511F50F67AD0D751078E0C279678128E476075470C068A38629602E5D372FADE",
-      "size": 23320094,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.3.exe",
+      "sha256": "59BAAD561340F8F18906BC288BB7BB3B13DE851A92867C8CC3797B2F5F1CDF60",
+      "size": 23319560,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.2.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.3.exe"
   }
 }

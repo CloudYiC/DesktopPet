@@ -9,6 +9,7 @@
   button:disabled { opacity: .55; cursor: default; }
 }
 .header { display: flex; align-items: center; gap: 12px; padding: 22px 22px 14px; }
+.dialog[data-size='wide'] { width: min(580px, calc(100vw - 32px)); }
 .header h2 { flex: 1; margin: 0; font-size: 1.125rem; font-family: inherit; font-weight: 750; }
 .symbol { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; color: #b64642; background: #fff0ec; border: 1px solid #f7d7d0; border-radius: 12px; }
 .symbol svg { width: 24px; height: 24px; }
@@ -17,7 +18,11 @@
 .body p { margin: 0 0 12px; }
 .body p:last-child { margin-bottom: 0; }
 .body strong { font-weight: 700; }
+.body label { display: grid; gap: 8px; }
+.body input:not([type='checkbox']):not([type='radio']), .body textarea, .body select { box-sizing: border-box; min-width: 0; width: 100%; padding: 10px 12px; font: inherit; color: #24354a; background: white; border: 1px solid #d6e1e7; border-radius: 9px; }
+.body input:focus-visible, .body textarea:focus-visible, .body select:focus-visible { outline: 2px solid var(--theme-primary, #168b85); outline-offset: 2px; }
 .body dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 9px 12px; margin: 0 0 16px; padding: 14px; background: #f0f5f8; border: 1px solid #e0e8ee; border-radius: 10px; }
+.dialog[data-size='wide'] .body dl { grid-template-columns: 112px minmax(0, 1fr); }
 .body dt { color: #657587; }
 .body dd { margin: 0; color: #24354a; font-weight: 650; }
 .footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; background: #f6f8fa; border-top: 1px solid #e3e9ee; }

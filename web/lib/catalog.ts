@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.3-desktop',
+    date: '2026-09-13',
+    items: [
+      { kind: '~', text: 'Unified all desktop confirmations, including database write approval, Modbus writes, character deletion and residual cleanup, under one client-centered dialog component' },
+      { kind: '~', text: 'Preserved cancel-first keyboard focus, reviewed action targets, full-name cleanup checks and native safety boundaries' },
+      { kind: '~', text: 'Database writes now freeze SQL and database identity during review; repeated activation cannot reuse an approval and failed writes require a fresh confirmation' },
+      { kind: '+', text: 'Added a source inventory guard against browser-native prompts and isolated confirmation tests across themes, font sizes and window sizes' },
+    ],
+  },
+  {
     version: 'v0.13.2-desktop',
     date: '2026-09-13',
     items: [

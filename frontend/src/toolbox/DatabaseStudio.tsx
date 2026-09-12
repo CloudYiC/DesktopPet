@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { requestDatabaseClose, requestDatabaseExecute, requestDatabasePick, requestDatabaseRefresh } from '../bridge/hostBridge';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { DatabaseObject, DatabaseOverview, DatabaseQueryResult } from '../types';
 import type { ToolDefinition } from './catalog';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
@@ -10,6 +11,7 @@ import styles from './DatabaseStudio.module.scss';
 const INITIAL_SQL = "SELECT name, type, tbl_name\nFROM sqlite_master\nWHERE type IN ('table', 'view', 'index', 'trigger')\nORDER BY type, name;";
 const GROUPS = [{ type: 'table', label: '表', icon: '▤' }, { type: 'view', label: '视图', icon: '▥' }, { type: 'index', label: '索引', icon: '◉' }, { type: 'trigger', label: '触发器', icon: 'ϟ' }] as const;
 type WorkspaceTab = 'query' | 'structure' | 'ddl';
+type DatabaseConfirmation = { kind: 'enable' | 'execute'; path: string; fileName: string; statement: string; generation: number };
 const TABS = [{ id: 'query', label: 'SQL 查询' }, { id: 'structure', label: '表结构' }, { id: 'ddl', label: '建表语句' }] as const;
 const objectKey = (object: DatabaseObject) => `${object.type}:${object.name}`;
 const previewSql = (name: string) => `SELECT *\nFROM ${quoteIdentifier(name)}\nLIMIT 200;`;
@@ -37,6 +39,9 @@ export function DatabaseStudio({ tool, onBack }: { tool: ToolDefinition; onBack(
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [split, setSplit] = useState(44);
+  const [confirmation, setConfirmation] = useState<DatabaseConfirmation | null>(null);
+  const [confirmationBusy, setConfirmationBusy] = useState(false);
+  const pendingConfirmation = useRef<DatabaseConfirmation | null>(null);
   const operation = useRef({ active: false, generation: 0, mounted: true });
   const rightPane = useRef<HTMLDivElement>(null);
   const dragOrigin = useRef<{ y: number; value: number; height: number } | null>(null);
@@ -102,14 +107,8 @@ export function DatabaseStudio({ tool, onBack }: { tool: ToolDefinition; onBack(
     } catch (reason) { if (current(generation)) fail(reason, '数据库关闭失败。'); }
     finally { finish(generation); }
   }
-  async function execute(statement = sql, preview = false) {
-    if (!overview || !statement.trim() || operation.current.active) return;
-    if (new TextEncoder().encode(statement).length > 256 * 1024) { fail(null, '单次 SQL 不能超过 256 KB，输入已保留，请缩小范围。'); return; }
-    const generation = begin(); if (generation === null) return;
+  async function executeStatement(statement: string, allowWrite: boolean, generation: number) {
     try {
-      // Preview always takes the native read-only path, even if the editor allows writes.
-      const allowWrite = writeEnabled && !preview;
-      if (allowWrite && !window.confirm('当前已启用数据库写入。确定执行这段 SQL 吗？\n\n写入、删除和结构变更可能无法撤销，请先备份重要数据。')) return;
       setQueryBusy(true); setResult(null); setLastSql(statement); setResultView('rows'); setTab('query');
       const response = await requestDatabaseExecute(statement, allowWrite);
       if (!current(generation)) return;
@@ -118,15 +117,59 @@ export function DatabaseStudio({ tool, onBack }: { tool: ToolDefinition; onBack(
     } catch (reason) { if (current(generation)) { setResult(null); fail(reason, 'SQL 执行失败。'); setResultView('info'); } }
     finally { finish(generation); }
   }
+  function askConfirmation(kind: DatabaseConfirmation['kind'], generation: number, statement = '') {
+    if (!overview) { finish(generation); return; }
+    const next = { kind, path: overview.path, fileName: overview.fileName, statement, generation };
+    pendingConfirmation.current = next;
+    setConfirmation(next);
+  }
+  async function execute(statement = sql, preview = false) {
+    if (!overview || !statement.trim() || operation.current.active) return;
+    if (new TextEncoder().encode(statement).length > 256 * 1024) { fail(null, '单次 SQL 不能超过 256 KB，输入已保留，请缩小范围。'); return; }
+    const generation = begin(); if (generation === null) return;
+    // Hold the operation lock while reviewing: another database cannot replace the target.
+    // Preview always takes the native read-only path, even if the editor allows writes.
+    if (writeEnabled && !preview) { askConfirmation('execute', generation, statement); return; }
+    await executeStatement(statement, false, generation);
+  }
+  function cancelConfirmation() {
+    const pending = pendingConfirmation.current;
+    if (!pending) return;
+    pendingConfirmation.current = null;
+    setConfirmation(null);
+    finish(pending.generation);
+  }
+  async function approveConfirmation() {
+    const pending = pendingConfirmation.current;
+    if (!pending) return;
+    // Consume this approval synchronously, before posting any native write request.
+    pendingConfirmation.current = null;
+    if (!current(pending.generation) || overview?.path !== pending.path) {
+      setConfirmation(null);
+      if (current(pending.generation)) fail(null, '数据库连接已变化，请重新检查后再操作。');
+      finish(pending.generation);
+      return;
+    }
+    if (pending.kind === 'enable') {
+      setWriteEnabled(true); setConfirmation(null); finish(pending.generation);
+      return;
+    }
+    setConfirmationBusy(true);
+    try { await executeStatement(pending.statement, true, pending.generation); }
+    finally {
+      // Even an error consumes approval. A retry must open a new SQL review dialog.
+      if (current(pending.generation)) { setConfirmation(null); setConfirmationBusy(false); }
+    }
+  }
   function chooseObject(object: DatabaseObject) {
     setSelection(objectKey(object));
     setExpanded((previous) => ({ ...previous, [objectKey(object)]: !previous[objectKey(object)] }));
     // Browsing objects must never replace the user's unfinished SQL.
   }
   function toggleReadOnly() {
-    if (operation.current.active) return;
+    if (!overview || operation.current.active) return;
     if (writeEnabled) setWriteEnabled(false);
-    else if (window.confirm('启用写入后，数据库工作台可以执行 INSERT、UPDATE、DELETE 和结构变更。是否继续？')) setWriteEnabled(true);
+    else { const generation = begin(); if (generation !== null) askConfirmation('enable', generation); }
   }
   async function copy(text: string, label: string) {
     const generation = operation.current.generation;
@@ -232,6 +275,10 @@ export function DatabaseStudio({ tool, onBack }: { tool: ToolDefinition; onBack(
         </div>
       </div>
     </div>}
+    <ConfirmDialog open={confirmation !== null} title={confirmation?.kind === 'execute' ? '确认执行 SQL' : '启用数据库写入？'} confirmLabel={confirmation?.kind === 'execute' ? '确认执行' : '启用写入'} busy={confirmationBusy} size={confirmation?.kind === 'execute' ? 'wide' : 'normal'} onCancel={cancelConfirmation} onConfirm={() => void approveConfirmation()}>
+      <dl><dt>数据库</dt><dd>{confirmation?.fileName}</dd><dt>位置</dt><dd>{confirmation?.path}</dd></dl>
+      {confirmation?.kind === 'execute' ? <><p>请检查本次 SQL。写入、删除和结构变更可能无法撤销。</p><pre className={styles.confirmationSql} aria-label="待执行 SQL">{confirmation.statement}</pre></> : <p>启用后可执行 INSERT、UPDATE、DELETE 和结构变更；每次运行前仍需确认。请先备份重要数据。</p>}
+    </ConfirmDialog>
   </section>;
 }
 

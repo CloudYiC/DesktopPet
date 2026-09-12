@@ -122,6 +122,9 @@ const { chromium } = require('playwright');
     const modal = page.getByRole('dialog', { name: '确认清理关联项目', exact: true });
     await modal.waitFor();
     await assertCentered(modal, 'cleanup-confirmation');
+    assert.equal(await modal.evaluate((element) => element.parentElement === document.body), true, 'cleanup uses the shared body portal');
+    assert.equal(await modal.getByRole('button', { name: '取消', exact: true }).evaluate((element) => element === document.activeElement), true, 'cleanup defaults to cancellation');
+    for (let step = 0; step < 7; step += 1) { await page.keyboard.press('Tab'); assert.equal(await modal.evaluate((element) => element.contains(document.activeElement)), true, 'cleanup focus stays inside shared confirmation'); }
     assert.match(await modal.innerText(), /其中 3 项包含个人数据/);
     await page.getByLabel('确认清理的软件名称', { exact: true }).fill('Synthetic');
     assert.equal(await modal.getByRole('button', { name: '确认移入回收站', exact: true }).isDisabled(), true);

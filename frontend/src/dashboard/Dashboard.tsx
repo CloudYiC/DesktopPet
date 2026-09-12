@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
 import { AppSidebar } from '../navigation/AppSidebar';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { DashboardView } from '../navigation/types';
 import { WorkspaceCenterView } from '../shell/ShellViews';
 import { Toolbox } from '../toolbox/Toolbox';
@@ -163,6 +164,8 @@ export function Dashboard() {
   const [characterName, setCharacterName] = useState('新朋友');
   const [characterLayout, setCharacterLayout] = useState<CharacterLayout>('single');
   const [isUploadingCharacter, setIsUploadingCharacter] = useState(false);
+  const [characterToDelete, setCharacterToDelete] = useState<CharacterProfile | null>(null);
+  const characterDeleteSent = useRef(false);
   const [celebrating, setCelebrating] = useState(false);
   const [previewAction, setPreviewAction] = useState<PetPreviewAction>('idle');
   const [actionSequence, setActionSequence] = useState(0);
@@ -436,8 +439,20 @@ export function Dashboard() {
 
   const deleteCharacter = (character: CharacterProfile) => {
     if (character.builtIn) return;
-    if (!window.confirm(`确定从衣柜删除“${character.name}”吗？`)) return;
-    postHostMessage('character.delete', { id: character.id });
+    characterDeleteSent.current = false;
+    setCharacterToDelete({ ...character });
+  };
+  const confirmCharacterDelete = () => {
+    if (!characterToDelete || characterDeleteSent.current) return;
+    const current = state.characters.find((character) => character.id === characterToDelete.id);
+    setCharacterToDelete(null);
+    // A native state update while the dialog is open must not change its target.
+    if (!current || current.builtIn || current.name !== characterToDelete.name || current.imageUrl !== characterToDelete.imageUrl) {
+      setError('角色信息已更新，请重新选择要删除的款式。');
+      return;
+    }
+    characterDeleteSent.current = true;
+    postHostMessage('character.delete', { id: characterToDelete.id });
   };
 
   const viewHeading = activeView === 'toolbox'
@@ -926,6 +941,10 @@ export function Dashboard() {
           </>
         )}
       </main>
+      <ConfirmDialog open={!!characterToDelete} title="删除衣柜角色？" confirmLabel="确认删除" onCancel={() => setCharacterToDelete(null)} onConfirm={confirmCharacterDelete}>
+        <dl><dt>角色</dt><dd>{characterToDelete?.name}</dd></dl>
+        <p>将从衣柜移除此款角色。如需再次使用，需要重新上传。</p>
+      </ConfirmDialog>
     </div>
   );
 }
