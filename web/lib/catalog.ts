@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.13-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Reorganized Network Debugger into full-width connection, scrolling log and send sections' },
+      { kind: '~', text: 'Aligned send options, server targets and sending in one row; server targets wrap below at window widths of 900px or less' },
+      { kind: '~', text: 'Kept readable controls, responsive wrapping and risk/error feedback without a persistent local-processing notice' },
+    ],
+  },
+  {
     version: 'v0.12.12-desktop',
     date: '2026-09-12',
     items: [

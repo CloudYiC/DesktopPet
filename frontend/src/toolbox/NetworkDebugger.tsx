@@ -350,7 +350,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
       <div className={styles.debuggerLayout}>
         <div className={styles.operationColumn} data-testid="network-operations">
           <aside className={styles.connectionPanel} aria-label="连接参数">
-            <div className={styles.formGrid}>
+            <div className={`${styles.formGrid} ${mode === 'tcp-server' ? styles.serverForm : ''}`}>
               <label className={styles.addressField}>
                 <span>本地地址</span>
                 <select
@@ -401,6 +401,14 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
                   </label>
                 </>
               )}
+              <button
+                type="button"
+                className={active ? styles.stopButton : styles.startButton}
+                disabled={busy || (requiresLanConfirmation && !allowLan)}
+                onClick={() => void (active ? stopSession() : startSession())}
+              >
+                {busy ? '处理中…' : sessionAction(mode, active)}
+              </button>
             </div>
 
             {requiresLanConfirmation && !active && (
@@ -414,15 +422,6 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
                 </span>
               </label>
             )}
-
-            <button
-              type="button"
-              className={active ? styles.stopButton : styles.startButton}
-              disabled={busy || (requiresLanConfirmation && !allowLan)}
-              onClick={() => void (active ? stopSession() : startSession())}
-            >
-              {busy ? '处理中…' : sessionAction(mode, active)}
-            </button>
 
             {mode === 'tcp-server' && (
               <section className={styles.peerPanel} aria-label="TCP 客户端列表">
@@ -466,7 +465,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleSendKeyDown}
             />
-            <div className={styles.sendControls} data-testid="network-send-controls">
+            <div className={`${styles.sendControls} ${mode === 'tcp-server' ? styles.serverSendControls : ''}`} data-testid="network-send-controls">
               <label>
                 <span>行尾</span>
                 <select value={lineEnding} onChange={(event) => setLineEnding(event.target.value as LineEnding)}>
