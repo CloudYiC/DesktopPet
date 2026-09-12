@@ -92,61 +92,41 @@ const { chromium } = require('playwright');
   }
   async function verifyDesktopLayout(mode, size) {
     const viewport = page.viewportSize();
-    const outer = await metrics(main());
-    const column = await metrics(operation());
-    const frame = await metrics(workspace());
-    // At 720px high the server's peer information legitimately needs natural
-    // page scrolling; do not shrink the controls or log just to suppress it.
-    const allowNaturalScroll = mode.id === 'tcp-server' && viewport.height < 800;
-    if (!allowNaturalScroll && outer.scrollHeight > outer.clientHeight + 1) {
-      console.error('DESKTOP_LAYOUT_DIAGNOSTIC', JSON.stringify({ mode: mode.name, size, viewport, outer, frame, column,
-        connection: await metrics(workspace().getByRole('complementary', { name: '连接参数', exact: true })),
-        receive: await metrics(receivePanel()), sendPanel: await metrics(sendPanel()),
-        connectionAction: await metrics(button(mode.start)), sendAction: await metrics(button('发送')) }));
-      await screen(`${mode.id}-${size}-overflow`);
-    }
-    if (!allowNaturalScroll) assert.ok(outer.scrollHeight <= outer.clientHeight + 1, `${mode.name} ${size} ${viewport.width}×${viewport.height}: no unnecessary page vertical scroll ${JSON.stringify(outer)}`);
-    if (column.display !== 'contents') {
-      assert.ok(column.scrollHeight <= column.clientHeight + 1, `${mode.name} ${size}: operation region does not need a scrollbar ${JSON.stringify(column)}`);
-    }
-    assert.ok(outer.scrollWidth <= outer.clientWidth + 1, 'no horizontal page overflow');
-    assert.ok(frame.bottom <= viewport.height + 1, 'workspace fits the default client height');
+    const outer = await metrics(main()), column = await metrics(operation()), frame = await metrics(workspace());
+    const receive = await metrics(receivePanel()), sendPanelBox = await metrics(sendPanel());
+    const connection = await metrics(workspace().getByRole('complementary', { name: '连接参数', exact: true }));
+    assert.ok(outer.scrollHeight <= outer.clientHeight + 1, `${mode.name} ${size}: no outer page vertical scroll ${JSON.stringify(outer)}`);
+    assert.ok(outer.scrollWidth <= outer.clientWidth + 1 && column.scrollWidth <= column.clientWidth + 1, 'no horizontal page or operation overflow');
+    assert.ok(frame.bottom <= viewport.height + 1, 'workspace fits the client height');
+    assert.ok(receive.x >= column.right + 8, 'receive console is to the right of editing, not below it');
+    assert.ok(Math.abs(receive.y - column.y) < 2 && Math.abs(receive.bottom - column.bottom) < 2, 'left and right columns align vertically');
+    assert.ok(connection.bottom <= sendPanelBox.y, 'connection and sending are grouped in the left column');
+    if (viewport.height >= 762) assert.ok(column.scrollHeight <= column.clientHeight + 1, `${mode.name} ${size}: default left controls fit without scrolling ${JSON.stringify(column)}`);
+    assert.ok((await metrics(log())).height >= 300, 'right console remains tall and useful');
     const connectionLabels = ['本地地址', '本地端口', ...(mode.id !== 'tcp-server' ? ['远端主机', '远端端口'] : [])];
-    const connectionBoxes = await Promise.all(connectionLabels.map((label) => metrics(field(label))));
-    connectionBoxes.push(await metrics(button(mode.start)));
-    assertSameRow(connectionBoxes, `${mode.name}: addresses, ports and connection action share one row`);
-    for (let index = 1; index < connectionBoxes.length; index += 1) {
-      assert.ok(connectionBoxes[index - 1].right <= connectionBoxes[index].x + 1,
-        `${mode.name}: endpoint fields and the connection button retain their left-to-right order`);
-    }
-    const line = await metrics(field('行尾'));
-    const cycle = await metrics(field('循环发送间隔毫秒'));
-    const send = await metrics(button('发送'));
-    assertSameRow([line, cycle, send], `${mode.name}: line ending, repeat interval and send action share one row`);
-    assert.ok(line.right <= cycle.x + 1, `${mode.name}: line ending precedes the repeat interval`);
-    assert.ok(cycle.right <= send.x + 1, `${mode.name}: send action follows repeat interval without overlap`);
+    assertSameRow(await Promise.all(['本地地址', '本地端口'].map((label) => metrics(field(label)))), 'local address and port stay together');
+    if (mode.id !== 'tcp-server') assertSameRow(await Promise.all(['远端主机', '远端端口'].map((label) => metrics(field(label)))), 'remote address and port stay together');
+    const line = await metrics(field('行尾')), cycle = await metrics(field('循环发送间隔毫秒')), send = await metrics(button('发送'));
+    assertSameRow([line, cycle], 'line ending and repeat interval share one row');
+    assert.ok(line.right <= cycle.x + 1 && send.y >= line.bottom, 'send options and button do not overlap');
     if (mode.id === 'tcp-server') {
       const target = await metrics(field('发送目标'));
-      assertSameRow([line, cycle, target, send], 'TCP server target shares the wide-screen send controls row');
-      assert.ok(cycle.right <= target.x + 1 && target.right <= send.x + 1, 'TCP server target follows repeat interval and precedes send without overlap');
+      assert.ok(target.y >= line.bottom && send.y >= target.bottom, 'server target stays above send action');
     }
+    assert.ok((await metrics(field('发送内容'))).height >= 120, 'editor is not compressed to hide scrolling');
     const fontFactor = size === 'large' ? 17 : 16;
     for (const label of connectionLabels) {
       const control = await metrics(field(label));
-      assert.ok(control.height >= 38, `${label} keeps its 38px control height`);
-      assert.ok(control.fontSize >= fontFactor * .75 - .02, `${label} preserves the existing type size`);
+      assert.ok(control.height >= 38 && control.fontSize >= fontFactor * .75 - .02, `${label} preserves control and text size`);
     }
     for (const label of [mode.start, '发送']) {
       const control = await metrics(button(label));
-      assert.ok(control.height >= 40, `${label} retains its 40px button height`);
-      if (!allowNaturalScroll) assert.ok(control.bottom <= viewport.height + 1, `${label} is visible inside the client`);
+      assert.ok(control.height >= 40 && control.right <= column.right + 1, `${label} fits the left column`);
+      if (viewport.height >= 762) assert.ok(control.bottom <= viewport.height + 1, `${label} is visible while reading logs`);
     }
-    assert.equal(await workspace().getByRole('heading', { name: '连接设置', exact: true }).count(), 0, 'redundant connection title is removed');
+    assert.equal(await workspace().getByRole('heading', { name: '连接设置', exact: true }).count(), 0);
     const text = await workspace().innerText();
-    for (const removed of ['所有连接和数据都只在当前电脑中处理。', '所有连接和数据都只在本机处理。', '连接远端 TCP 服务并双向收发数据。', '监听本地端口并管理多个客户端。', '绑定本地端口并向指定目标发送数据报。']) {
-      assert.equal(text.includes(removed), false, `removed boilerplate: ${removed}`);
-    }
-    if (allowNaturalScroll) await verifyReachableCompactLayout(mode, `${mode.name}/${size}/${viewport.height}px`);
+    for (const removed of ['所有连接和数据都只在当前电脑中处理。', '所有连接和数据都只在本机处理。', '连接远端 TCP 服务并双向收发数据。', '监听本地端口并管理多个客户端。', '绑定本地端口并向指定目标发送数据报。']) assert.equal(text.includes(removed), false);
   }
   function assertSameRow(boxes, label) {
     const centers = boxes.map((box) => box.y + box.height / 2);
@@ -157,13 +137,14 @@ const { chromium } = require('playwright');
     const frame = await metrics(main());
     assert.ok(frame.scrollWidth <= frame.clientWidth + 1, `${label} avoids horizontal page clipping`);
     assert.ok(['auto', 'scroll'].includes(frame.overflowY), `${label} permits natural overflow instead of hiding it`);
+    const beforeReceive = await metrics(receivePanel());
     if (viewport.width > 900) {
-      const endpoints = [field('本地地址'), field('本地端口'),
-        ...(mode.id !== 'tcp-server' ? [field('远端主机'), field('远端端口')] : []), button(mode.start)];
-      assertSameRow(await Promise.all(endpoints.map(metrics)), `${label}: effective scaled window keeps endpoint controls on one row`);
-      const sendControls = [field('行尾'), field('循环发送间隔毫秒'),
-        ...(mode.id === 'tcp-server' ? [field('发送目标')] : []), button('发送')];
-      assertSameRow(await Promise.all(sendControls.map(metrics)), `${label}: effective scaled window keeps send controls on one row`);
+      const column = await metrics(operation());
+      assert.ok(beforeReceive.x >= column.right + 8, 'scaled effective window still uses left/right layout');
+      assert.ok(frame.scrollHeight <= frame.clientHeight + 1, 'scaled layout scrolls operations only, not whole page');
+      assert.ok(column.scrollWidth <= column.clientWidth + 1, 'scaled controls never clip horizontally');
+    } else {
+      assert.ok(beforeReceive.y >= (await metrics(sendPanel())).bottom, 'genuinely narrow view stacks the result below input');
     }
     const controls = [field('本地地址'), field('本地端口'),
       ...(mode.id !== 'tcp-server' ? [field('远端主机'), field('远端端口')] : [field('发送目标')]),
@@ -179,6 +160,11 @@ const { chromium } = require('playwright');
     }
     await field('行尾').selectOption('lf');
     assert.equal(await field('行尾').inputValue(), 'lf', `${label} settings remain operable after natural wrapping`);
+    if (viewport.width > 900) {
+      const afterReceive = await metrics(receivePanel());
+      assert.equal(afterReceive.y, beforeReceive.y, 'scrolling left parameters does not move right results');
+      assert.equal(afterReceive.height, beforeReceive.height, 'scrolling left parameters does not resize right results');
+    }
   }
   async function screen(label) {
     const { width, height } = page.viewportSize();
@@ -191,7 +177,7 @@ const { chromium } = require('playwright');
   }
   try {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
-    for (const [width, height] of [[1280, 800], [1280, 720], [1600, 900]]) {
+    for (const [width, height] of [[1280, 762], [1280, 800], [1280, 720], [1920, 1040]]) {
       await page.setViewportSize({ width, height });
       for (const size of ['comfortable', 'large']) {
         await openNetwork();
@@ -205,7 +191,7 @@ const { chromium } = require('playwright');
 
     // 1024×640 is the CSS-space equivalent of a 1280×800 window at 125% scale.
     // It checks responsive layout only; this does not claim a native Windows DPI smoke test.
-    for (const [width, height, label] of [[1024, 640, 'scaled-125-effective'], [760, 560, 'narrow-natural-scroll']]) {
+    for (const [width, height, label] of [[1024, 640, 'scaled-125-effective'], [920, 640, 'compact-split'], [760, 560, 'narrow-natural-scroll']]) {
       await page.setViewportSize({ width, height }); await openNetwork();
       await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'large'; });
       for (const mode of modes) {
@@ -269,7 +255,7 @@ const { chromium } = require('playwright');
     await button('断开连接').click();
 
     assert.deepEqual(errors, [], 'no uncaught browser errors');
-    console.log('PASS: 3 modes × 3 desktop sizes × 2 typography preferences; same-row endpoint/connection actions and line/repeat/target/send controls; unchanged control sizes; default desktop fit and short server natural scrolling; scaled-effective/narrow controls remain reachable; LAN consent, endpoint/start/send errors, UTF-8/CRLF sends, peer targeting, and 500 internal log rows.');
+    console.log('PASS: all 3 modes at default/maximized sizes and both text preferences use left editing/right receiving; only narrow windows stack. Scaled-effective left scroll keeps right console fixed; readable controls, LAN consent, errors, UTF-8/CRLF, peer targets and 500 internally scrolling log rows remain covered.');
     console.log(`Screenshots: ${directory}`);
   } catch (error) {
     await screen('failure');

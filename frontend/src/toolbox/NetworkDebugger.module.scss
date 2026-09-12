@@ -10,7 +10,7 @@ $peach: var(--theme-accent);
   display: flex;
   min-width: 0;
   height: calc(100dvh - 28px);
-  min-height: 640px;
+  min-height: 0;
   flex-direction: column;
   gap: 14px;
 }
@@ -106,21 +106,27 @@ $peach: var(--theme-accent);
 .debuggerLayout {
   display: grid;
   min-width: 0;
-  // Do not let feedback shrink the grid below its operation rows: otherwise the
-  // overflowing send panel can overlap the status bar and lose pointer events.
-  min-height: min-content;
+  min-height: 0;
   flex: 1;
   align-items: stretch;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(220px, 1fr) auto;
-  grid-template-areas: 'connection' 'receive' 'send';
+  grid-template-columns: clamp(280px, 28vw, 380px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'operations receive';
   gap: 14px;
 }
 
-// Full-width operation rows make every parameter visible without narrow nested
-// columns. Only the log grows internally; short windows keep natural scrolling.
+// Keep editing and receiving visible together. Overflow from optional peer/LAN
+// controls stays in the left column and cannot move the receive console.
 .operationColumn {
-  display: contents;
+  display: grid;
+  grid-area: operations;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(min-content, 1fr);
+  gap: 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .connectionPanel,
@@ -134,7 +140,6 @@ $peach: var(--theme-accent);
 }
 
 .connectionPanel {
-  grid-area: connection;
   display: flex;
   padding: 15px;
   flex-direction: column;
@@ -169,7 +174,7 @@ $peach: var(--theme-accent);
   display: grid;
   min-width: 0;
   align-items: end;
-  grid-template-columns: minmax(180px, 1.2fr) 82px minmax(150px, 1fr) 82px 120px;
+  grid-template-columns: minmax(0, 1fr) 82px;
   gap: 10px 8px;
 
   label { display: grid; min-width: 0; gap: 5px; }
@@ -194,7 +199,8 @@ $peach: var(--theme-accent);
 
 .addressField,
 .portField { grid-column: auto; }
-.serverForm { grid-template-columns: minmax(180px, 1fr) 100px 120px; }
+.formGrid > button { grid-column: 1 / -1; }
+.serverForm { grid-template-columns: minmax(0, 1fr) 82px; }
 
 .exposureNotice {
   display: flex;
@@ -298,6 +304,7 @@ $peach: var(--theme-accent);
 
 .receiveToolbar {
   align-items: center;
+  flex-wrap: wrap;
 
   > div:first-child {
     flex: 0 0 auto;
@@ -380,7 +387,7 @@ $peach: var(--theme-accent);
   width: 100%;
   min-width: 0;
   padding: 8px 10px;
-  grid-template-columns: 180px minmax(260px, 1fr);
+  grid-template-columns: 160px minmax(0, 1fr);
   gap: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.055);
 
@@ -401,6 +408,7 @@ $peach: var(--theme-accent);
   display: flex;
   min-width: 0;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 6px;
   font-family: Consolas, "Cascadia Code", monospace;
   font-size: 0.6875rem;
@@ -435,12 +443,11 @@ $peach: var(--theme-accent);
 .sendPanel {
   display: grid;
   padding: 14px;
-  grid-area: send;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto 96px auto;
+  grid-template-rows: auto minmax(120px, 1fr) auto;
   gap: 9px 12px;
 
-  > header { grid-column: 1 / -1; align-items: center; }
+  > header { grid-column: 1 / -1; align-items: center; flex-wrap: wrap; }
   > textarea {
     width: 100%;
     min-width: 0;
@@ -466,12 +473,14 @@ $peach: var(--theme-accent);
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 
   > strong {
     color: $muted;
     font-size: 0.6875rem;
     font-weight: 650;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -482,7 +491,7 @@ $peach: var(--theme-accent);
   width: 100%;
   min-width: 0;
   align-items: end;
-  grid-template-columns: 160px 220px minmax(140px, 1fr);
+  grid-template-columns: minmax(80px, .85fr) minmax(124px, 1.15fr);
   gap: 8px;
 
   > label { display: grid; min-width: 0; gap: 4px; }
@@ -505,7 +514,7 @@ $peach: var(--theme-accent);
 
 .targetControl { grid-column: 1 / -1; }
 
-// All send options share one baseline when the full-width panel has enough room.
+// The two options share a row; the full-width send button stays below the editor.
 .autoSendControl { grid-column: 2; grid-row: 1; }
 .targetControl { grid-row: 2; }
 
@@ -532,9 +541,9 @@ $peach: var(--theme-accent);
 
 .sendButton {
   display: flex;
-  width: 144px;
-  grid-column: 3;
-  grid-row: 1;
+  width: 100%;
+  grid-column: 1 / -1;
+  grid-row: 2;
   justify-self: end;
   align-items: center;
   justify-content: space-between;
@@ -548,15 +557,16 @@ $peach: var(--theme-accent);
 }
 
 .serverSendControls {
-  grid-template-columns: 160px 220px minmax(140px, 1fr) 144px;
-  .targetControl { grid-column: 3; grid-row: 1; }
-  .sendButton { grid-column: 4; }
+  .targetControl { grid-column: 1 / -1; grid-row: 2; }
+  .sendButton { grid-column: 1 / -1; grid-row: 3; }
 }
 
 .feedbackBar {
   display: flex;
   min-width: 0;
   min-height: 42px;
+  max-height: 64px;
+  overflow: auto;
   padding: 9px 12px;
   align-items: center;
   gap: 9px;
@@ -592,18 +602,23 @@ $peach: var(--theme-accent);
 @media (max-width: 1100px) {
   .modeBar { align-items: stretch; flex-direction: column; }
   .sessionStatus { grid-template-columns: 10px repeat(4, minmax(0, 1fr)); }
-  .serverSendControls { grid-template-columns: 130px 180px minmax(140px, 1fr) 144px; }
+  .logEntry { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }
 
-// Below a readable full-row width, endpoints wrap as address/port pairs. This
-// breakpoint includes the outer sidebar; it never shrinks controls to hide scroll.
+// Stack only when the whole client is genuinely narrow, not on the default
+// desktop or maximized window. Preserve readable controls and a bounded log.
 @media (max-width: 900px) {
   .workspace { height: auto; min-height: 0; }
   .formGrid { grid-template-columns: minmax(0, 1fr) 100px; }
   .formGrid > button { grid-column: 1 / -1; }
+  .connectionPanel { grid-area: connection; }
+  .sendPanel { grid-area: send; grid-template-rows: auto 140px auto; }
+  .operationColumn { display: contents; }
   .debuggerLayout {
     min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto;
+    grid-template-areas: 'connection' 'send' 'receive';
   }
   .receivePanel {
     contain: none;
@@ -612,11 +627,16 @@ $peach: var(--theme-accent);
     grid-template-rows: auto clamp(300px, 42vh, 390px);
   }
   .sendControls { grid-template-columns: 130px minmax(150px, 1fr) 120px; }
-  .sendButton { width: 120px; gap: 8px; }
+  .sendButton { width: 120px; gap: 8px; grid-column: 3; grid-row: 1; }
   .serverSendControls {
     .targetControl { grid-column: 1 / -1; grid-row: 2; }
     .sendButton { grid-column: 3; }
   }
+}
+
+@media (max-height: 480px) and (min-width: 901px) {
+  .workspace { height: auto; }
+  .debuggerLayout { min-height: 520px; }
 }
 
 @media (max-width: 720px) {

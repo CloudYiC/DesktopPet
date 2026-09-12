@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.4-desktop',
+    date: '2026-09-13',
+    items: [
+      { kind: '~', text: 'Reorganized Network, Serial and Modbus debuggers into left-hand controls and right-hand receive or result panes at default and maximized window sizes' },
+      { kind: '~', text: 'Kept send controls and received data visible together; only viewports of 900px or narrower stack the panes' },
+      { kind: '~', text: 'Constrained growing logs and results to internal scrolling, with independent left-panel scrolling for short windows and expanded settings' },
+      { kind: '+', text: 'Added default, maximized, scaled-effective and narrow-window layout regressions without changing communication protocols or confirmation safeguards' },
+    ],
+  },
+  {
     version: 'v0.13.3-desktop',
     date: '2026-09-13',
     items: [

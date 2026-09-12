@@ -152,6 +152,8 @@ export function SerialDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.repeat) { event.preventDefault(); void send(); }
   }}>
     <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
+    <div className={styles.split}>
+    <div className={styles.controls} data-testid="serial-controls">
     <section className={styles.connection} aria-label="串口连接参数">
       <div className={styles.fields}>
         <label className={styles.port}><span>串口</span><div><select aria-label="串口" value={options.port} disabled={locked || !isNativeHost} onChange={(event) => update('port', event.target.value)}><option value="">{ports.length ? '请选择' : '无可用串口'}</option>{ports.map((port) => <option key={port.port} value={port.port}>{port.port}</option>)}</select><button type="button" aria-label="刷新串口" title="刷新串口" disabled={locked || enumerating || !isNativeHost} onClick={() => void refresh()}>↻</button></div></label>
@@ -165,18 +167,24 @@ export function SerialDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       <div className={styles.connectionStatus}><strong className={ready ? styles.connected : ''}>● {stateLabels[state]}{snapshot?.port ? ` · ${snapshot.port}` : ''}</strong><span>{options.baud} · {options.dataBits}{['N','O','E','M','S'][options.parity]}{['1','1.5','2'][options.stopBits]}</span><span className={styles.counters}>接收 {snapshot?.rxBytes ?? 0} B　发送 {snapshot?.txBytes ?? 0} B</span><button type="button" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>高级设置 {advanced ? '⌃' : '⌄'}</button></div>
       {advanced && <div className={styles.advanced}><label><input type="checkbox" checked={options.dtr} disabled={locked} onChange={(event) => update('dtr', event.target.checked)} />DTR</label><label><input type="checkbox" checked={options.rts} disabled={locked || options.flowControl === 1} onChange={(event) => update('rts', event.target.checked)} />RTS</label><span>{options.flowControl === 1 ? 'RTS 由硬件流控管理' : 'DTR/RTS 电平在打开时应用'}</span></div>}
     </section>
-    <section className={styles.logPanel}>
+    <section className={styles.sendPanel} aria-label="串口发送数据">
+      <header><h3>发送数据</h3><div className={styles.sendMode}><div className={styles.segmented}><button type="button" aria-pressed={sendMode === 'text'} onClick={() => { setSendMode('text'); setRepeat(false); }}>文本</button><button type="button" aria-pressed={sendMode === 'hex'} onClick={() => { setSendMode('hex'); setRepeat(false); }}>HEX</button></div><span>{encoded.count} 字节</span></div></header>
+      <textarea aria-label="串口发送内容" value={draft} spellCheck={false} onChange={(event) => { setDraft(event.target.value); setRepeat(false); }} />
+      <div className={styles.sendActions}>
+        <label className={styles.ending}>行尾<select aria-label="串口行尾" value={ending} disabled={sendMode === 'hex'} onChange={(event) => { setEnding(event.target.value as typeof ending); setRepeat(false); }}><option value="none">不添加</option><option value="cr">CR</option><option value="lf">LF</option><option value="crlf">CRLF</option></select></label>
+        <div className={styles.repeatControl}><label><input type="checkbox" checked={repeat} disabled={!ready || !!encoded.error || !intervalValid} onChange={(event) => setRepeat(event.target.checked)} />循环发送</label><label className={styles.interval}><input type="number" aria-label="串口循环间隔" min="50" max="3600000" value={interval} onChange={(event) => { setIntervalValue(event.target.value); setRepeat(false); }} />ms</label></div>
+        <button className={styles.sendButton} type="button" disabled={!ready || !!encoded.error || sending} onClick={() => void send()}>{sending ? '发送中…' : '发送'}<kbd>Ctrl Enter</kbd></button>
+      </div>
+      {(error || encoded.error || !intervalValid || notice) && <p className={error || (draft && encoded.error) || !intervalValid ? styles.error : styles.notice} role={error || (draft && encoded.error) || !intervalValid ? 'alert' : 'status'}>{error || (draft ? encoded.error : '') || (!intervalValid ? '循环间隔须为 50–3600000 毫秒。' : '') || notice}</p>}
+    </section>
+    </div>
+    <section className={styles.logPanel} data-testid="serial-log-panel">
       <header><h3>收发记录</h3><div className={styles.logTools}><div className={styles.segmented}><button type="button" aria-pressed={receiveMode === 'text'} onClick={() => setReceiveMode('text')}>文本</button><button type="button" aria-pressed={receiveMode === 'hex'} onClick={() => setReceiveMode('hex')}>HEX</button></div><span className={styles.encoding}>UTF-8</span><label><input type="checkbox" checked={showTime} onChange={(event) => setShowTime(event.target.checked)} />时间</label><label><input type="checkbox" checked={follow} onChange={(event) => { setFollow(event.target.checked); tail.current = event.target.checked; }} />自动滚动</label><button type="button" disabled={!events.length} onClick={() => void copy()}>复制</button><button type="button" onClick={() => { setEvents([]); setNotice('界面记录已清空，字节统计继续累计。'); }}>清空</button></div></header>
       <div ref={log} role="log" aria-label="串口收发记录" aria-live="off" className={styles.log} onScroll={() => { if (log.current) tail.current = log.current.scrollHeight - log.current.scrollTop - log.current.clientHeight < 24; }}>
         {!events.length && <div className={styles.empty}>{ready ? '等待串口数据' : '打开串口后查看收发记录'}</div>}
         {events.map((event) => <div className={styles.logRow} key={event.id}>{showTime && <time>{timeText(event.timestamp)}</time>}<b className={styles[event.kind]}>{event.kind === 'tx' ? 'TX →' : event.kind === 'rx' ? 'RX ←' : event.kind === 'error' ? '错误' : '状态'}</b><code>{receiveMode === 'hex' && event.dataHex ? event.dataHex.match(/../g)?.join(' ').toUpperCase() : event.text || (event.byteLength ? `〈${event.byteLength} B，等待 UTF-8 后续字节〉` : '')}</code></div>)}
       </div>
     </section>
-    <section className={styles.sendPanel} aria-label="串口发送数据">
-      <header><h3>发送数据</h3><div className={styles.sendMode}><div className={styles.segmented}><button type="button" aria-pressed={sendMode === 'text'} onClick={() => { setSendMode('text'); setRepeat(false); }}>文本</button><button type="button" aria-pressed={sendMode === 'hex'} onClick={() => { setSendMode('hex'); setRepeat(false); }}>HEX</button></div><span>{encoded.count} 字节</span></div></header>
-      <textarea aria-label="串口发送内容" value={draft} spellCheck={false} onChange={(event) => { setDraft(event.target.value); setRepeat(false); }} />
-      <div className={styles.sendActions}><label>行尾<select aria-label="串口行尾" value={ending} disabled={sendMode === 'hex'} onChange={(event) => { setEnding(event.target.value as typeof ending); setRepeat(false); }}><option value="none">不添加</option><option value="cr">CR</option><option value="lf">LF</option><option value="crlf">CRLF</option></select></label><label><input type="checkbox" checked={repeat} disabled={!ready || !!encoded.error || !intervalValid} onChange={(event) => setRepeat(event.target.checked)} />循环发送</label><label className={styles.interval}><input type="number" aria-label="串口循环间隔" min="50" max="3600000" value={interval} onChange={(event) => { setIntervalValue(event.target.value); setRepeat(false); }} />ms</label><button className={styles.sendButton} type="button" disabled={!ready || !!encoded.error || sending} onClick={() => void send()}>{sending ? '发送中…' : '发送'}<kbd>Ctrl Enter</kbd></button></div>
-      {(error || encoded.error || !intervalValid || notice) && <p className={error || (draft && encoded.error) || !intervalValid ? styles.error : styles.notice} role={error || (draft && encoded.error) || !intervalValid ? 'alert' : 'status'}>{error || (draft ? encoded.error : '') || (!intervalValid ? '循环间隔须为 50–3600000 毫秒。' : '') || notice}</p>}
-    </section>
+    </div>
   </section>;
 }

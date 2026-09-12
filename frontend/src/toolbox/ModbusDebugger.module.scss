@@ -1,5 +1,11 @@
-$ink: var(--theme-ink, #3f342e); $muted: var(--theme-muted, #8d8077); $paper: var(--theme-paper, #fffdf9); $sand: var(--theme-sand, #f4ede4); $teal: var(--theme-primary, #168b85); $line: color-mix(in srgb, $muted 20%, transparent);
-.workspace { height: calc(100dvh - 28px); min-height: 620px; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
+$ink: var(--theme-ink, #3f342e);
+$muted: var(--theme-muted, #8d8077);
+$paper: var(--theme-paper, #fffdf9);
+$sand: var(--theme-sand, #f4ede4);
+$teal: var(--theme-primary, #168b85);
+$line: color-mix(in srgb, $muted 20%, transparent);
+
+.workspace { height: calc(100dvh - 28px); min-height: 0; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace select, .workspace textarea { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 34px; padding: 5px 13px; border: 1px solid $line; color: $teal; background: $paper; border-radius: 7px; cursor: pointer; white-space: nowrap; }
@@ -7,21 +13,101 @@ $ink: var(--theme-ink, #3f342e); $muted: var(--theme-muted, #8d8077); $paper: va
 .workspace input:not([type=checkbox]), .workspace select { height: 36px; min-width: 0; width: 100%; padding: 5px 9px; border: 1px solid $line; background: $sand; border-radius: 6px; color: $ink; }
 .workspace input[type=checkbox] { accent-color: $teal; margin: 0; width: 15px; height: 15px; flex-shrink: 0; }
 .workspace button:focus-visible, .workspace input:focus-visible, .workspace select:focus-visible { outline: 2px solid $teal; outline-offset: 1px; }
-.connection, .requestPanel, .dataPanel, .logPanel { min-width: 0; padding: 12px 15px; background: $paper; border: 1px solid $line; border-radius: 11px; }
+.workspace .primary { background: $teal; color: #fff; border-color: $teal; }
+.workspace h3 { margin: 0; font-size: .9375rem; }
+
+// Keep parameters alongside the result; each column owns its overflow.
+.workbench { display: grid; grid-template-columns: clamp(320px, 31%, 360px) minmax(0, 1fr); gap: 12px; min-width: 0; min-height: 0; flex: 1; }
+.controls { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
+.results { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.connection, .requestPanel, .dataPanel, .logPanel { min-width: 0; padding: 12px; background: $paper; border: 1px solid $line; border-radius: 11px; }
 .connection, .requestPanel { flex-shrink: 0; }
 .connection > header, .dataPanel > header, .logPanel > header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.tabs { display: flex; padding: 2px; border: 1px solid $line; border-radius: 8px; }
-.tabs button { min-width: 125px; min-height: 31px; border: 0; background: transparent; color: $ink; }
+.connection > header { flex-wrap: wrap; gap: 8px; }
+.tabs { display: flex; flex: 1 0 100%; padding: 2px; border: 1px solid $line; border-radius: 8px; min-width: 0; }
+.tabs button { flex: 1; min-width: 0; min-height: 31px; border: 0; background: transparent; color: $ink; }
 .tabs [aria-selected=true] { background: $teal; color: white; }
-.state, .connected { margin-left: auto; white-space: nowrap; color: $muted; }
-.connected { color: #168851; }.connected:before { content: '●'; margin-right: 6px; }
-.advanced { position: relative; }.advanced summary { cursor: pointer; color: $muted; }.advanced > div { position: absolute; z-index: 3; right: 0; top: 24px; width: 240px; padding: 12px; display: grid; gap: 8px; border: 1px solid $line; border-radius: 8px; background: $paper; box-shadow: 0 10px 25px #0002; }.advanced label { display: grid; gap: 4px; }.advanced small { color: $muted; }
-.connectionFields { display: grid; grid-template-columns: minmax(180px, 1fr) 140px 130px 135px; align-items: end; gap: 10px; }.connectionFields label, .requestFields > label { display: grid; min-width: 0; gap: 5px; color: $muted; font-size: .75rem; }.connectionFields button { height: 36px; }.rtuFields { grid-template-columns: minmax(140px, 1fr) 130px 130px 80px 90px 120px; }.portPicker { display: flex; min-width: 0; gap: 4px; }.portPicker input { flex: 1; }.portPicker button { padding: 0 9px; }
-.workspace .primary { background: $teal; color: #fff; border-color: $teal; }
-.requestFields { display: grid; grid-template-columns: minmax(190px, 1fr) 130px 80px 195px 120px; gap: 10px; align-items: end; }.requestFields > .poll { display: flex; align-items: center; gap: 7px; padding-bottom: 0; height: 36px; }.poll > span:first-child { display: flex; align-items: center; gap: 5px; white-space: nowrap; }.poll input[type=number] { width: 90px; }.requestFields > button { height: 36px; }
-.requestFooter { display: flex; align-items: center; gap: 14px; margin-top: 10px; color: $muted; font-size: .75rem; flex-wrap: wrap; }.requestFooter label { display: flex; align-items: center; gap: 6px; }.allow { margin-left: auto; }.writeValues { display: grid; gap: 5px; margin-top: 10px; font-size: .75rem; color: $muted; }.writeValues textarea { height: 50px; min-width: 0; padding: 7px 10px; overflow: auto; resize: none; border: 1px solid $line; border-radius: 6px; background: $sand; color: $ink; }
-.dataPanel { display: flex; min-height: 145px; flex: 1; flex-direction: column; overflow: hidden; }.workspace h3 { margin: 0; font-size: .9375rem; }.dataPanel header { flex-shrink: 0; }.dataPanel header > span { color: $muted; }.dataPanel header select { width: 140px; margin-left: auto; }.dataPanel footer { margin-top: 7px; min-height: 22px; max-height: 44px; overflow: auto; color: $muted; font-size: .75rem; flex-shrink: 0; }.dataPanel footer[role=alert] { color: #ad4739; }.tableScroll { min-height: 0; flex: 1; overflow: auto; border: 1px solid $line; border-radius: 6px; }.tableScroll table { width: 100%; min-width: 540px; border-collapse: collapse; font-size: .75rem; }.tableScroll th { position: sticky; top: 0; background: $sand; text-align: left; font-weight: 600; }.tableScroll th, .tableScroll td { padding: 6px 10px; border-bottom: 1px solid $line; white-space: nowrap; }.tableScroll tbody tr:nth-child(even) { background: color-mix(in srgb, $teal 5%, $paper); }.tableScroll code { font-family: Consolas, monospace; }.empty { color: $muted; text-align: center; padding: 20px 10px; font-size: .8125rem; }
-.logPanel { height: 152px; flex-shrink: 0; display: flex; flex-direction: column; }.logPanel header { margin-bottom: 7px; }.logPanel h3 { margin-right: auto; }.logPanel header button { min-height: 28px; padding: 2px 12px; }.log { min-height: 0; flex: 1; overflow: auto; background: #222b2a; border-radius: 6px; color: #dae9e7; padding: 8px 10px; font: 12px/1.7 Consolas, monospace; }.log > div { display: grid; grid-template-columns: 30px 90px minmax(0, 1fr); gap: 8px; margin-bottom: 5px; }.log code { font: inherit; overflow-wrap: anywhere; white-space: pre-wrap; }.log time { color: #98aaa6; }.log small { grid-column: 3; }.log p { margin: 2px; color: #96aaa5; }.tx { color: #f0b253; }.rx { color: #5ac798; }
+.state, .connected { white-space: nowrap; color: $muted; }
+.connected { color: #168851; }
+.connected:before { content: '●'; margin-right: 6px; }
+// Advanced controls expand in-flow; a popup would be clipped by the left scroller.
+.advanced { margin-left: auto; min-width: 0; }
+.advanced summary { cursor: pointer; color: $muted; text-align: right; }
+.advanced[open] { flex: 1 0 100%; }
+.advanced > div { margin-top: 8px; padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; border: 1px solid $line; border-radius: 8px; background: $sand; }
+.advanced label { display: grid; gap: 4px; min-width: 0; }
+.advanced small { color: $muted; grid-column: 1 / -1; }
+.connectionFields { display: grid; grid-template-columns: minmax(0, 1fr) 100px; align-items: end; gap: 10px; }
+.rtuFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.connectionFields label, .requestFields > label { display: grid; min-width: 0; gap: 5px; color: $muted; font-size: .75rem; }
+.connectionFields button { height: 36px; }
+.portPicker { display: flex; min-width: 0; gap: 4px; }
+.portPicker input { flex: 1; }
+.portPicker button { padding: 0 9px; }
+
+.requestFields { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 10px; align-items: end; }
+.requestFields > label:first-child { grid-column: 1 / -1; }
+.requestFields > .poll { display: flex; align-items: center; gap: 5px; height: 36px; min-width: 0; }
+.poll > span:first-child { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.poll input[type=number] { width: 78px; flex: 1; min-width: 60px; padding-inline: 5px; }
+.requestFields > button { height: 36px; padding-inline: 8px; }
+.requestFooter { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: $muted; font-size: .75rem; flex-wrap: wrap; }
+.requestFooter > span { flex-basis: 100%; }
+.requestFooter label { display: flex; align-items: center; gap: 6px; }
+.allow { color: #ac7033; }
+.writeValues { display: grid; gap: 5px; margin-top: 10px; font-size: .75rem; color: $muted; }
+.writeValues textarea { height: 64px; min-width: 0; padding: 7px 10px; overflow: auto; resize: vertical; max-height: 180px; border: 1px solid $line; border-radius: 6px; background: $sand; color: $ink; }
+
+.dataPanel { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.dataPanel header { flex-shrink: 0; flex-wrap: wrap; }
+.dataPanel header > span { color: $muted; }
+.dataPanel header select { width: 140px; margin-left: auto; }
+.dataPanel footer { margin-top: 7px; min-height: 22px; max-height: 44px; overflow: auto; color: $muted; font-size: .75rem; flex-shrink: 0; }
+.dataPanel footer[role=alert] { color: #ad4739; }
+.tableScroll { min-height: 0; flex: 1; overflow: auto; border: 1px solid $line; border-radius: 6px; }
+.tableScroll table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .75rem; }
+.tableScroll th { position: sticky; top: 0; background: $sand; text-align: left; font-weight: 600; }
+.tableScroll th, .tableScroll td { padding: 8px; border-bottom: 1px solid $line; overflow-wrap: anywhere; }
+.tableScroll th:last-child { width: 106px; }
+.tableScroll tbody tr:nth-child(even) { background: color-mix(in srgb, $teal 5%, $paper); }
+.tableScroll code { font-family: Consolas, monospace; }
+.empty { color: $muted; text-align: center; padding: 20px 10px; font-size: .8125rem; }
+.logPanel { height: clamp(156px, 24dvh, 230px); flex-shrink: 0; display: flex; flex-direction: column; }
+.logPanel header { margin-bottom: 7px; }
+.logPanel h3 { margin-right: auto; }
+.logPanel header button { min-height: 28px; padding: 2px 12px; }
+.log { min-height: 0; flex: 1; overflow: auto; background: #222b2a; border-radius: 6px; color: #dae9e7; padding: 8px 10px; font: 12px/1.7 Consolas, monospace; }
+.log > div { display: grid; grid-template-columns: 30px 90px minmax(0, 1fr); gap: 8px; margin-bottom: 5px; }
+.log code { font: inherit; overflow-wrap: anywhere; white-space: pre-wrap; }
+.log time { color: #98aaa6; }
+.log small { grid-column: 3; overflow-wrap: anywhere; }
+.log p { margin: 2px; color: #96aaa5; }
+.tx { color: #f0b253; }
+.rx { color: #5ac798; }
 .confirmValues { max-height: 170px; overflow: auto; font-family: Consolas, monospace; }
-@media (max-width: 1100px) { .rtuFields { grid-template-columns: minmax(120px, 1fr) 105px 105px 70px 70px 100px; gap: 6px; }.requestFields { grid-template-columns: minmax(170px, 1fr) 110px 64px 160px 94px; gap: 6px; }.poll input[type=number] { width: 70px; }.connectionFields:not(.rtuFields) { grid-template-columns: minmax(140px, 1fr) 100px 100px 120px; } }
-@media (max-width: 900px) { .workspace { height: auto; min-height: calc(100dvh - 28px); }.connectionFields, .rtuFields, .connectionFields:not(.rtuFields) { grid-template-columns: repeat(2, minmax(0, 1fr)); }.requestFields { grid-template-columns: minmax(0, 1fr) 110px; }.requestFields > .poll { width: auto; }.requestFields > button { min-width: 100px; }.dataPanel { height: 280px; flex: none; }.connection > header { flex-wrap: wrap; }.tabs button { min-width: 95px; }.requestFooter { gap: 10px; }.requestFooter > span { flex-basis: 100%; }.dataPanel header { flex-wrap: wrap; }.dataPanel header select { width: 125px; }.logPanel { height: 170px; }.advanced > div { right: 0; }.log > div { grid-template-columns: 25px minmax(0, 1fr); }.log time { display: none; }.log small { grid-column: 2; } }
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .workbench { grid-template-columns: 310px minmax(0, 1fr); gap: 10px; }
+  .tableScroll th, .tableScroll td { padding: 7px 5px; }
+  .tableScroll th:last-child { width: 94px; }
+  .dataPanel header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+  .dataPanel header > h3 { grid-column: 1; }
+  .dataPanel header > span { grid-column: 2; text-align: right; }
+  .dataPanel header select { grid-column: 1; margin-left: 0; width: 100%; }
+  .log > div { grid-template-columns: 25px minmax(0, 1fr); gap: 4px 8px; }
+  .log time { text-align: right; }
+  .log code, .log small { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .workspace { height: auto; min-height: calc(100dvh - 28px); }
+  .workbench { display: flex; flex-direction: column; flex: none; }
+  .controls { overflow: visible; scrollbar-gutter: auto; }
+  .connectionFields, .rtuFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .requestFields { grid-template-columns: minmax(0, 1fr) 110px; }
+  .dataPanel { height: 320px; flex: none; }
+  .dataPanel header select { width: 125px; }
+  .logPanel { height: 190px; }
+  .log > div { grid-template-columns: 25px minmax(0, 1fr); gap: 4px 8px; }
+  .log time { text-align: right; }
+  .log code, .log small { grid-column: 1 / -1; }
+}

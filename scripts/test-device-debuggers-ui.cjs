@@ -87,6 +87,28 @@ async function addFixture(context) {
     if (viewport.width >= 1024 && viewport.height >= 768) assert.ok(frame.y + frame.height <= viewport.height + 1, `${id}: default workspace fits vertically`);
     const geometry = await main().evaluate((el) => ({ width: el.clientWidth, scroll: el.scrollWidth }));
     assert.ok(geometry.scroll <= geometry.width + 1, `${id}: no outer horizontal scrollbar`);
+    if (id === 'serial-workspace') {
+      const controls = page.getByTestId('serial-controls');
+      const logPanel = await page.getByTestId('serial-log-panel').boundingBox();
+      const left = await controls.boundingBox();
+      const send = await page.getByRole('region', { name: '串口发送数据', exact: true }).getByRole('button', { name: /^发送/ }).boundingBox();
+      const log = page.getByRole('log', { name: '串口收发记录', exact: true });
+      assert.ok(await log.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), 'serial log has no horizontal overflow');
+      assert.ok(await controls.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), 'serial controls have no horizontal overflow');
+      if (viewport.width > 900) {
+        assert.ok(logPanel.x >= left.x + left.width, 'serial receive log is right of connection and send controls');
+        assert.ok(Math.abs(logPanel.y - left.y) <= 1, 'serial columns align at the top');
+        assert.ok(frame.y + frame.height <= viewport.height + 1, 'serial whole workspace remains fixed to viewport');
+        const outer = await main().evaluate((el) => ({ height: el.clientHeight, scroll: el.scrollHeight }));
+        assert.ok(outer.scroll <= outer.height + 1, 'serial desktop workspace does not require page scrolling');
+        if (viewport.width >= 1280 && viewport.height >= 762) {
+          assert.ok(send.y + send.height <= viewport.height, 'serial send action and receive log are simultaneously visible');
+          assert.ok(await controls.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), 'normal serial controls fit without scrolling');
+        }
+      } else {
+        assert.ok(logPanel.y >= left.y + left.height, 'only narrow windows stack the serial sections');
+      }
+    }
     await page.screenshot({ path: path.join(directory, `${id}-${suffix}.png`), fullPage: true, animations: 'disabled' });
   }
   try {
@@ -116,6 +138,20 @@ async function addFixture(context) {
     await page.waitForFunction(() => document.querySelector('[aria-label="串口收发记录"]').scrollHeight > document.querySelector('[aria-label="串口收发记录"]').clientHeight);
     assert.ok(Math.abs((await serialLog.boundingBox()).height - serialHeight) <= 1, 'serial log stays fixed after 500 records');
     await fit('serial-workspace', '1280-connected');
+    for (const size of [{ width: 1920, height: 1040 }, { width: 1280, height: 762 }, { width: 1024, height: 640 }, { width: 920, height: 762 }, { width: 760, height: 650 }]) {
+      await page.setViewportSize(size);
+      for (const font of ['comfortable', 'large']) {
+        await page.evaluate((font) => { document.documentElement.dataset.workspaceTextSize = font; }, font);
+        await fit('serial-workspace', `${size.width}x${size.height}-${font}`);
+      }
+    }
+    await page.setViewportSize({ width: 1024, height: 640 });
+    await serial.getByRole('button', { name: /高级设置/ }).click();
+    assert.equal(await serial.getByLabel('DTR', { exact: true }).isVisible(), true);
+    await fit('serial-workspace', '1024x640-expanded');
+    await serial.getByRole('button', { name: /高级设置/ }).click();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
     await back(); await page.waitForFunction(() => window.__deviceFixture.serial.state === 'stopped');
 
     await open('Modbus 调试助手');

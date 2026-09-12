@@ -57,6 +57,28 @@ const { chromium } = require('playwright');
     const main = await page.getByRole('main').last().evaluate((el) => ({ width: el.clientWidth, scrollWidth: el.scrollWidth, height: el.clientHeight, scrollHeight: el.scrollHeight }));
     assert.ok(main.scrollWidth <= main.width + 1, `${name}: no horizontal page overflow`);
     if (strict) assert.ok(main.scrollHeight <= main.height + 1, `${name}: default page stays fixed ${JSON.stringify(main)}`);
+    const viewport = page.viewportSize();
+    const controls = await page.getByTestId('modbus-controls').boundingBox();
+    const results = await page.getByTestId('modbus-results').boundingBox();
+    const dataHeading = await page.getByTestId('modbus-results').getByRole('heading', { name: '寄存器数据', exact: true }).boundingBox();
+    assert.ok(dataHeading.height < 40, `${name}: data title does not collapse into vertical one-character lines`);
+    if (viewport.width > 900) {
+      assert.ok(controls.x + controls.width <= results.x, `${name}: parameters stay to the left of results`);
+      assert.ok(Math.abs(controls.y - results.y) < 1, `${name}: both work columns begin on the same line`);
+      assert.ok(results.y + results.height <= viewport.height, `${name}: table and raw log stay within the client`);
+      if (viewport.width >= 1280 && viewport.height >= 762) {
+        for (const name of ['连接设备', '断开连接', '读取', '写入…']) {
+          const action = button(name);
+          if (await action.count()) {
+            const box = await action.boundingBox();
+            assert.ok(box.y >= controls.y && box.y + box.height <= controls.y + controls.height, `${name}: primary operation visible alongside results by default`);
+          }
+        }
+      }
+    } else {
+      assert.ok(results.y >= controls.y + controls.height, `${name}: only narrow clients stack the columns`);
+    }
+    assert.ok(await page.getByTestId('modbus-data').evaluate((el) => el.scrollWidth <= el.clientWidth + 1), `${name}: table wraps complete values without horizontal overflow`);
     await page.screenshot({ path: path.join(directory, `${name}.png`), fullPage: true, animations: 'disabled' });
   }
   try {
@@ -66,7 +88,14 @@ const { chromium } = require('playwright');
       await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
       for (const transport of ['Modbus TCP', 'Modbus RTU']) {
         await area().getByRole('tab', { name: transport, exact: true }).click();
-        for (const code of ['3','16']) { await label('Modbus 功能码').selectOption(code); await fit(`${transport}-${code}-${size}-1280`); }
+        for (const code of ['3','16']) {
+          await label('Modbus 功能码').selectOption(code);
+          for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1080 }, { width: 1024, height: 640 }, { width: 920, height: 762 }, { width: 760, height: 650 }]) {
+            await page.setViewportSize(viewport);
+            await fit(`${transport}-${code}-${size}-${viewport.width}x${viewport.height}`, viewport.width > 900);
+          }
+          await page.setViewportSize({ width: 1280, height: 800 });
+        }
       }
     }
     await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
@@ -76,6 +105,20 @@ const { chromium } = require('playwright');
     await label('Modbus 起始地址').fill('40008'); await button('读取').click(); await waitDone();
     assert.equal((await lastRequest()).address, 7);
     await label('按五位参考编号输入').uncheck(); assert.equal(await label('Modbus 起始地址').inputValue(), '7');
+    await label('Modbus 数量').fill('125'); await button('读取').click(); await waitDone();
+    await page.waitForFunction(() => document.querySelector('[data-testid="modbus-data"] tbody')?.children.length === 125);
+    assert.equal(await page.getByTestId('modbus-data').locator('tbody tr').count(), 125, 'all register rows remain available');
+    const resultsBeforeScroll = await page.getByTestId('modbus-results').boundingBox();
+    assert.ok(await page.getByTestId('modbus-data').evaluate((el) => el.scrollHeight > el.clientHeight), '125 register values scroll only inside the data table');
+    for (const viewport of [{ width: 1280, height: 762 }, { width: 1024, height: 640 }, { width: 920, height: 762 }]) {
+      await page.setViewportSize(viewport);
+      await fit(`populated-${viewport.width}x${viewport.height}`);
+      assert.equal(await page.getByTestId('modbus-data').locator('thead th').count(), 5, 'all five result columns retained at narrow desktop widths');
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.getByTestId('modbus-data').evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    assert.deepEqual(await page.getByTestId('modbus-results').boundingBox(), resultsBeforeScroll, 'reading the end of the result does not move its panel or request controls');
+    await label('Modbus 数量').fill('8');
     await label('Modbus 功能码').selectOption('4'); await label('按五位参考编号输入').check();
     assert.equal(await label('Modbus 起始地址').inputValue(), '30008');
     const beforeInvalid = await requestCount(); await label('Modbus 起始地址').fill('40001'); await button('读取').click();
@@ -141,7 +184,7 @@ const { chromium } = require('playwright');
     }
     assert.deepEqual(errors, []);
     assert.deepEqual(nativeDialogs, [], 'all confirmations use the shared client dialog, not browser dialogs');
-    console.log('PASS Modbus UI: TCP/RTU read/write layouts, reference conversion/bounds, centered shared write confirmation and focus, zero-request cancellation/no automatic write retry, read-only polling, fixed 500-frame log, stop cancellation. Synthetic host only.');
+    console.log('PASS Modbus UI: TCP/RTU side-by-side read/write at 1280/1920/1024/920 (including 1024x640), narrow-only stacking, both text sizes, 125-row internal table and fixed 500-frame log, reference bounds, centered shared write confirmation/focus, zero-request cancellation/no automatic write retry, read-only polling and stop cancellation. Synthetic host only.');
   } catch (error) { await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error; }
   finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
