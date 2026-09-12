@@ -47,7 +47,7 @@ const { chromium } = require('playwright');
   page.on('pageerror', (error) => errors.push(error.message));
   const output = path.resolve(__dirname, '../artifacts/settings-layout');
   fs.mkdirSync(output, { recursive: true });
-  const tabs = ['常规', '模块与版本', '本机数据', '关于'];
+  const tabs = ['常规', '本机数据', '关于'];
   const sidebar = () => page.getByRole('complementary').first();
   const main = () => page.getByRole('main').last();
   const mainHeader = () => main().locator(':scope > header');
@@ -55,7 +55,7 @@ const { chromium } = require('playwright');
   const tab = (name) => settings().getByRole('tab', { name, exact: true });
   const button = (name) => settings().getByRole('button', { name, exact: true });
   async function openSettings() {
-    await sidebar().getByRole('button', { name: /助手设置.*主题、模块与本机数据/ }).click();
+    await sidebar().getByRole('button', { name: /助手设置/ }).click();
     await settings().waitFor();
   }
   async function changeFixture(patch) {
@@ -106,6 +106,10 @@ const { chromium } = require('playwright');
     assert.equal(await mainHeader().locator('p').count(), 0, 'assistant header has no repeated introduction');
     assert.equal((await mainHeader().innerText()).includes('CLOUDYI ASSISTANT'), true);
     assert.equal(await settings().getByRole('tabpanel').count(), 1, 'only the selected settings tab is mounted');
+    assert.equal(await settings().getByRole('tab').count(), tabs.length, 'settings retain exactly three tabs');
+    for (const name of tabs) assert.equal(await tab(name).count(), 1, `settings tab remains accessible: ${name}`);
+    assert.equal(await sidebar().getByRole('button', { name: /模块管理|插件商店/ }).count(), 0, 'the obsolete module entry is removed');
+    assert.equal(await settings().getByRole('button', { name: /打开模块管理|启用模块|停用模块/ }).count(), 0, 'settings do not restore a module manager');
   }
   async function screenshot(name) {
     const { width, height } = page.viewportSize();
@@ -139,12 +143,9 @@ const { chromium } = require('playwright');
       assert.equal(payload.autoHideEnabled, false); assert.equal(payload.autoHideMinutes, 17);
     }
     await tab('常规').focus(); await page.keyboard.press('ArrowRight');
-    assert.equal(await tab('模块与版本').getAttribute('aria-selected'), 'true', 'arrow key selects the next settings tab');
+    assert.equal(await tab('本机数据').getAttribute('aria-selected'), 'true', 'arrow key selects the next settings tab');
     await page.keyboard.press('End'); assert.equal(await tab('关于').getAttribute('aria-selected'), 'true');
     await page.keyboard.press('Home'); assert.equal(await tab('常规').getAttribute('aria-selected'), 'true');
-    await tab('模块与版本').click(); await button('打开模块管理').click();
-    await main().getByPlaceholder('搜索模块或功能…').waitFor();
-    assert.ok(await main().getByRole('heading', { name: 'JSON 格式化', exact: true }).count(), 'module manager is reachable');
 
     for (const [width, height] of [[1280, 800], [1280, 720], [1024, 720], [760, 600]]) {
       await page.setViewportSize({ width, height }); await openSettings();
@@ -172,7 +173,7 @@ const { chromium } = require('playwright');
       assert.equal(await mainHeader().locator('p').count(), 1, 'pet header explanation is retained');
     }
     assert.deepEqual(errors, [], 'no uncaught browser errors');
-    console.log('PASS: 4 tabs × 4 sizes × 2 typography preferences; all settings controls reachable, compact unified headers, 8 complete settings.update payloads, keyboard tab navigation, module-manager link, and preserved today/all/status/pet-settings content.');
+    console.log('PASS: 3 tabs × 4 sizes × 2 typography preferences; all settings controls reachable, compact unified headers, 8 complete settings.update payloads, keyboard tab navigation, no obsolete module manager, and preserved today/all/status/pet-settings content.');
     console.log(`Screenshots: ${output}`);
   } finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

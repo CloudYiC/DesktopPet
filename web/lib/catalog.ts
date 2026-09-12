@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.14-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '-', text: 'Removed the redundant built-in module enable and disable registry from the desktop UI' },
+      { kind: '~', text: 'All 17 packaged desktop tools now open directly, without Local, Available, Popular or status-filter labels' },
+      { kind: '~', text: 'Simplified Assistant Settings to General, Local Data and About while preserving native confirmation boundaries' },
+    ],
+  },
+  {
     version: 'v0.12.13-desktop',
     date: '2026-09-12',
     items: [

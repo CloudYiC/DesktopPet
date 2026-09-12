@@ -15,19 +15,6 @@ export interface ToolCategory {
 
 export type ToolRuntime = 'c-core' | 'react' | 'native-system';
 
-export type ToolPermission =
-  | '本地计算'
-  | '打开本地网络连接'
-  | '监听本地网络端口'
-  | '读取系统信息'
-  | '读取端口与进程'
-  | '结束端口占用进程'
-  | '读取已安装软件'
-  | '启动注册卸载程序'
-  | '清理已确认的软件残留'
-  | '读取所选数据库'
-  | '修改所选数据库';
-
 export interface ToolDefinition {
   id: string;
   name: string;
@@ -76,22 +63,4 @@ export function toolsForCategory(category: ToolCategoryId | null) {
 
 export function categoryById(category: ToolCategoryId | null) {
   return TOOL_CATEGORIES.find((item) => item.id === category) ?? null;
-}
-
-/** Permissions are static metadata; runtime enforcement remains native. */
-export function permissionsForTool(tool: ToolDefinition): ToolPermission[] {
-  if (tool.id === 'system-inspector') return ['读取系统信息'];
-  if (tool.id === 'port-manager') {
-    return ['读取端口与进程', '结束端口占用进程'];
-  }
-  if (tool.id === 'network-debugger') {
-    return ['打开本地网络连接', '监听本地网络端口'];
-  }
-  if (tool.id === 'software-uninstaller') {
-    return ['读取已安装软件', '启动注册卸载程序', '清理已确认的软件残留'];
-  }
-  if (tool.id === 'database-studio') {
-    return ['读取所选数据库', '修改所选数据库'];
-  }
-  return ['本地计算'];
 }

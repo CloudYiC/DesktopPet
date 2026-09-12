@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.13",
+  "latestVersion": "0.12.14",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.13",
-  "releaseNotes": "Reorganizes Network Debugger into full-width connection, receive-log and send sections. Keeps endpoints and connection actions in one row, and line ending, repeat interval and sending in another at standard window widths. Narrow windows wrap naturally. Removes the persistent local-processing notice while retaining risk and error feedback. Log growth stays inside its viewport and feedback does not obscure Send.",
-  "publishedAt": "2026-09-12T09:59:16.322Z",
+  "title": "云依助手 0.12.14",
+  "releaseNotes": "Removes the built-in module manager and enable/disable registry. All 17 packaged tools now open directly, without status badges, status filters, favorites or hiding. Previously disabled tools remain available and an old module-manager start page restores to the tool home. Assistant Settings now contains General, Local Data and About; native safety checks and image-processing behavior are unchanged.",
+  "publishedAt": "2026-09-12T13:15:14.407Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.13.exe",
-      "sha256": "EAD4D2F5CCD05AFB437859E4B66EBFE81F925E0E0A8F6DA69F87C20A23657594",
-      "size": 23216273,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.14.exe",
+      "sha256": "BBF28C153AEB352D33C3ED014FFEE9908212612F709F793633107F4461F9B790",
+      "size": 23214192,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.13.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.14.exe"
   }
 }

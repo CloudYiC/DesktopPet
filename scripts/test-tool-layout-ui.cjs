@@ -19,15 +19,15 @@ const { chromium } = require('playwright');
   const toolHome = () => page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
   const openTool = async (name) => {
     const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) });
-    const enable = card.getByRole('button', { name: 'Enable', exact: true });
-    if (await enable.count()) await enable.click();
-    await card.getByRole('button', { name: 'Open', exact: true }).click();
+    assert.equal(await card.getByRole('button', { name: /^(Enable|启用|停用)$/ }).count(), 0, 'built-in tools never require enabling');
+    await card.getByRole('button', { name: '打开', exact: true }).click();
     await header().waitFor();
   };
   try {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
     await toolHome();
-    const cards = await page.getByRole('article').filter({ has: page.getByRole('button', { name: /^(Open|Enable)$/ }) }).evaluateAll((elements) =>
+    fs.mkdirSync(output, { recursive: true });
+    const cards = await page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) }).evaluateAll((elements) =>
       elements.map((element) => ({ name: element.querySelector('h3').textContent, description: element.querySelector('p').textContent })));
     assert.equal(cards.length, 17);
     assert.equal(Math.round((await sidebar().boundingBox()).width), 192);

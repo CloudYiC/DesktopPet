@@ -7,10 +7,10 @@ Unicode True
 !include "x64.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.12.13"
+  !define APP_VERSION "0.12.14"
 !endif
 !ifndef APP_FILE_VERSION
-  !define APP_FILE_VERSION "0.12.13.0"
+  !define APP_FILE_VERSION "0.12.14.0"
 !endif
 !ifndef APP_SOURCE
   !error "APP_SOURCE must point to the Release application directory."
@@ -207,7 +207,7 @@ Section /o "开机自动启动" SecAutoStart
 SectionEnd
 
 LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并安装应用需要的微软运行环境。"
-LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装云依助手、内置工具模块和卸载程序。"
+LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装云依助手、内置工具和卸载程序。"
 LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建云依助手快捷方式。"
 LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动云依助手。"
 

@@ -124,9 +124,7 @@ const { chromium } = require('playwright');
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
     await page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
     const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: '文本比较', exact: true }) });
-    const enable = card.getByRole('button', { name: 'Enable', exact: true });
-    if (await enable.count()) await enable.click();
-    await card.getByRole('button', { name: 'Open', exact: true }).click();
+    await card.getByRole('button', { name: '打开', exact: true }).click();
     await leftInput.waitFor();
     await rightInput.waitFor();
     for (const name of ['开始比较', '交换文本', '清空文本', '载入示例', '收起输入']) {

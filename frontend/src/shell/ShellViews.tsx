@@ -1,70 +1,13 @@
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import packageInfo from '../../package.json';
-import { setPluginEnabled, usePluginRegistry } from '../plugins/pluginRegistry';
-import { permissionsForTool, READY_TOOL_COUNT, TOOL_DEFINITIONS } from '../toolbox/catalog';
+import { READY_TOOL_COUNT } from '../toolbox/catalog';
 import type { AppState, WorkspaceTextSize, WorkspaceTheme } from '../types';
 import styles from './ShellViews.module.scss';
 
-/** Enables or disables only the working modules bundled with the app. */
-export function PluginStoreView() {
-  const [query, setQuery] = useState('');
-  const pluginState = usePluginRegistry();
-  const filteredTools = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('zh-CN');
-    if (!normalized) return TOOL_DEFINITIONS;
-    return TOOL_DEFINITIONS.filter((tool) =>
-      `${tool.name} ${tool.shortName} ${tool.description}`
-        .toLocaleLowerCase('zh-CN')
-        .includes(normalized),
-    );
-  }, [query]);
-  const enabledCount = TOOL_DEFINITIONS.filter(
-    (tool) => pluginState[tool.id] !== false,
-  ).length;
-
-  return (
-    <section className={styles.storeView}>
-      <div className={styles.storeHero}>
-        <div><span>LOCAL MODULES</span><h2>按需启用，让每项权限都看得见。</h2><p>内置模块的启用状态保存在本机；系统与进程权限仍由 C++11 原生层再次校验。</p></div>
-        <div><strong>{enabledCount}</strong><span>Local</span><strong>{READY_TOOL_COUNT - enabledCount}</strong><span>Available</span></div>
-      </div>
-      <label className={styles.storeSearch}>
-        <span>⌕</span>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索模块或功能…" />
-        <em>{filteredTools.length} 个结果</em>
-      </label>
-      <div className={styles.pluginGrid}>
-        {filteredTools.map((tool) => {
-          const enabled = pluginState[tool.id] !== false;
-          return (
-            <article key={tool.id} className={!enabled ? styles.pluginDisabled : undefined}>
-              <i>{tool.glyph}</i>
-              <div>
-                <span>{enabled ? 'BUILT IN · LOCAL' : 'BUNDLED · AVAILABLE'}</span>
-                <h3>{tool.name}</h3><p>{tool.description}</p>
-                <ul className={styles.permissionList}>
-                  {permissionsForTool(tool).map((permission) => <li key={permission}>{permission}</li>)}
-                </ul>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPluginEnabled(tool.id, !enabled)}
-              >
-                {enabled ? '停用' : '启用'}
-              </button>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-type WorkbenchCenterTab = 'appearance' | 'plugins' | 'storage' | 'about';
+type WorkbenchCenterTab = 'appearance' | 'storage' | 'about';
 
 const WORKBENCH_CENTER_TABS: { id: WorkbenchCenterTab; label: string; glyph: string }[] = [
   { id: 'appearance', label: '常规', glyph: '◐' },
-  { id: 'plugins', label: '模块与版本', glyph: '◇' },
   { id: 'storage', label: '本机数据', glyph: '▤' },
   { id: 'about', label: '关于', glyph: 'i' },
 ];
@@ -76,15 +19,11 @@ interface WorkspaceCenterViewProps {
     workspaceTextSize?: WorkspaceTextSize;
     openLastView?: boolean;
   }): void;
-  onOpenPluginStore(): void;
 }
 
 /** Local-first settings center containing only operational preferences. */
-export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginStore }: WorkspaceCenterViewProps) {
+export function WorkspaceCenterView({ state, onPreferencesChange }: WorkspaceCenterViewProps) {
   const [tab, setTab] = useState<WorkbenchCenterTab>('appearance');
-  const pluginState = usePluginRegistry();
-  const readyTools = TOOL_DEFINITIONS;
-  const enabledTools = readyTools.filter((tool) => pluginState[tool.id] !== false).length;
   const customCharacters = state.characters.filter((character) => !character.builtIn).length;
 
   return (
@@ -165,21 +104,6 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
             </SettingsPane>
           )}
 
-          {tab === 'plugins' && (
-            <SettingsPane title="模块与版本">
-              <div className={styles.summaryCards}>
-                <article><span>已启用</span><strong>{enabledTools}</strong></article>
-                <article><span>未启用</span><strong>{readyTools.length - enabledTools}</strong></article>
-                <article><span>当前版本</span><strong>v{packageInfo.version}</strong></article>
-              </div>
-              <SettingsSection title="模块管理">
-                <SettingLine label={`内置工具 · ${READY_TOOL_COUNT} 项`}>
-                  <button type="button" className={styles.secondaryButton} onClick={onOpenPluginStore}>打开模块管理</button>
-                </SettingLine>
-              </SettingsSection>
-            </SettingsPane>
-          )}
-
           {tab === 'storage' && (
             <SettingsPane title="本机数据">
               <div className={styles.summaryCards}>
@@ -199,6 +123,7 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
             <SettingsPane title="关于云依助手">
               <SettingsSection title="版本信息">
                 <SettingLine label="云依助手"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
+                <SettingLine label="内置工具"><strong className={styles.aboutValue}>{READY_TOOL_COUNT} 项</strong></SettingLine>
                 <SettingLine label="原生层"><strong className={styles.aboutValue}>C / C++11</strong></SettingLine>
                 <SettingLine label="界面层"><strong className={styles.aboutValue}>React 18</strong></SettingLine>
                 <SettingLine label="数据层"><strong className={styles.aboutValue}>SQLite</strong></SettingLine>

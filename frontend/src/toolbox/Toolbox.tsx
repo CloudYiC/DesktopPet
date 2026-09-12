@@ -4,7 +4,6 @@ import {
   requestSystemSnapshot,
   terminatePortProcess,
 } from '../bridge/hostBridge';
-import { setPluginEnabled, usePluginRegistry } from '../plugins/pluginRegistry';
 import type { PortEntry, SystemSnapshot } from '../types';
 import {
   categoryById,
@@ -37,33 +36,23 @@ interface ToolboxProps {
 export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: ToolboxProps) {
   const [activeToolId, setActiveToolId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'default' | 'local' | 'available'>('default');
   const searchInput = useRef<HTMLInputElement>(null);
   const activeTool = TOOL_DEFINITIONS.find((tool) => tool.id === activeToolId) ?? null;
-  const pluginState = usePluginRegistry();
   const selectedCategory = categoryById(category);
   const visibleTools = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('zh-CN');
     return toolsForCategory(category).filter((tool) => {
-      const local = pluginState[tool.id] !== false;
-      const available = !local;
-      if (statusFilter === 'local' && !local) return false;
-      if (statusFilter === 'available' && !available) return false;
       return !normalized || `${tool.name} ${tool.shortName} ${tool.description}`
         .toLocaleLowerCase('zh-CN')
         .includes(normalized);
     });
-  }, [category, pluginState, query, statusFilter]);
+  }, [category, query]);
 
   useEffect(() => {
     if (activeTool && category && activeTool.category !== category) {
       setActiveToolId(null);
     }
   }, [activeTool, category]);
-
-  useEffect(() => {
-    if (activeTool && pluginState[activeTool.id] === false) setActiveToolId(null);
-  }, [activeTool, pluginState]);
 
   useEffect(() => {
     onWorkspaceChange();
@@ -148,52 +137,35 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
           <input ref={searchInput} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索工具…" />
           <kbd>Ctrl K</kbd>
         </label>
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
-          <option value="default">Default</option>
-          <option value="local">Local</option>
-          <option value="available">Available</option>
-        </select>
       </div>
 
       {!selectedCategory && (
         <div className={styles.catalogHeading}>
-          <div><span>TOOL CATALOG</span><h2>全部工具</h2><p>这里只展示已经可以实际使用的本地工具与模块。</p></div>
+          <div><span>TOOL CATALOG</span><h2>全部工具</h2><p>所有内置工具均可直接打开使用。</p></div>
         </div>
       )}
 
       <div className={styles.toolGrid}>
         {visibleTools.map((tool) => {
-          const local = pluginState[tool.id] !== false;
-          const available = !local;
-          const popular = ['timestamp', 'system-inspector', 'port-manager', 'software-uninstaller'].includes(tool.id);
           return (
-            <article key={tool.id} className={available ? styles.availableTool : undefined}>
+            <article key={tool.id}>
               <div className={styles.toolGlyph}>{tool.glyph}</div>
               <div className={styles.toolCopy}>
                 <h3>{tool.name}</h3>
                 <p>{tool.description}</p>
               </div>
               <footer className={styles.toolActions}>
-                <div>
-                  {popular && <span className={styles.popularBadge}>Popular</span>}
-                  <span className={local ? styles.localBadge : styles.availableBadge}>
-                    {local ? 'Local' : 'Available'}
-                  </span>
-                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (available) setPluginEnabled(tool.id, true);
-                    else setActiveToolId(tool.id);
-                  }}
+                  onClick={() => setActiveToolId(tool.id)}
                 >
-                  {local ? 'Open' : 'Enable'}
+                  打开
                 </button>
               </footer>
             </article>
           );
         })}
-        {!visibleTools.length && <p className={styles.emptyCatalog}>没有符合当前搜索和状态筛选的工具。</p>}
+        {!visibleTools.length && <p className={styles.emptyCatalog}>没有符合当前搜索的工具。</p>}
       </div>
     </section>
   );

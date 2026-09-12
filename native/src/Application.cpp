@@ -322,8 +322,7 @@ bool IsValidWorkspaceTextSize(const std::string& value) {
 
 bool IsValidDashboardView(const std::string& value) {
   static const char* views[] = {
-      "toolbox", "today", "all", "status", "settings", "marketplace",
-      "account"};
+      "toolbox", "today", "all", "status", "settings", "account"};
   return std::find(std::begin(views), std::end(views), value) !=
          std::end(views);
 }
@@ -515,14 +514,19 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
     if (reminders_.GetSetting("workspace.openLastView", setting)) {
       openLastView_ = setting != "0";
     }
-    if (reminders_.GetSetting("workspace.lastView", setting) &&
-        IsValidDashboardView(setting)) {
-      lastDashboardView_ = setting;
+    bool restoreToolHome = false;
+    if (reminders_.GetSetting("workspace.lastView", setting)) {
+      // Older clients could reopen the removed module manager. Restore the
+      // toolbox instead, without changing unrelated preferences or user data.
+      restoreToolHome = setting == "marketplace";
+      if (restoreToolHome) setting = "toolbox";
+      if (IsValidDashboardView(setting)) lastDashboardView_ = setting;
     }
     if (reminders_.GetSetting("workspace.lastCategory", setting) &&
         IsValidToolCategory(setting)) {
       lastToolCategory_ = setting;
     }
+    if (restoreToolHome) lastToolCategory_.clear();
     std::string x;
     std::string y;
     if (reminders_.GetSetting("pet.x", x) &&
@@ -566,7 +570,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.12.13";
+    const std::string marker = "CuteYiyiDesktopPet 0.12.14";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 

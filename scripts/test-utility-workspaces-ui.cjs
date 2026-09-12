@@ -115,9 +115,7 @@ function syntheticTool(request) {
     if (await header().count()) await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
     await page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
     const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) });
-    const enable = card.getByRole('button', { name: 'Enable', exact: true });
-    if (await enable.count()) await enable.click();
-    await card.getByRole('button', { name: 'Open', exact: true }).click();
+    await card.getByRole('button', { name: '打开', exact: true }).click();
     await header().getByRole('heading', { name, exact: true }).waitFor();
   }
   async function textValue(locator) {

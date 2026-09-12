@@ -143,13 +143,12 @@ const { chromium } = require('playwright');
   try {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
     await page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
-    const cards = page.getByRole('article').filter({ has: page.getByRole('button', { name: /^(Open|Enable)$/ }) });
+    const cards = page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) });
     assert.equal(await cards.count(), 17, 'Number-format removal reduces the tool catalog to 17');
     assert.equal(await page.getByRole('heading', { name: '数字格式化', exact: true }).count(), 0);
     const card = cards.filter({ has: page.getByRole('heading', { name: '数据库工作台', exact: true }) });
     const description = await card.locator('p').innerText();
-    if (await card.getByRole('button', { name: 'Enable', exact: true }).count()) await card.getByRole('button', { name: 'Enable', exact: true }).click();
-    await card.getByRole('button', { name: 'Open', exact: true }).click();
+    await card.getByRole('button', { name: '打开', exact: true }).click();
     await page.locator('header[aria-label="工具详情导航"]').getByRole('heading', { name: '数据库工作台', exact: true }).waitFor();
     assert.equal((await page.getByRole('main').last().innerText()).includes(description), false, 'Tool description remains catalog-only');
     await button('打开数据库').click();

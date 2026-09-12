@@ -10,7 +10,7 @@ import {
 import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
 import { AppSidebar } from '../navigation/AppSidebar';
 import type { DashboardView } from '../navigation/types';
-import { PluginStoreView, WorkspaceCenterView } from '../shell/ShellViews';
+import { WorkspaceCenterView } from '../shell/ShellViews';
 import { Toolbox } from '../toolbox/Toolbox';
 import { categoryById, type ToolCategoryId } from '../toolbox/catalog';
 import type {
@@ -186,12 +186,15 @@ export function Dashboard() {
         if (!restoredNavigation.current) {
           restoredNavigation.current = true;
           if (incoming.openLastView) {
-            const rememberedView = incoming.lastDashboardView as DashboardView;
+            // Older installs may remember the removed module-management page.
+            // Restore the tool home instead, including when previewing an older host.
+            const wasMarketplace = incoming.lastDashboardView === 'marketplace';
+            const rememberedView = (wasMarketplace ? 'toolbox' : incoming.lastDashboardView) as DashboardView;
             const validViews: DashboardView[] = [
-              'toolbox', 'today', 'all', 'status', 'settings', 'marketplace', 'account',
+              'toolbox', 'today', 'all', 'status', 'settings', 'account',
             ];
             if (validViews.includes(rememberedView)) setActiveView(rememberedView);
-            if (incoming.lastToolCategory && categoryById(incoming.lastToolCategory as ToolCategoryId)) {
+            if (!wasMarketplace && incoming.lastToolCategory && categoryById(incoming.lastToolCategory as ToolCategoryId)) {
               setActiveToolCategory(incoming.lastToolCategory as ToolCategoryId);
             }
           }
@@ -439,8 +442,6 @@ export function Dashboard() {
 
   const viewHeading = activeView === 'toolbox'
       ? activeCategory?.label ?? '云依助手工具箱'
-    : activeView === 'marketplace'
-      ? '按需启用已经内置的本地工具。'
     : activeView === 'account'
       ? '助手设置'
     : activeView === 'all'
@@ -452,8 +453,6 @@ export function Dashboard() {
       : `${greetingForHour(hour)}，慢慢来就好。`;
   const viewDescription = activeView === 'toolbox'
     ? activeCategory?.description ?? '本地优先的常用开发工具，不离开桌面也能快速处理数据。'
-    : activeView === 'marketplace'
-      ? '这里只管理已经随云依助手打包并可实际使用的模块。'
     : activeView === 'account'
       ? ''
     : activeView === 'all'
@@ -465,11 +464,9 @@ export function Dashboard() {
       : `${state.petName}会帮你看着时间，不让重要的小事溜走。`;
   const viewKicker = activeView === 'toolbox'
     ? 'CLOUDYI TOOLBOX'
-    : activeView === 'marketplace'
-      ? 'LOCAL MODULES'
-      : activeView === 'account'
-        ? 'CLOUDYI ASSISTANT'
-        : 'CUTE COMPANION ROUTINE';
+    : activeView === 'account'
+      ? 'CLOUDYI ASSISTANT'
+      : 'CUTE COMPANION ROUTINE';
 
   return (
     <div className={styles.appShell}>
@@ -519,8 +516,6 @@ export function Dashboard() {
             onOpenCategory={(category) => setActiveToolCategory(category)}
             onWorkspaceChange={scrollContentToTop}
           />
-        ) : activeView === 'marketplace' ? (
-          <PluginStoreView />
         ) : activeView === 'account' ? (
           <WorkspaceCenterView
             state={state}
@@ -529,7 +524,6 @@ export function Dashboard() {
               workspaceTextSize?: WorkspaceTextSize;
               openLastView?: boolean;
             }) => updateSettings(patch)}
-            onOpenPluginStore={() => setActiveView('marketplace')}
           />
         ) : activeView === 'status' || activeView === 'settings' ? (
           <section

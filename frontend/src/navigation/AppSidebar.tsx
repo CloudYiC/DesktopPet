@@ -130,18 +130,11 @@ export function AppSidebar(props: AppSidebarProps) {
 
       <div className={styles.sidebarBottom}>
         <button
-          className={`${styles.storeButton} ${props.activeView === 'marketplace' ? styles.bottomActive : ''}`}
-          type="button"
-          onClick={() => props.onViewChange('marketplace')}
-        >
-          <i>◇</i><span><strong>模块管理</strong><small>启用内置工具</small></span><em>›</em>
-        </button>
-        <button
           className={`${styles.profileButton} ${props.activeView === 'account' ? styles.bottomActive : ''}`}
           type="button"
           onClick={() => props.onViewChange('account')}
         >
-          <i>云</i><span><strong>助手设置</strong><small>主题、模块与本机数据</small></span><em>›</em>
+          <i>云</i><span><strong>助手设置</strong><small>主题与本机数据</small></span><em>›</em>
         </button>
       </div>
     </aside>

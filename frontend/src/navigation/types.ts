@@ -5,5 +5,4 @@ export type DashboardView =
   | 'all'
   | 'status'
   | 'settings'
-  | 'marketplace'
   | 'account';
