@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.8-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '+', text: 'Added local solid-background replacement with white, blue, red, custom and transparent targets' },
+      { kind: '+', text: 'Added background sampling, tolerance and edge feathering in a cancellable image worker' },
+      { kind: '~', text: 'Pinned image previews and save controls while image settings scroll independently' },
+    ],
+  },
+  {
     version: 'v0.12.7-desktop',
     date: '2026-09-12',
     items: [
