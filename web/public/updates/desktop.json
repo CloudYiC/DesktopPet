@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.11",
+  "latestVersion": "0.12.12",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.11",
-  "releaseNotes": "Aligns line-ending and repeat-send controls in Network Debugger, keeping TCP server targets on a separate row. Removes redundant connection headings and the default local-processing notice. Uses available window height to reduce nested scrolling without shrinking controls, while preserving natural small-window scrolling, log scrolling, safety consent and actual error feedback.",
-  "publishedAt": "2026-09-12T08:55:31.000Z",
+  "title": "云依助手 0.12.12",
+  "releaseNotes": "Compacts Assistant Settings into horizontal category tabs, three side-by-side themes and concise preference rows. Removes repeated introductions and decorative small-print labels while retaining version, counts and storage values. Aligns all desktop content, including Yiyi settings, with the tool-page insets without changing the native window size or assistant functions.",
+  "publishedAt": "2026-09-12T09:21:09.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.11.exe",
-      "sha256": "A5F17E8C0D4E2FF4BE02ADE6B1CD92ADE4EB758B3B8C320FB90E58DCF9EFE937",
-      "size": 23215933,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.12.exe",
+      "sha256": "29EEB4CCAF99AC4354FAE718CF290102B6A3D773F40100261510444AADBC4335",
+      "size": 23215716,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.11.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.12.exe"
   }
 }

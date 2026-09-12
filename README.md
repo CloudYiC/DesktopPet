@@ -55,6 +55,7 @@
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
 - 模块管理只展示已经可用的内置工具；助手设置包含三套浅色主题、界面字号、上次页面恢复、模块状态、本机数据概览和版本信息
+- 助手设置采用顶部四标签、同行主题选择与精简参数行，移除重复说明；依依设置、事项、状态与工具页统一顶部 12px、左右 16px 的详情间距
 - 系统中心只读显示 Windows 版本、设备与 BIOS、CPU 核心、内存/提交量、系统盘、显卡与屏幕、网络、时区、电源和持续运行时间
 - 端口管理显示 IPv4 TCP/UDP、本地/远端地址、连接状态、PID 和进程名称
 - 结束端口占用进程需要明确二次确认；原生层会重新核对端口归属并拒绝关键 Windows 进程
@@ -158,7 +159,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.11.exe
+out/dist/CloudYiAssistant-Setup-0.12.12.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -179,7 +180,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.11.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.12.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。

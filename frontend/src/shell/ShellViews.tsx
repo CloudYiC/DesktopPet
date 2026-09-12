@@ -88,33 +88,46 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
   const customCharacters = state.characters.filter((character) => !character.builtIn).length;
 
   return (
-    <section className={styles.centerView}>
+    <section className={styles.centerView} data-testid="assistant-settings">
       <div className={styles.centerShell}>
-        <nav className={styles.centerTabs} aria-label="云依助手设置">
-          <div><span>CLOUDYI ASSISTANT</span><strong>助手设置</strong></div>
-          {WORKBENCH_CENTER_TABS.map((item) => (
+        <nav className={styles.centerTabs} role="tablist" aria-label="助手设置分类">
+          {WORKBENCH_CENTER_TABS.map((item, index) => (
             <button
               key={item.id}
               type="button"
+              role="tab"
+              id={`assistant-settings-tab-${item.id}`}
+              aria-controls={`assistant-settings-panel-${item.id}`}
               className={tab === item.id ? styles.centerTabActive : undefined}
-              aria-current={tab === item.id ? 'page' : undefined}
+              aria-selected={tab === item.id}
+              tabIndex={tab === item.id ? 0 : -1}
               onClick={() => setTab(item.id)}
+              onKeyDown={(event) => {
+                const total = WORKBENCH_CENTER_TABS.length;
+                const next = event.key === 'ArrowRight' ? (index + 1) % total
+                  : event.key === 'ArrowLeft' ? (index + total - 1) % total
+                    : event.key === 'Home' ? 0 : event.key === 'End' ? total - 1 : null;
+                if (next === null) return;
+                event.preventDefault();
+                setTab(WORKBENCH_CENTER_TABS[next].id);
+                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+              }}
             >
-              <i>{item.glyph}</i><span>{item.label}</span>
+              <i aria-hidden="true">{item.glyph}</i><span>{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className={styles.centerContent}>
+        <div className={styles.centerContent} role="tabpanel" id={`assistant-settings-panel-${tab}`} aria-labelledby={`assistant-settings-tab-${tab}`}>
           {tab === 'appearance' && (
-            <SettingsPane kicker="GENERAL" title="常规与外观" description="设置会写入本机 SQLite，并在下次启动时恢复。">
+            <SettingsPane title="常规与外观">
               <SettingsSection title="主题颜色">
-                <div className={styles.themeChoices}>
+                <div className={styles.themeChoices} role="group" aria-label="主题颜色">
                   {([
-                    ['warm', '暖杏', '陪伴模式', '#f8f4ee', '#eaa06e'],
-                    ['cloud', '云青', '工具模式', '#edf6f4', '#168b85'],
-                    ['rose', '柔粉', '轻松模式', '#fbf1f2', '#d98291'],
-                  ] as const).map(([value, label, detail, background, accent]) => (
+                    ['warm', '暖杏', '#f8f4ee', '#eaa06e'],
+                    ['cloud', '云青', '#edf6f4', '#168b85'],
+                    ['rose', '柔粉', '#fbf1f2', '#d98291'],
+                  ] as const).map(([value, label, background, accent]) => (
                     <button
                       key={value}
                       type="button"
@@ -122,45 +135,45 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
                       className={state.workspaceTheme === value ? styles.choiceActive : undefined}
                       onClick={() => onPreferencesChange({ workspaceTheme: value })}
                     >
-                      <i style={{ background: `linear-gradient(135deg, ${background} 62%, ${accent} 62%)` }} />
-                      <span><strong>{label}</strong><small>{detail}</small></span>
+                      <i aria-hidden="true" style={{ background: `linear-gradient(135deg, ${background} 62%, ${accent} 62%)` }} />
+                      <strong>{label}</strong>
                     </button>
                   ))}
                 </div>
-                <p className={styles.settingHint}>当前三套浅色主题均已完整可用。</p>
               </SettingsSection>
               <SettingsSection title="界面显示">
-                <SettingLine label="界面字号" detail="同时缩放侧栏、工具和表单，避免只放大部分文字。">
-                  <div className={styles.segmentedControl}>
+                <SettingLine label="界面字号">
+                  <div className={styles.segmentedControl} role="group" aria-label="界面字号">
                     {([
                       ['compact', '紧凑'], ['comfortable', '标准'], ['large', '放大'],
                     ] as const).map(([value, label]) => (
-                      <button key={value} type="button" className={state.workspaceTextSize === value ? styles.segmentActive : undefined} onClick={() => onPreferencesChange({ workspaceTextSize: value })}>{label}</button>
+                      <button key={value} type="button" aria-pressed={state.workspaceTextSize === value} className={state.workspaceTextSize === value ? styles.segmentActive : undefined} onClick={() => onPreferencesChange({ workspaceTextSize: value })}>{label}</button>
                     ))}
                   </div>
                 </SettingLine>
-                <SettingLine label="记住上次页面" detail="重新打开工作台时回到上次使用的页面或工具分类。">
+                <SettingLine label="记住上次页面">
                   <button
                     type="button"
                     role="switch"
+                    aria-label="记住上次页面"
                     aria-checked={state.openLastView}
                     className={`${styles.miniSwitch} ${state.openLastView ? styles.miniSwitchActive : ''}`}
                     onClick={() => onPreferencesChange({ openLastView: !state.openLastView })}
-                  ><i /></button>
+                  ><i aria-hidden="true" /></button>
                 </SettingLine>
               </SettingsSection>
             </SettingsPane>
           )}
 
           {tab === 'plugins' && (
-            <SettingsPane kicker="MODULES & VERSION" title="模块与版本" description="这里只展示内置模块的真实启用状态和当前应用版本。">
+            <SettingsPane title="模块与版本">
               <div className={styles.summaryCards}>
-                <article><span>已启用</span><strong>{enabledTools}</strong><small>Local</small></article>
-                <article><span>未启用</span><strong>{readyTools.length - enabledTools}</strong><small>Available</small></article>
-                <article><span>当前版本</span><strong>v{packageInfo.version}</strong><small>Release</small></article>
+                <article><span>已启用</span><strong>{enabledTools}</strong></article>
+                <article><span>未启用</span><strong>{readyTools.length - enabledTools}</strong></article>
+                <article><span>当前版本</span><strong>v{packageInfo.version}</strong></article>
               </div>
               <SettingsSection title="模块管理">
-                <SettingLine label="本地模块目录" detail={`${READY_TOOL_COUNT} 项功能已经接入；启用状态保存在当前 WebView 用户数据中。`}>
+                <SettingLine label={`内置工具 · ${READY_TOOL_COUNT} 项`}>
                   <button type="button" className={styles.secondaryButton} onClick={onOpenPluginStore}>打开模块管理</button>
                 </SettingLine>
               </SettingsSection>
@@ -168,27 +181,27 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
           )}
 
           {tab === 'storage' && (
-            <SettingsPane kicker="LOCAL STORAGE" title="本机数据" description="这些内容全部保存在本机，不会上传到云端。">
+            <SettingsPane title="本机数据">
               <div className={styles.summaryCards}>
-                <article><span>未完成事项</span><strong>{state.reminders.length}</strong><small>SQLite</small></article>
-                <article><span>自定义角色</span><strong>{customCharacters}</strong><small>Characters</small></article>
-                <article><span>偏好设置</span><strong>本机</strong><small>Settings</small></article>
+                <article><span>未完成事项</span><strong>{state.reminders.length}</strong></article>
+                <article><span>自定义角色</span><strong>{customCharacters}</strong></article>
+                <article><span>偏好设置</span><strong>本机</strong></article>
               </div>
-              <SettingsSection title="保存位置与边界">
-                <SettingLine label="事项与偏好" detail="保存在应用数据目录的 yiyi.db 中，由 C++11 SQLite 层读写。"><span className={styles.statusPill}>本机保存</span></SettingLine>
-                <SettingLine label="角色图片" detail="保存在应用数据目录的 Characters 文件夹中，不会嵌入数据库。"><span className={styles.statusPill}>不上云</span></SettingLine>
-                <SettingLine label="工具输入" detail="代码、SQL 和转换文本只在当前界面内处理，默认不保存。"><span className={styles.statusPill}>不持久化</span></SettingLine>
+              <SettingsSection title="保存位置">
+                <SettingLine label="事项与偏好"><code className={styles.dataValue}>yiyi.db</code></SettingLine>
+                <SettingLine label="角色图片"><code className={styles.dataValue}>Characters/</code></SettingLine>
+                <SettingLine label="工具输入"><span className={styles.dataValue}>仅当前会话</span></SettingLine>
               </SettingsSection>
             </SettingsPane>
           )}
 
           {tab === 'about' && (
-            <SettingsPane kicker="ABOUT CLOUDYI ASSISTANT" title="关于云依助手" description="桌面陪伴、事项提醒与本地工具共用一个本地优先的 Windows 客户端。">
+            <SettingsPane title="关于云依助手">
               <SettingsSection title="版本信息">
-                <SettingLine label="云依助手" detail="当前应用版本"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
-                <SettingLine label="原生层" detail="C Win32 探针、C++11 应用与 WebView2 桥接"><strong className={styles.aboutValue}>C / C++11</strong></SettingLine>
-                <SettingLine label="界面层" detail="组件、动画与 SCSS Modules"><strong className={styles.aboutValue}>React 18</strong></SettingLine>
-                <SettingLine label="数据层" detail="事项、角色元数据与工作台偏好"><strong className={styles.aboutValue}>SQLite</strong></SettingLine>
+                <SettingLine label="云依助手"><strong className={styles.aboutValue}>v{packageInfo.version}</strong></SettingLine>
+                <SettingLine label="原生层"><strong className={styles.aboutValue}>C / C++11</strong></SettingLine>
+                <SettingLine label="界面层"><strong className={styles.aboutValue}>React 18</strong></SettingLine>
+                <SettingLine label="数据层"><strong className={styles.aboutValue}>SQLite</strong></SettingLine>
               </SettingsSection>
             </SettingsPane>
           )}
@@ -198,19 +211,17 @@ export function WorkspaceCenterView({ state, onPreferencesChange, onOpenPluginSt
   );
 }
 
-function SettingsPane({ kicker, title, description, children }: {
-  kicker: string;
+function SettingsPane({ title, children }: {
   title: string;
-  description: string;
   children: ReactNode;
 }) {
-  return <div className={styles.settingsPane}><header><span>{kicker}</span><h2>{title}</h2><p>{description}</p></header>{children}</div>;
+  return <div className={styles.settingsPane}><h2 className={styles.paneTitle}>{title}</h2>{children}</div>;
 }
 
 function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
   return <section className={styles.settingsSection}><h3>{title}</h3><div>{children}</div></section>;
 }
 
-function SettingLine({ label, detail, children }: { label: string; detail: string; children: ReactNode }) {
-  return <div className={styles.settingLine}><span><strong>{label}</strong><small>{detail}</small></span><div>{children}</div></div>;
+function SettingLine({ label, children }: { label: string; children: ReactNode }) {
+  return <div className={styles.settingLine}><strong>{label}</strong><div>{children}</div></div>;
 }

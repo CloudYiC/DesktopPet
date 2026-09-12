@@ -442,7 +442,7 @@ export function Dashboard() {
     : activeView === 'marketplace'
       ? '按需启用已经内置的本地工具。'
     : activeView === 'account'
-      ? '工作台外观、模块与本机数据集中管理。'
+      ? '助手设置'
     : activeView === 'all'
       ? '所有小事，都在这里。'
     : activeView === 'status'
@@ -455,7 +455,7 @@ export function Dashboard() {
     : activeView === 'marketplace'
       ? '这里只管理已经随云依助手打包并可实际使用的模块。'
     : activeView === 'account'
-      ? '主题、字号、启动页面、模块状态和本机数据都可以在这里查看或调整。'
+      ? ''
     : activeView === 'all'
     ? '一次看看所有待办和重复提醒。'
     : activeView === 'status'
@@ -498,13 +498,13 @@ export function Dashboard() {
         onCreateDemoReminder={createDemoReminder}
       />
 
-      <main ref={contentRegion} className={`${styles.content} ${activeView === 'toolbox' ? styles.toolContent : ''}`}>
+      <main ref={contentRegion} className={styles.content}>
         {activeView !== 'toolbox' && (
-          <header className={styles.header}>
+          <header className={`${styles.header} ${activeView === 'account' ? styles.settingsHeader : ''}`}>
             <div>
               <span className={styles.kicker}>{viewKicker}</span>
               <h1>{viewHeading}</h1>
-              <p>{viewDescription}</p>
+              {viewDescription && <p>{viewDescription}</p>}
             </div>
           </header>
         )}

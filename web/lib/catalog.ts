@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.12-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Compacted Assistant Settings into horizontal tabs, a three-theme row and concise preference controls' },
+      { kind: '-', text: 'Removed repeated settings introductions and decorative small-print labels while retaining useful values' },
+      { kind: '~', text: 'Aligned all desktop content insets, including Yiyi settings, with the tool pages' },
+    ],
+  },
+  {
     version: 'v0.12.11-desktop',
     date: '2026-09-12',
     items: [

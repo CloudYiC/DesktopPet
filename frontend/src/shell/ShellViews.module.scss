@@ -5,8 +5,7 @@ $sand: var(--theme-sand);
 $teal: var(--theme-primary);
 $teal-dark: var(--theme-primary-deep);
 
-.storeView,
-.centerView {
+.storeView {
   display: grid;
   margin-top: 24px;
   gap: 18px;
@@ -104,153 +103,138 @@ $teal-dark: var(--theme-primary-deep);
   box-shadow: none;
 }
 
+// Settings use natural content height; compact spacing replaces the old nested sidebar.
+.centerView { display: grid; min-width: 0; margin-top: 12px; }
+
 .centerShell {
-  display: grid;
-  min-height: 520px;
+  min-width: 0;
   overflow: hidden;
-  grid-template-columns: 176px minmax(0, 1fr);
   background: color-mix(in srgb, $paper 72%, transparent);
   border: 1px solid rgba(86, 66, 52, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 18px 45px rgba(70, 58, 49, 0.06);
+  border-radius: 12px;
+}
+
+.centerShell button:focus-visible {
+  outline: 2px solid $teal;
+  outline-offset: 2px;
 }
 
 .centerTabs {
   display: flex;
-  padding: 24px 14px;
-  flex-direction: column;
-  gap: 7px;
-  background: color-mix(in srgb, $sand 72%, $paper);
-  border-right: 1px solid rgba(86, 66, 52, 0.07);
-
-  > div {
-    padding: 2px 8px 15px;
-    margin-bottom: 3px;
-    border-bottom: 1px solid rgba(86, 66, 52, 0.08);
-
-    span,
-    strong { display: block; }
-    span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: 0.16em; }
-    strong { margin-top: 6px; color: $ink; font-size: 0.875rem; line-height: 1.35; }
-  }
+  min-width: 0;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, $sand 48%, $paper);
+  border-bottom: 1px solid rgba(86, 66, 52, 0.08);
 
   > button {
-    display: grid;
-    min-height: 44px;
-    padding: 7px 10px;
+    display: flex;
+    min-height: 38px;
+    padding: 7px 15px;
     align-items: center;
-    grid-template-columns: 25px 1fr;
+    gap: 8px;
     color: $muted;
     cursor: pointer;
     background: transparent;
     border: 0;
-    border-radius: 10px;
-    font-size: 0.75rem;
+    border-radius: 7px;
+    font-size: 0.875rem;
     line-height: 1.35;
-    font-weight: 750;
-    text-align: left;
+    font-weight: 650;
+    white-space: nowrap;
     transition: 160ms ease;
 
-    i { color: $teal; font-size: 0.75rem; font-style: normal; text-align: center; }
+    i { color: $teal; font-size: 0.875rem; font-style: normal; }
     &:hover { color: $ink; background: color-mix(in srgb, $paper 65%, transparent); }
   }
 
   .centerTabActive {
     color: $teal-dark;
     background: $paper;
-    box-shadow: 0 6px 17px rgba(70, 58, 49, 0.06);
+    box-shadow: 0 1px 5px rgba(70, 58, 49, 0.07);
   }
 }
 
 .centerContent {
   min-width: 0;
-  padding: 22px;
+  padding: 16px;
 }
 
 .settingsPane {
   display: grid;
-  gap: 15px;
+  min-width: 0;
+  gap: 12px;
+}
 
-  > header {
-    padding: 7px 4px 2px;
-
-    > span { color: $teal; font-size: 0.75rem; font-weight: 850; letter-spacing: 0.18em; }
-    h2 { margin: 5px 0 4px; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.4375rem; font-weight: 600; }
-    p { margin: 0; color: $muted; font-size: 0.75rem; line-height: 1.6; }
-  }
+.paneTitle {
+  margin: 0;
+  color: $ink;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.4;
 }
 
 .settingsSection {
+  min-width: 0;
   overflow: hidden;
   background: $paper;
   border: 1px solid rgba(86, 66, 52, 0.08);
-  border-radius: 17px;
+  border-radius: 9px;
 
   > h3 {
-    padding: 13px 16px;
+    padding: 8px 14px;
     margin: 0;
-    color: $teal;
-    background: color-mix(in srgb, $sand 48%, transparent);
+    color: $teal-dark;
+    background: color-mix(in srgb, $sand 35%, transparent);
     border-bottom: 1px solid rgba(86, 66, 52, 0.06);
-    font-size: 0.75rem;
-    font-weight: 850;
-    letter-spacing: 0.12em;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.4;
   }
 }
 
 .themeChoices {
   display: grid;
-  padding: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 9px;
+  min-width: 0;
+  padding: 12px 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 
   > button {
-    display: grid;
+    display: flex;
     min-width: 0;
-    min-height: 68px;
-    padding: 11px;
+    min-height: 54px;
+    padding: 10px 12px;
     align-items: center;
-    grid-template-columns: 35px 1fr;
-    gap: 8px;
+    gap: 12px;
     color: $ink;
     cursor: pointer;
     background: transparent;
     border: 1px solid rgba(86, 66, 52, 0.1);
-    border-radius: 12px;
+    border-radius: 8px;
     text-align: left;
 
-    > i { width: 35px; height: 30px; border: 1px solid rgba(86, 66, 52, 0.08); border-radius: 9px; }
-    span,
-    strong,
-    small { display: block; min-width: 0; }
-    strong { font-size: 0.8125rem; line-height: 1.35; }
-    small { margin-top: 3px; overflow: hidden; color: $muted; font-size: 0.75rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+    > i { width: 34px; height: 28px; flex-shrink: 0; border: 1px solid rgba(86, 66, 52, 0.08); border-radius: 6px; }
+    strong { min-width: 0; font-size: 0.875rem; font-weight: 600; line-height: 1.4; }
   }
 
   .choiceActive { border-color: $teal; box-shadow: 0 0 0 2px color-mix(in srgb, $teal 12%, transparent); }
 }
 
-.settingHint {
-  padding: 0 16px 15px;
-  margin: 0;
-  color: $muted;
-  font-size: 0.75rem;
-  line-height: 1.6;
-}
-
 .settingLine {
   display: grid;
-  min-height: 78px;
-  padding: 13px 16px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 14px;
   align-items: center;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: 12px;
 
   & + & { border-top: 1px solid rgba(86, 66, 52, 0.07); }
-  > span > strong,
-  > span > small { display: block; }
-  > span > strong { color: $ink; font-size: 0.8125rem; line-height: 1.4; }
-  > span > small { max-width: 420px; margin-top: 4px; color: $muted; font-size: 0.75rem; line-height: 1.5; }
+  > strong { min-width: 0; color: $ink; font-size: 0.875rem; font-weight: 500; line-height: 1.45; }
+  > div { min-width: 0; }
 }
 
 .segmentedControl {
@@ -269,8 +253,8 @@ $teal-dark: var(--theme-primary-deep);
     background: transparent;
     border: 0;
     border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 750;
+    font-size: 0.8125rem;
+    font-weight: 600;
   }
 
   .segmentActive { color: $teal-dark; background: $paper; box-shadow: 0 3px 9px rgba(70, 58, 49, 0.07); }
@@ -278,38 +262,39 @@ $teal-dark: var(--theme-primary-deep);
 
 .miniSwitch {
   position: relative;
-  width: 38px;
-  height: 22px;
+  width: 44px;
+  min-height: 36px;
   padding: 0;
   cursor: pointer;
-  background: #d9d1c9;
+  background: transparent;
   border: 0;
-  border-radius: 999px;
+  border-radius: 6px;
 
-  i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: #fff; border-radius: 50%; box-shadow: 0 2px 5px rgba(70, 58, 49, 0.18); transition: 160ms ease; }
+  // The visual track stays compact while the pointer/keyboard target remains 36px tall.
+  &::before { position: absolute; top: 7px; left: 3px; width: 38px; height: 22px; content: ''; background: #d9d1c9; border-radius: 999px; }
+  i { position: absolute; top: 10px; left: 6px; width: 16px; height: 16px; background: #fff; border-radius: 50%; box-shadow: 0 2px 5px rgba(70, 58, 49, 0.18); transition: 160ms ease; }
 }
 
-.miniSwitchActive { background: $teal; i { transform: translateX(16px); } }
+.miniSwitchActive { &::before { background: $teal; } i { transform: translateX(16px); } }
 
 .summaryCards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 
   article {
     min-width: 0;
-    min-height: 110px;
-    padding: 18px;
+    min-height: 78px;
+    padding: 12px 14px;
     background: linear-gradient(145deg, $paper, color-mix(in srgb, $sand 65%, $paper));
     border: 1px solid rgba(86, 66, 52, 0.08);
-    border-radius: 16px;
+    border-radius: 9px;
 
     span,
-    strong,
-    small { display: block; }
-    span { color: $muted; font-size: 0.75rem; line-height: 1.4; }
-    strong { margin-top: 7px; overflow: hidden; color: $ink; font-family: Georgia, "Noto Serif SC", serif; font-size: 1.25rem; text-overflow: ellipsis; white-space: nowrap; }
-    small { margin-top: 6px; color: $teal; font-size: 0.75rem; font-weight: 800; line-height: 1.4; letter-spacing: 0.1em; }
+    strong { display: block; }
+    span { color: $muted; font-size: 0.8125rem; line-height: 1.4; }
+    strong { margin-top: 5px; color: $ink; font-size: 1.125rem; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
   }
 }
 
@@ -321,21 +306,30 @@ $teal-dark: var(--theme-primary-deep);
   background: color-mix(in srgb, $teal 12%, $paper);
   border: 0;
   border-radius: 8px;
-  font-size: 0.75rem;
-  font-weight: 800;
+  font-size: 0.8125rem;
+  font-weight: 650;
 }
 
-.statusPill { padding: 7px 10px; color: $teal-dark; background: color-mix(in srgb, $teal 11%, $paper); border-radius: 999px; font-size: 0.75rem; line-height: 1.35; white-space: nowrap; }
-.aboutValue { color: $ink; font-family: Georgia, serif; font-size: 0.8125rem; line-height: 1.4; white-space: nowrap; }
+.dataValue { color: $teal-dark; font-size: 0.875rem; line-height: 1.45; overflow-wrap: anywhere; }
+.aboutValue { color: $ink; font-size: 0.875rem; font-weight: 600; line-height: 1.45; white-space: nowrap; }
 
 @media (max-width: 760px) {
   .storeHero { grid-template-columns: 1fr; }
   .pluginGrid { grid-template-columns: 1fr; }
-  .centerShell { grid-template-columns: 1fr; }
-  .centerTabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-right: 0; border-bottom: 1px solid rgba(86, 66, 52, 0.07); }
-  .centerTabs > div { display: none; }
-  .centerTabs > button { padding: 6px; grid-template-columns: 1fr; justify-items: center; text-align: center; }
-  .themeChoices,
-  .summaryCards { grid-template-columns: 1fr; }
-  .settingLine { align-items: start; grid-template-columns: 1fr; }
+  .centerTabs { padding: 8px; gap: 4px; }
+  .centerTabs > button { padding: 7px 10px; gap: 6px; }
+  .centerContent { padding: 12px; }
+  .themeChoices { gap: 7px; padding: 12px; }
+  .themeChoices > button { padding: 8px; gap: 7px; }
+  .themeChoices > button > i { width: 25px; height: 25px; }
+  .summaryCards { gap: 8px; }
+  .summaryCards article { padding: 12px 10px; }
+}
+
+@media (max-width: 560px) {
+  .centerTabs > button { flex: 1 1 calc(50% - 4px); justify-content: center; }
+  .themeChoices { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); }
+  .summaryCards { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .settingLine { grid-template-columns: 1fr; align-items: start; gap: 8px; padding: 12px; }
+  .settingLine > div { justify-self: start; }
 }

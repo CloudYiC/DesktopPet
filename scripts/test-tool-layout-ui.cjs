@@ -62,9 +62,12 @@ const { chromium } = require('playwright');
     await page.getByRole('button', { name: /^⌁ 今天/ }).click();
     assert.equal(await header().count(), 0, 'Pet pages keep their existing heading');
     const petPadding = await page.getByRole('main').last().evaluate((element) => getComputedStyle(element).padding);
-    assert.equal(petPadding, '30px', 'Pet page spacing is unchanged');
+    assert.equal(petPadding, '12px 16px 16px', 'Pet pages use the same compact content insets as tools');
+    const petHeader = await page.getByRole('main').last().locator(':scope > header').boundingBox();
+    assert.equal(Math.round(petHeader.y), 12, 'Pet header shares the 12px top inset');
+    assert.equal(Math.round(petHeader.x - (await sidebar().boundingBox()).width), 16, 'Pet header shares the 16px sidebar gap');
     assert.deepEqual(errors, []);
-    console.log(`PASS: ${cards.length} tool headers, catalog descriptions, 192px sidebar, 12/16px insets, 3 responsive widths, unchanged native window/pet pages.`);
+    console.log(`PASS: ${cards.length} tool headers, catalog descriptions, 192px sidebar, unified 12/16px insets, 3 responsive widths, unchanged native window and retained pet headings.`);
     console.log(`Screenshots: ${output}`);
   } finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
