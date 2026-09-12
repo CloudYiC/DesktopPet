@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  executeTool,
   requestPortEntries,
   requestSystemSnapshot,
   terminatePortProcess,
 } from '../bridge/hostBridge';
 import { setPluginEnabled, usePluginRegistry } from '../plugins/pluginRegistry';
-import type { PortEntry, SystemSnapshot, ToolExecuteRequest } from '../types';
+import type { PortEntry, SystemSnapshot } from '../types';
 import {
   categoryById,
   READY_TOOL_COUNT,
@@ -23,6 +22,9 @@ import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
 import { NetworkDebugger } from './NetworkDebugger';
 import { TextDiffWorkspace } from './TextDiffWorkspace';
+import { UtilityCodecWorkspace } from './UtilityCodecWorkspace';
+import { UtilitySpecializedWorkspace } from './UtilitySpecializedWorkspace';
+import { RegexWorkspace } from './RegexWorkspace';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 
 interface ToolboxProps {
@@ -103,7 +105,13 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
     if (activeTool.id === 'diff') {
       return <TextDiffWorkspace onBack={() => setActiveToolId(null)} />;
     }
-    return <ToolWorkspace tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    if (activeTool.id === 'regex') {
+      return <RegexWorkspace key={activeTool.id} onBack={() => setActiveToolId(null)} />;
+    }
+    if (['timestamp', 'uuid', 'password'].includes(activeTool.id)) {
+      return <UtilitySpecializedWorkspace key={activeTool.id} tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    return <UtilityCodecWorkspace key={activeTool.id} tool={activeTool} onBack={() => setActiveToolId(null)} />;
   }
 
   return (
@@ -557,175 +565,4 @@ function isProtectedPortProcess(entry: PortEntry) {
 interface ToolWorkspaceProps {
   tool: ToolDefinition;
   onBack(): void;
-}
-
-function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
-  const [input, setInput] = useState(sampleInput(tool.id));
-  const [operation, setOperation] = useState(defaultOperation(tool.id));
-  const [pattern, setPattern] = useState('\\b\\w{4,}\\b');
-  const [flags, setFlags] = useState('gi');
-  const [output, setOutput] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setInput(sampleInput(tool.id));
-    setOperation(defaultOperation(tool.id));
-    setOutput('');
-    setError('');
-  }, [tool.id]);
-
-  const run = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      if (tool.id === 'json-format') {
-        const parsed = JSON.parse(input) as unknown;
-        setOutput(JSON.stringify(parsed, null, operation === 'minify' ? 0 : 2));
-      } else if (tool.id === 'regex') {
-        const expression = new RegExp(pattern, flags);
-        const matches = Array.from(input.matchAll(expression));
-        setOutput(matches.length
-          ? matches.map((match, index) => `${index + 1}. ${match[0]}  [位置 ${match.index ?? 0}]`).join('\n')
-          : '没有找到匹配内容。');
-      } else {
-        setOutput(await executeTool(toNativeRequest(tool.id, operation, input)));
-      }
-    } catch (runError) {
-      setOutput('');
-      setError(runError instanceof Error ? runError.message : '工具执行失败。');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const copyOutput = async () => {
-    if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <section className={styles.workspace}>
-      <WorkspaceHeading tool={tool} onBack={onBack} />
-
-      <div className={styles.operationBar}>
-        <OperationControls
-          toolId={tool.id}
-          operation={operation}
-          onOperationChange={setOperation}
-          pattern={pattern}
-          flags={flags}
-          onPatternChange={setPattern}
-          onFlagsChange={setFlags}
-        />
-        <button className={styles.runButton} type="button" disabled={busy} onClick={run}>
-          {busy ? '正在处理…' : '运行'}
-        </button>
-      </div>
-
-      <div className={styles.editorGrid}>
-        <label className={styles.editorPanel}>
-          <span>{workspaceInputLabel(tool.id)}</span>
-          <textarea value={input} onChange={(event) => setInput(event.target.value)} spellCheck={false} />
-        </label>
-        <div className={`${styles.editorPanel} ${styles.outputPanel}`}>
-          <div><span>输出</span><button type="button" disabled={!output} onClick={copyOutput}>{copied ? '已复制' : '复制'}</button></div>
-          {error ? <p className={styles.toolError}>{error}</p> : <pre>{output || '运行后结果会显示在这里。'}</pre>}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-interface OperationControlsProps {
-  toolId: string;
-  operation: string;
-  onOperationChange(value: string): void;
-  pattern: string;
-  flags: string;
-  onPatternChange(value: string): void;
-  onFlagsChange(value: string): void;
-}
-
-function OperationControls(props: OperationControlsProps) {
-  if (props.toolId === 'regex') {
-    return (
-      <div className={styles.regexControls}>
-        <label><span>表达式</span><input value={props.pattern} onChange={(event) => props.onPatternChange(event.target.value)} /></label>
-        <label><span>标志</span><input value={props.flags} maxLength={6} onChange={(event) => props.onFlagsChange(event.target.value)} /></label>
-      </div>
-    );
-  }
-  const options = operationOptions(props.toolId);
-  return (
-    <label className={styles.operationSelect}>
-      <span>操作</span>
-      <select value={props.operation} onChange={(event) => props.onOperationChange(event.target.value)}>
-        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function operationOptions(toolId: string) {
-  if (toolId === 'hash') return [{ value: 'sha256', label: 'SHA-256' }, { value: 'md5', label: 'MD5（兼容用途）' }];
-  if (toolId === 'url-encode') return [
-    { value: 'encode-component', label: '编码 URL 组件' },
-    { value: 'encode-url', label: '编码完整 URL' },
-    { value: 'decode', label: '解码' },
-  ];
-  if (toolId === 'json-format') return [{ value: 'format', label: '格式化' }, { value: 'minify', label: '压缩' }];
-  if (toolId === 'timestamp') return [
-    { value: 'seconds', label: 'Unix 秒 → UTC' },
-    { value: 'milliseconds', label: 'Unix 毫秒 → UTC' },
-  ];
-  if (toolId === 'uuid') return [
-    { value: 'v4', label: 'UUID v4（随机）' },
-    { value: 'v7', label: 'UUID v7（时间有序）' },
-  ];
-  if (toolId === 'password') return [
-    { value: 'strong', label: '强密码（含符号）' },
-    { value: 'letters-digits', label: '字母与数字' },
-    { value: 'pin', label: '纯数字 PIN' },
-  ];
-  return [{ value: 'encode', label: '编码' }, { value: 'decode', label: '解码' }];
-}
-
-function defaultOperation(toolId: string) {
-  if (toolId === 'hash') return 'sha256';
-  if (toolId === 'url-encode') return 'encode-component';
-  if (toolId === 'json-format') return 'format';
-  if (toolId === 'timestamp') return 'milliseconds';
-  if (toolId === 'uuid') return 'v4';
-  if (toolId === 'password') return 'strong';
-  return 'encode';
-}
-
-function sampleInput(toolId: string) {
-  if (toolId === 'json-format') return '{"name":"可爱依依","features":["reminder","toolbox"]}';
-  if (toolId === 'regex') return '云依助手的本地工具现在和可爱依依住在一起。';
-  if (toolId === 'url-encode') return 'https://example.com/search?q=可爱依依';
-  if (toolId === 'timestamp') return String(Date.now());
-  if (toolId === 'uuid') return '5';
-  if (toolId === 'password') return '24';
-  return '云依助手 可爱依依';
-}
-
-function workspaceInputLabel(toolId: string) {
-  if (toolId === 'timestamp') return 'Unix 时间戳';
-  if (toolId === 'uuid') return '生成数量（1–50）';
-  if (toolId === 'password') return '密码长度（4–128）';
-  return '输入';
-}
-
-function toNativeRequest(toolId: string, operation: string, input: string): ToolExecuteRequest {
-  return {
-    toolId: toolId as ToolExecuteRequest['toolId'],
-    operation,
-    input,
-    padded: true,
-  };
 }

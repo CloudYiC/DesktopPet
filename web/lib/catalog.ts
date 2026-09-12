@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.10-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Redesigned nine desktop utilities with compact purpose-built workspaces and independent scrolling' },
+      { kind: '+', text: 'Added codec reverse conversion and byte counts, hash verification, timestamp result cards and UUID/password controls' },
+      { kind: '+', text: 'Added regex match highlighting, bounded worker execution and stale-result and clipboard-error protection' },
+    ],
+  },
+  {
     version: 'v0.12.9-desktop',
     date: '2026-09-12',
     items: [

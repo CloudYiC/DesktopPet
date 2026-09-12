@@ -1,0 +1,43 @@
+$ink: var(--theme-ink, #3f342e);
+$muted: var(--theme-muted, #8d8077);
+$paper: var(--theme-paper, #fffdf9);
+$sand: var(--theme-sand, #f4ede4);
+$teal: var(--theme-primary, #168b85);
+$deep: var(--theme-primary-deep, #116d69);
+$line: color-mix(in srgb, $muted 20%, transparent);
+
+// No fixed textarea minima: the client viewport determines both reading panes.
+.workspace { display: flex; height: calc(100vh - 28px); min-height: 410px; min-width: 0; flex-direction: column; gap: 10px; color: $ink; font-size: .8125rem; }
+.workspace > header { flex-shrink: 0; }
+.workspace button { min-height: 30px; padding: 5px 10px; color: $deep; background: transparent; border: 1px solid $line; border-radius: 6px; font: inherit; cursor: pointer; white-space: nowrap; }
+.workspace button:disabled { opacity: .45; cursor: default; }
+.workspace button:focus-visible, .workspace textarea:focus-visible, .workspace input:focus-visible { outline: 2px solid $teal; outline-offset: -2px; }
+.toolbar { display: flex; min-height: 52px; min-width: 0; padding: 7px 9px; flex-shrink: 0; align-items: center; gap: 10px; flex-wrap: wrap; background: $paper; border: 1px solid $line; border-radius: 9px; }
+.modes { display: flex; min-width: 0; padding: 3px; gap: 3px; background: $sand; border-radius: 7px; }
+.modes button { border: 0; color: $muted; font-weight: 600; }
+.modes button[aria-selected='true'] { color: $deep; background: $paper; box-shadow: 0 1px 4px #51412b13; }
+.options { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; color: $muted; font-size: .75rem; }
+.options label { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.workspace input[type='checkbox'] { width: 14px; height: 14px; margin: 0; accent-color: $teal; }
+.options select { min-height: 30px; padding: 2px 6px; color: $ink; background: $paper; border: 1px solid $line; border-radius: 5px; font: inherit; }
+.toolbar .primary { min-height: 35px; margin-left: auto; padding: 6px 15px; color: #fff; background: $teal; border-color: $teal; font-weight: 600; }
+.primary kbd { margin-left: 12px; font-family: inherit; font-size: .6875rem; font-weight: 400; opacity: .8; }
+.panes { display: grid; min-width: 0; min-height: 0; flex: 1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.inputPane, .outputPane { display: flex; min-width: 0; min-height: 0; overflow: hidden; flex-direction: column; background: $paper; border: 1px solid $line; border-radius: 9px; }
+.panes header { display: flex; min-height: 45px; min-width: 0; padding: 6px 12px; flex-shrink: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid $line; }
+.panes header > div { display: flex; align-items: center; gap: 8px; }.panes h3 { margin: 0; font-size: .875rem; font-weight: 700; }
+.panes header span { padding: 2px 6px; color: $muted; background: $sand; border-radius: 4px; font-size: .6875rem; }.panes header span.ready { color: $deep; background: #e2f2ee; }
+.panes header button { min-height: 27px; padding: 3px 6px; font-size: .75rem; }.panes header nav { display: flex; flex-wrap: wrap; gap: 3px; }.panes header nav button { border-color: transparent; }
+.panes textarea { display: block; width: 100%; min-width: 0; min-height: 0; padding: 15px; flex: 1; overflow: auto; resize: none; color: $ink; background: transparent; border: 0; outline: 0; font: 14px/1.8 Consolas, 'Cascadia Mono', monospace; tab-size: 2; }
+.outputPane textarea { background: #fbfdfa; }.panes textarea::placeholder { color: $muted; font-family: inherit; font-size: .8125rem; }
+.panes footer { display: flex; min-height: 36px; padding: 5px 11px; flex-shrink: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 5px; color: $muted; border-top: 1px solid $line; font-size: .6875rem; }.panes footer > label { display: flex; align-items: center; gap: 5px; }.panes footer button { min-height: 25px; padding: 2px 6px; font-size: .75rem; border: 0; }
+.outputMessage { min-height: 0; padding: 17px; flex: 1; overflow: auto; }.outputMessage p { margin: 0 0 10px; padding: 12px; color: #ac4734; background: #fff1e9; border: 1px solid #ead2c4; border-radius: 6px; line-height: 1.65; overflow-wrap: anywhere; }.outputMessage span { color: $muted; font-size: .75rem; }
+.statusBar { display: flex; min-height: 26px; min-width: 0; padding: 0 2px; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 7px; color: $muted; font-size: .6875rem; }.statusBar span { overflow-wrap: anywhere; }
+.hashLayout { grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); }.digestContent { min-height: 0; padding: 20px; flex: 1; overflow: auto; }
+.digestHeading { display: flex; align-items: center; justify-content: space-between; color: $deep; }.digestHeading strong { font-size: 1rem; }.digestHeading span { color: $muted; font: 12px Consolas, monospace; }
+.digestContent pre { min-height: 92px; padding: 16px; margin: 12px 0; color: $deep; background: #edf6f1; border: 1px solid #d6e7df; border-radius: 7px; font: 17px/1.8 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.digestFacts { display: grid; grid-template-columns: 1fr 1fr; padding: 10px 0 17px; gap: 15px; border-bottom: 1px solid $line; }.digestFacts span { color: $muted; font-size: .75rem; }.digestFacts strong { display: block; margin-top: 5px; color: $ink; font-size: .875rem; }
+.compareHash { display: grid; margin-top: 18px; gap: 9px; font-weight: 600; }.compareHash input { width: 100%; min-width: 0; min-height: 36px; padding: 9px; color: $ink; background: transparent; border: 1px solid $line; border-radius: 6px; font: 12px Consolas, monospace; }
+.match, .mismatch { padding: 10px; font-size: .8125rem; border-radius: 5px; }.match { color: #267944; background: #e8f6e9; }.mismatch { color: #a14936; background: #fff0e9; }.note { color: $muted; font-size: .75rem; line-height: 1.7; }
+@media (max-width: 1080px) { .primary kbd { display: none; }.panes header { padding: 6px 9px; }.panes header nav { gap: 0; }.panes header nav button { padding: 3px 4px; }.digestContent { padding: 14px; } }
+@media (max-width: 820px) { .toolbar { gap: 6px; padding: 6px; }.modes button { padding: 5px 7px; font-size: .75rem; }.options { gap: 6px; font-size: .6875rem; }.toolbar .primary { padding: 5px 10px; }.panes { gap: 8px; }.panes header { align-content: start; min-height: 64px; }.panes header nav { width: 100%; }.panes textarea { padding: 10px; font-size: 13px; }.panes footer { min-height: 53px; align-content: center; padding: 5px 8px; }.statusBar { align-items: flex-start; }.digestContent { padding: 10px; }.digestContent pre { padding: 10px; font-size: 14px; }.hashLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }

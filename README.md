@@ -50,6 +50,7 @@
 - Windows 桌面客户端内置网络调试助手，支持 TCP 客户端、可接入多个连接的 TCP 服务端和 UDP；采用左侧连接与发送、右侧固定日志的等高布局，可按文本或 Hex 收发，追加 LF/CRLF、定时自动发送，并在不会撑高页面的滚动区域中查看接收块日志和 RX/TX 统计
 - 网络调试助手默认只监听本机回环地址；监听局域网地址前必须明确确认，不修改 Windows 防火墙，关闭工作台或退出应用后也不会继续后台监听
 - 已内置 Unix 时间戳转换、UUID v4/v7 和安全密码生成器
+- 九个常用桌面工具采用专用紧凑工作区：编解码反向转换与字节统计、JSON 缩进、摘要核对、时间戳结果卡、UUID 批量复制、密码隐藏与正则高亮；编辑和结果区域独立滚动，参数变化后不会误复制旧结果
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
 - 模块管理只展示已经可用的内置工具；助手设置包含三套浅色主题、界面字号、上次页面恢复、模块状态、本机数据概览和版本信息
@@ -99,6 +100,8 @@ CloudYiCSC 的界面顺序、C/C++11 边界、已完成工具和后续迁移规�
 [`docs/tool-layout.md`](docs/tool-layout.md)。
 文本比较的彩色对照、差异跳转与输入边界见
 [`docs/text-diff.md`](docs/text-diff.md)。
+Base64／Hex／URL、JSON、哈希、时间戳、UUID、密码及正则工作区的操作与边界见
+[`docs/utility-workspaces.md`](docs/utility-workspaces.md)。
 网络调试助手的模式、收发规则与监听安全边界见
 [`docs/network-debugger.md`](docs/network-debugger.md)。
 系统信息范围、端口结束进程保护和模块启停边界见
@@ -154,7 +157,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.9.exe
+out/dist/CloudYiAssistant-Setup-0.12.10.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -175,7 +178,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.9.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.10.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。
