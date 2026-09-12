@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.11-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Aligned line-ending and repeat-send controls in Network Debugger, with server targets on a separate row' },
+      { kind: '-', text: 'Removed redundant connection headings and the default local-processing notice' },
+      { kind: '~', text: 'Used available window height to reduce nested scrolling while preserving readable controls and safety feedback' },
+    ],
+  },
+  {
     version: 'v0.12.10-desktop',
     date: '2026-09-12',
     items: [

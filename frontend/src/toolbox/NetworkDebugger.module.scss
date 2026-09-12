@@ -7,11 +7,17 @@ $teal-dark: var(--theme-primary-deep);
 $peach: var(--theme-accent);
 
 .workspace {
-  display: grid;
+  display: flex;
   min-width: 0;
-  padding-bottom: 28px;
+  height: calc(100dvh - 28px);
+  min-height: 560px;
+  flex-direction: column;
   gap: 14px;
 }
+
+.workspace > header,
+.modeBar,
+.feedbackBar { flex-shrink: 0; }
 
 .modeBar {
   display: flex;
@@ -101,22 +107,22 @@ $peach: var(--theme-accent);
   display: grid;
   min-width: 0;
   min-height: 0;
-  height: clamp(600px, calc(100dvh - 184px), 650px);
+  flex: 1;
   align-items: stretch;
   grid-template-columns: minmax(286px, 316px) minmax(0, 1fr);
   gap: 14px;
 }
 
-// The operation column intentionally groups the two input-heavy panels so the
-// receive log can use one uninterrupted, full-height reading surface.
+// Remove redundant content rather than shrinking controls. If a short window or
+// a long TCP peer list needs more room, only the operation column scrolls.
 .operationColumn {
   display: grid;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  grid-template-rows: auto minmax(328px, 1fr);
+  grid-template-rows: auto minmax(min-content, 1fr);
   gap: 14px;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 .connectionPanel,
@@ -136,7 +142,6 @@ $peach: var(--theme-accent);
   gap: 13px;
 }
 
-.panelHeading,
 .receiveToolbar,
 .sendPanel > header {
   display: flex;
@@ -159,11 +164,6 @@ $peach: var(--theme-accent);
     font-size: 0.9375rem;
     font-weight: 600;
   }
-}
-
-.panelHeading {
-  display: block;
-  small { display: block; margin-top: 7px; color: $muted; font-size: 0.6875rem; line-height: 1.55; }
 }
 
 .formGrid {
@@ -470,7 +470,7 @@ $peach: var(--theme-accent);
 
 .operationColumn .sendControls {
   width: 100%;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(90px, .8fr) minmax(146px, 1.2fr);
 }
 
 .sendHeaderMeta {
@@ -515,8 +515,13 @@ $peach: var(--theme-accent);
   }
 }
 
-.autoSendControl,
+.targetControl,
 .sendButton { grid-column: 1 / -1; }
+
+// Keep line ending and repeat interval together in all three network modes.
+// Server targets get a separate full-width row instead of displacing the interval.
+.autoSendControl { grid-column: 2; grid-row: 1; }
+.targetControl { grid-row: 2; }
 
 .autoSendControl > div {
   display: grid;
@@ -589,6 +594,7 @@ $peach: var(--theme-accent);
 }
 
 @media (max-width: 1100px) {
+  .workspace { height: auto; min-height: 0; }
   .modeBar { align-items: stretch; flex-direction: column; }
   .sessionStatus { grid-template-columns: 10px repeat(4, minmax(0, 1fr)); }
   .debuggerLayout {
@@ -614,12 +620,6 @@ $peach: var(--theme-accent);
   }
 }
 
-@media (max-width: 840px) {
-  .operationColumn .sendControls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .operationColumn .autoSendControl { grid-column: auto; }
-  .operationColumn .sendButton { grid-column: 1 / -1; }
-}
-
 @media (max-width: 720px) {
   .modeTabs { width: 100%; overflow-x: auto; button { flex: 1 0 auto; } }
   .sessionStatus { grid-template-columns: 10px repeat(2, minmax(0, 1fr)); }
@@ -629,8 +629,7 @@ $peach: var(--theme-accent);
   .toolbarActions { justify-content: flex-start; }
   .sendPanel { grid-template-columns: 1fr; }
   .sendPanel > header { grid-column: auto; }
-  .sendControls { width: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .autoSendControl { grid-column: auto; }
+  .sendControls { width: auto; }
   .sendButton { grid-column: 1 / -1; }
   .logEntry { grid-template-columns: 1fr; gap: 4px; }
   .logMeta { position: sticky; left: 0; }
@@ -647,12 +646,13 @@ $peach: var(--theme-accent);
   .toolbarActions { display: grid; width: 100%; grid-template-columns: auto repeat(4, max-content); justify-content: start; }
   .checkControl { padding: 0 3px; }
   .sendPanel { padding: 11px; }
-  .sendControls,
-  .operationColumn .sendControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+// At genuinely narrow widths use two readable rows instead of squeezing fields.
+@media (max-width: 460px) {
+  .operationColumn .sendControls { grid-template-columns: minmax(0, 1fr); }
   .autoSendControl,
-  .sendButton,
-  .operationColumn .autoSendControl,
-  .operationColumn .sendButton { grid-column: 1 / -1; }
+  .targetControl { grid-column: 1; grid-row: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

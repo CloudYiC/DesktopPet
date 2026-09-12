@@ -49,6 +49,7 @@
 - 网络与协议中提供十六进制报文分析器：可粘贴普通 Hex 或 Wireshark hexdump，按偏移查看 Ethernet、VLAN、ARP、IPv4/IPv6、TCP、UDP、ICMP 与未知载荷；协议、字节、ASCII 和字段联动，支持偏移跳转、大小端解释、64 KiB 内部滚动，以及私有协议字段的本机保存与编辑
 - Windows 桌面客户端内置网络调试助手，支持 TCP 客户端、可接入多个连接的 TCP 服务端和 UDP；采用左侧连接与发送、右侧固定日志的等高布局，可按文本或 Hex 收发，追加 LF/CRLF、定时自动发送，并在不会撑高页面的滚动区域中查看接收块日志和 RX/TX 统计
 - 网络调试助手默认只监听本机回环地址；监听局域网地址前必须明确确认，不修改 Windows 防火墙，关闭工作台或退出应用后也不会继续后台监听
+- 网络发送区将行尾与循环参数并排，省去重复标题/默认说明；按可用窗口高度分配操作与日志区域，小窗口仍保留必要滚动，不缩小控件来隐藏内容
 - 已内置 Unix 时间戳转换、UUID v4/v7 和安全密码生成器
 - 九个常用桌面工具采用专用紧凑工作区：编解码反向转换与字节统计、JSON 缩进、摘要核对、时间戳结果卡、UUID 批量复制、密码隐藏与正则高亮；编辑和结果区域独立滚动，参数变化后不会误复制旧结果
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
@@ -157,7 +158,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.10.exe
+out/dist/CloudYiAssistant-Setup-0.12.11.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -178,7 +179,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.10.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.11.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。

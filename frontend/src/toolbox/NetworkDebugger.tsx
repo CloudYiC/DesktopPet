@@ -42,11 +42,10 @@ const MIN_AUTO_SEND_INTERVAL = 50;
 const MODE_OPTIONS: Array<{
   id: NetworkMode;
   label: string;
-  description: string;
 }> = [
-  { id: 'tcp-client', label: 'TCP 客户端', description: '连接远端 TCP 服务并双向收发数据。' },
-  { id: 'tcp-server', label: 'TCP 服务端', description: '监听本地端口并管理多个客户端。' },
-  { id: 'udp', label: 'UDP', description: '绑定本地端口并向指定目标发送数据报。' },
+  { id: 'tcp-client', label: 'TCP 客户端' },
+  { id: 'tcp-server', label: 'TCP 服务端' },
+  { id: 'udp', label: 'UDP' },
 ];
 
 /** Desktop-only TCP/UDP workbench backed by the native WinSock service. */
@@ -70,7 +69,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
   const [allowLan, setAllowLan] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('所有连接和数据都只在当前电脑中处理。');
+  const [notice, setNotice] = useState('');
   const [hasUnseenData, setHasUnseenData] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const followTailRef = useRef(true);
@@ -82,7 +81,6 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
   const readyToSend = sessionState === 'connected'
     || sessionState === 'listening'
     || sessionState === 'ready';
-  const selectedMode = MODE_OPTIONS.find((item) => item.id === mode) ?? MODE_OPTIONS[0];
   const peers = snapshot?.peers ?? [];
   const hasSendTarget = mode !== 'tcp-server' || peers.length > 0;
   const requiresLanConfirmation = localHost === '0.0.0.0';
@@ -282,7 +280,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
     setSnapshot(null);
     setAllowLan(false);
     setError('');
-    setNotice(MODE_OPTIONS.find((item) => item.id === nextMode)?.description ?? '');
+    setNotice('');
   };
 
   const copyLog = async () => {
@@ -327,7 +325,7 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
   };
 
   return (
-    <section className={styles.workspace}>
+    <section className={styles.workspace} data-testid="network-workspace">
       <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
 
       <div className={styles.modeBar}>
@@ -350,13 +348,8 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
       </div>
 
       <div className={styles.debuggerLayout}>
-        <div className={styles.operationColumn}>
-          <aside className={styles.connectionPanel}>
-            <div className={styles.panelHeading}>
-              <div><h3>连接设置</h3></div>
-              <small>{selectedMode.description}</small>
-            </div>
-
+        <div className={styles.operationColumn} data-testid="network-operations">
+          <aside className={styles.connectionPanel} aria-label="连接参数">
             <div className={styles.formGrid}>
               <label className={styles.addressField}>
                 <span>本地地址</span>
@@ -473,15 +466,23 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleSendKeyDown}
             />
-            <div className={styles.sendControls}>
+            <div className={styles.sendControls} data-testid="network-send-controls">
               <label>
                 <span>行尾</span>
                 <select value={lineEnding} onChange={(event) => setLineEnding(event.target.value as LineEnding)}>
                   <option value="none">不追加</option><option value="lf">LF</option><option value="crlf">CRLF</option>
                 </select>
               </label>
+              <label className={styles.autoSendControl}>
+                <span>循环发送</span>
+                <div>
+                  <input type="checkbox" aria-label="启用循环发送" checked={autoSend} disabled={!readyToSend || !hasSendTarget || Boolean(sendPreview.error)} onChange={(event) => setAutoSend(event.target.checked)} />
+                  <input value={autoSendInterval} disabled={!autoSend} inputMode="numeric" aria-label="循环发送间隔毫秒" onChange={(event) => setAutoSendInterval(event.target.value)} />
+                  <small>ms</small>
+                </div>
+              </label>
               {mode === 'tcp-server' && (
-                <label>
+                <label className={styles.targetControl}>
                   <span>发送目标</span>
                   <select value={targetPeerId} onChange={(event) => setTargetPeerId(event.target.value)}>
                     <option value="all">全部客户端</option>
@@ -489,14 +490,6 @@ export function NetworkDebugger({ tool, onBack }: NetworkDebuggerProps) {
                   </select>
                 </label>
               )}
-              <label className={styles.autoSendControl}>
-                <span>循环发送</span>
-                <div>
-                  <input type="checkbox" checked={autoSend} disabled={!readyToSend || !hasSendTarget || Boolean(sendPreview.error)} onChange={(event) => setAutoSend(event.target.checked)} />
-                  <input value={autoSendInterval} disabled={!autoSend} inputMode="numeric" aria-label="循环发送间隔毫秒" onChange={(event) => setAutoSendInterval(event.target.value)} />
-                  <small>ms</small>
-                </div>
-              </label>
               <button
                 type="button"
                 className={styles.sendButton}

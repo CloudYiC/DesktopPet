@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.10",
+  "latestVersion": "0.12.11",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.10",
-  "releaseNotes": "Redesigns nine desktop utilities with compact purpose-built workspaces and independent scrolling. Adds Base64/Hex/URL reverse conversion and byte counts, hash verification, JSON indentation, timestamp result cards, UUID batch copying and hidden password results. Adds regex highlights and bounded worker execution, plus stale-result and clipboard-race protection.",
-  "publishedAt": "2026-09-12T08:21:05.000Z",
+  "title": "云依助手 0.12.11",
+  "releaseNotes": "Aligns line-ending and repeat-send controls in Network Debugger, keeping TCP server targets on a separate row. Removes redundant connection headings and the default local-processing notice. Uses available window height to reduce nested scrolling without shrinking controls, while preserving natural small-window scrolling, log scrolling, safety consent and actual error feedback.",
+  "publishedAt": "2026-09-12T08:55:31.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.10.exe",
-      "sha256": "4040755231DC589FD87D06737B120240BD930D7B959B6048B29D33107E400A61",
-      "size": 23217132,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.11.exe",
+      "sha256": "A5F17E8C0D4E2FF4BE02ADE6B1CD92ADE4EB758B3B8C320FB90E58DCF9EFE937",
+      "size": 23215933,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.10.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.11.exe"
   }
 }
