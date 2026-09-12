@@ -2,6 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import type { CharacterLayout } from '../types';
 import { READY_TOOL_COUNT, TOOL_CATEGORIES, type ToolCategoryId } from '../toolbox/catalog';
 import type { DashboardView } from './types';
+import { NavIcon, type NavIconName } from './NavIcon';
 import styles from './AppSidebar.module.scss';
 
 interface AppSidebarProps {
@@ -84,18 +85,20 @@ export function AppSidebar(props: AppSidebarProps) {
               <button
                 type="button"
                 className={props.activeView === 'toolbox' && props.activeCategory === null ? styles.activeNav : undefined}
+                aria-current={props.activeView === 'toolbox' && props.activeCategory === null ? 'page' : undefined}
                 onClick={() => props.onToolboxChange(null)}
               >
-                <i>⌂</i><span>工具首页</span><small>{READY_TOOL_COUNT}</small>
+                <i><NavIcon name="home" /></i><span>工具首页</span><small>{READY_TOOL_COUNT}</small>
               </button>
               {TOOL_CATEGORIES.map((category) => (
                 <button
                   key={category.id}
                   type="button"
                   className={props.activeView === 'toolbox' && props.activeCategory === category.id ? styles.activeNav : undefined}
+                  aria-current={props.activeView === 'toolbox' && props.activeCategory === category.id ? 'page' : undefined}
                   onClick={() => props.onToolboxChange(category.id)}
                 >
-                  <i>{category.glyph}</i><span>{category.shortLabel}</span>
+                  <i><NavIcon name={category.id} /></i><span>{category.shortLabel}</span>
                 </button>
               ))}
             </nav>
@@ -109,10 +112,10 @@ export function AppSidebar(props: AppSidebarProps) {
           {petExpanded && (
             <>
               <nav aria-label="小助手功能">
-                <PetNavButton glyph="⌁" label="今天" count={props.todayCount} active={props.activeView === 'today'} onClick={() => props.onViewChange('today')} />
-                <PetNavButton glyph="◷" label="全部事项" count={props.reminderCount} active={props.activeView === 'all'} onClick={() => props.onViewChange('all')} />
-                <PetNavButton glyph="✦" label={`${props.petName}状态`} active={props.activeView === 'status'} onClick={() => props.onViewChange('status')} />
-                <PetNavButton glyph="⚙" label="设置" active={props.activeView === 'settings'} onClick={() => props.onViewChange('settings')} />
+                <PetNavButton icon="today" label="今天" count={props.todayCount} active={props.activeView === 'today'} onClick={() => props.onViewChange('today')} />
+                <PetNavButton icon="all" label="全部事项" count={props.reminderCount} active={props.activeView === 'all'} onClick={() => props.onViewChange('all')} />
+                <PetNavButton icon="status" label={`${props.petName}状态`} active={props.activeView === 'status'} onClick={() => props.onViewChange('status')} />
+                <PetNavButton icon="settings" label="设置" active={props.activeView === 'settings'} onClick={() => props.onViewChange('settings')} />
               </nav>
               <button className={styles.petCard} type="button" onClick={() => props.onViewChange('status')}>
                 <i
@@ -132,9 +135,10 @@ export function AppSidebar(props: AppSidebarProps) {
         <button
           className={`${styles.profileButton} ${props.activeView === 'account' ? styles.bottomActive : ''}`}
           type="button"
+          aria-current={props.activeView === 'account' ? 'page' : undefined}
           onClick={() => props.onViewChange('account')}
         >
-          <i>云</i><span><strong>助手设置</strong><small>主题与本机数据</small></span><em>›</em>
+          <i><NavIcon name="settings" /></i><span><strong>助手设置</strong><small>主题与本机数据</small></span><em>›</em>
         </button>
       </div>
     </aside>
@@ -142,17 +146,17 @@ export function AppSidebar(props: AppSidebarProps) {
 }
 
 interface PetNavButtonProps {
-  glyph: string;
+  icon: NavIconName;
   label: string;
   count?: number;
   active: boolean;
   onClick(): void;
 }
 
-function PetNavButton({ glyph, label, count, active, onClick }: PetNavButtonProps) {
+function PetNavButton({ icon, label, count, active, onClick }: PetNavButtonProps) {
   return (
-    <button type="button" className={active ? styles.activeNav : undefined} onClick={onClick}>
-      <i>{glyph}</i><span>{label}</span>{count !== undefined && <small>{count}</small>}
+    <button type="button" className={active ? styles.activeNav : undefined} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <i><NavIcon name={icon} /></i><span>{label}</span>{count !== undefined && <small>{count}</small>}
     </button>
   );
 }

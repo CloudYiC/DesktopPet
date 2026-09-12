@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.1-desktop',
+    date: '2026-09-13',
+    items: [
+      { kind: '~', text: 'Redesigned Software Uninstaller with a scrolling app list, fixed detail pane, five-row pagination and an explicit cleanup confirmation dialog' },
+      { kind: '+', text: 'Added bounded background discovery of nested Start Menu and desktop shortcuts using their actual local targets, with cancellation and post-uninstall revalidation' },
+      { kind: '~', text: 'Replaced desktop sidebar character glyphs with consistent outline SVG icons without adding icon fonts or changing window size' },
+      { kind: '-', text: 'Removed permanent safety banners and long scan notices; verification and confirmation remain enforced for cleanup' },
+    ],
+  },
+  {
     version: 'v0.13.0-desktop',
     date: '2026-09-12',
     items: [

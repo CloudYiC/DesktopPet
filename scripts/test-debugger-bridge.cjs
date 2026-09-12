@@ -86,3 +86,57 @@ test('browser preview fails immediately rather than faking device success', asyn
   await assert.rejects(fixture.api.requestNativePayload('modbus.start', {}), /客户端/);
   assert.equal(fixture.sent.length, 0);
 });
+
+test('software scan preserves native evidence and partial-scan warnings', async () => {
+  const fixture = hostFixture();
+  const request = fixture.api.requestSoftwareResidualScan({ id: 'fixture', displayName: 'Fixture App' });
+  const message = fixture.sent[0];
+  assert.equal(message.type, 'software.scan');
+  assert.equal(message.payload.softwareId, 'fixture');
+  const plan = { token: 'a'.repeat(32), scanTruncated: true, scanWarnings: ['扫描已达到限制'], residuals: [{ path: 'C:\\Fixture\\Entry.lnk', targetPath: 'C:\\Fixture\\App.exe' }] };
+  fixture.reply({ type: 'software.scan.result', payload: { requestId: message.payload.requestId, plan } });
+  assert.equal((await request).residuals[0].targetPath, plan.residuals[0].targetPath);
+});
+
+test('software refresh sends only plan token and accepts a revalidated new plan', async () => {
+  const fixture = hostFixture();
+  const request = fixture.api.requestSoftwareResidualRefresh({ token: 'a'.repeat(32), residuals: [{ path: 'untrusted' }] });
+  const message = fixture.sent[0];
+  assert.equal(message.type, 'software.refresh');
+  assert.deepEqual(Object.keys(message.payload).sort(), ['planToken', 'requestId']);
+  fixture.reply({ type: 'software.refresh.result', payload: { requestId: message.payload.requestId, plan: { token: 'b'.repeat(32), residuals: [] } } });
+  assert.equal((await request).token, 'b'.repeat(32));
+});
+
+test('software cancellation and a late scan result cannot settle one another', async () => {
+  const fixture = hostFixture();
+  const scan = fixture.api.requestSoftwareResidualScan({ id: 'fixture', displayName: 'Fixture' });
+  const cancel = fixture.api.requestSoftwareScanCancel();
+  const [scanMessage, cancelMessage] = fixture.sent;
+  assert.notEqual(scanMessage.payload.requestId, cancelMessage.payload.requestId);
+  fixture.reply({ type: 'software.scan.error', payload: { requestId: scanMessage.payload.requestId, message: '扫描已取消。' } });
+  await assert.rejects(scan, /取消/);
+  fixture.reply({ type: 'software.scan.cancel.result', payload: { requestId: cancelMessage.payload.requestId } });
+  await cancel;
+  fixture.reply({ type: 'software.scan.result', payload: { requestId: scanMessage.payload.requestId, plan: { token: 'stale' } } });
+});
+
+test('software reveal forwards the exact plan path and surfaces native rejection', async () => {
+  const fixture = hostFixture();
+  const filePath = 'C:\\Fixture\\Unicode 路径\\Entry.lnk';
+  const request = fixture.api.requestSoftwareReveal('a'.repeat(32), filePath);
+  const message = fixture.sent[0];
+  assert.equal(message.type, 'software.reveal');
+  assert.equal(message.payload.path, filePath);
+  fixture.reply({ type: 'software.reveal.error', payload: { requestId: message.payload.requestId, message: '计划已过期' } });
+  await assert.rejects(request, /过期/);
+});
+
+test('software mutation actions cannot run in browser preview', async () => {
+  const fixture = hostFixture(false);
+  await fixture.api.requestSoftwareScanCancel();
+  await assert.rejects(fixture.api.requestSoftwareReveal('token', 'C:\\Fixture'), /浏览器/);
+  await assert.rejects(fixture.api.requestSoftwareUninstall({ id: 'fixture' }), /浏览器/);
+  await assert.rejects(fixture.api.requestSoftwareCleanup({ token: 'token' }, [], 'Fixture'), /浏览器/);
+  assert.equal(fixture.sent.length, 0);
+});

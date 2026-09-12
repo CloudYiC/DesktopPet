@@ -162,10 +162,10 @@ const { chromium } = require('playwright');
     await changeFixture({ workspaceTheme: 'warm', workspaceTextSize: 'comfortable' });
     const petNav = sidebar().getByRole('navigation', { name: '小助手功能', exact: true });
     for (const [navigation, required] of [
-      [/^⌁ 今天/, ['今天接下来要做', '合成今日提醒']],
-      [/^◷ 全部事项/, ['全部未完成事项', '合成今日提醒', '合成以后提醒']],
-      [/^✦ 可爱依依状态/, ['和可爱依依互动', '挥挥手', '休息一下']],
-      [/^⚙ 设置/, ['角色衣柜', '名字与提醒声音', '自动收起']],
+      [/^今天/, ['今天接下来要做', '合成今日提醒']],
+      [/^全部事项/, ['全部未完成事项', '合成今日提醒', '合成以后提醒']],
+      [/^可爱依依状态/, ['和可爱依依互动', '挥挥手', '休息一下']],
+      [/^设置$/, ['角色衣柜', '名字与提醒声音', '自动收起']],
     ]) {
       await petNav.getByRole('button', { name: navigation }).click(); await assertInsets(String(navigation));
       const text = await main().innerText();

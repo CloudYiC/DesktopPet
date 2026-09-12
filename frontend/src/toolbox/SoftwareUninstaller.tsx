@@ -1,341 +1,313 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   requestInstalledSoftware,
   requestSoftwareCleanup,
   requestSoftwareResidualScan,
+  requestSoftwareResidualRefresh,
   requestSoftwareUninstall,
+  requestSoftwareReveal,
+  requestSoftwareScanCancel,
 } from '../bridge/hostBridge';
-import type {
-  InstalledSoftware,
-  SoftwareCleanupPlan,
-  SoftwareResidual,
-} from '../types';
+import type { InstalledSoftware, SoftwareCleanupPlan, SoftwareResidual } from '../types';
 import type { ToolDefinition } from './catalog';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import styles from './SoftwareUninstaller.module.scss';
 
-interface SoftwareUninstallerProps {
-  tool: ToolDefinition;
-  onBack(): void;
-}
+type Category = 'all' | 'shortcut' | 'program' | 'personal';
+type Busy = 'list' | 'scan' | 'cancel' | 'uninstall' | 'cleanup' | 'reveal' | '';
+const PAGE_SIZE = 5;
+const categories: { value: Category; label: string }[] = [
+  { value: 'all', label: '全部' }, { value: 'shortcut', label: '快捷方式' },
+  { value: 'program', label: '程序文件' }, { value: 'personal', label: '个人数据' },
+];
 
-/** Guarded Windows software inventory, uninstaller launcher and residue review. */
-export function SoftwareUninstaller({ tool, onBack }: SoftwareUninstallerProps) {
+/** Exact native scan plans remain the only authority for revealing or recycling paths. */
+export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; onBack(): void }) {
   const [entries, setEntries] = useState<InstalledSoftware[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [query, setQuery] = useState('');
   const [plan, setPlan] = useState<SoftwareCleanupPlan | null>(null);
+  const [launchedSoftware, setLaunchedSoftware] = useState<InstalledSoftware | null>(null);
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [focusedPath, setFocusedPath] = useState('');
+  const [tab, setTab] = useState<'related' | 'info'>('related');
+  const [category, setCategory] = useState<Category>('all');
+  const [page, setPage] = useState(0);
   const [typedName, setTypedName] = useState('');
-  const [busy, setBusy] = useState<'list' | 'scan' | 'uninstall' | 'cleanup' | ''>('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState<Busy>('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const lifecycle = useRef(0);
+  const pending = useRef<{ generation: number; action: Busy } | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const cleanupTrigger = useRef<HTMLButtonElement>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
 
-  const selected = entries.find((entry) => entry.id === selectedId) ?? null;
+  const selected = entries.find((entry) => entry.id === selectedId) ?? (launchedSoftware?.id === selectedId ? launchedSoftware : null);
   const visibleEntries = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase('zh-CN');
-    return entries.filter((entry) => !normalized ||
-      `${entry.displayName} ${entry.publisher} ${entry.displayVersion}`
-        .toLocaleLowerCase('zh-CN')
-        .includes(normalized));
-  }, [entries, query]);
+    const needle = query.trim().toLocaleLowerCase('zh-CN');
+    const inventory = launchedSoftware && !entries.some((entry) => entry.id === launchedSoftware.id) ? [launchedSoftware, ...entries] : entries;
+    return inventory.filter((entry) => !needle ||
+      [entry.displayName, entry.publisher, entry.displayVersion].join(' ').toLocaleLowerCase('zh-CN').includes(needle));
+  }, [entries, query, launchedSoftware]);
+  const residuals = plan?.residuals ?? [];
+  const filtered = residuals.filter((residual) => category === 'all' || categoryOf(residual) === category);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pages - 1);
+  const pageRows = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const focused = residuals.find((residual) => residual.path === focusedPath) ?? pageRows[0] ?? null;
+  const checked = residuals.filter((residual) => selectedPaths.has(residual.path));
+  const selectedBytes = checked.reduce((sum, item) => sum + item.sizeBytes, 0);
+  const sizeIncomplete = checked.some((item) => item.sizeTruncated);
+  const personalCount = checked.filter((item) => item.personalData).length;
+  const allPageChecked = !!pageRows.length && pageRows.every((item) => selectedPaths.has(item.path));
+  const somePageChecked = pageRows.some((item) => selectedPaths.has(item.path));
+  const scanStatus = busy === 'scan' ? '扫描中…' : !plan ? '尚未扫描' : plan.scanTruncated ? '扫描受限' : launchedSoftware ? '卸载程序已启动' : '扫描完成';
+
+  const begin = (action: Busy) => {
+    const generation = lifecycle.current;
+    if (pending.current?.generation === generation) return null;
+    pending.current = { generation, action };
+    setBusy(action); setError(''); setNotice('');
+    return generation;
+  };
+  const finish = (generation: number) => {
+    if (pending.current?.generation === generation) pending.current = null;
+    if (lifecycle.current === generation) setBusy('');
+  };
+  const resetPlan = () => {
+    setPlan(null); setSelectedPaths(new Set()); setFocusedPath(''); setTypedName('');
+    setCategory('all'); setPage(0); setConfirmOpen(false);
+    setLaunchedSoftware(null);
+  };
+  const acceptPlan = (next: SoftwareCleanupPlan) => {
+    setPlan(next);
+    setSelectedPaths(new Set(next.residuals.filter((item) => item.defaultSelected).map((item) => item.path)));
+    setFocusedPath(next.residuals[0]?.path ?? '');
+    setTypedName(''); setCategory('all'); setPage(0); setTab('related');
+  };
 
   const loadEntries = async () => {
-    setBusy('list');
-    setError('');
+    const generation = begin('list');
+    if (generation === null) return;
     try {
       const next = await requestInstalledSoftware();
+      if (lifecycle.current !== generation) return;
       setEntries(next);
-      setSelectedId((current) => next.some((entry) => entry.id === current)
-        ? current
-        : (next[0]?.id ?? ''));
-    } catch (loadError) {
-      setError(messageFrom(loadError, '无法读取已安装软件。'));
-    } finally {
-      setBusy('');
+      if (!plan || !launchedSoftware || plan.softwareId !== launchedSoftware.id) {
+        setSelectedId((current) => next.some((entry) => entry.id === current) ? current : (next[0]?.id ?? ''));
+        resetPlan();
+      }
+    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法读取已安装软件。')); }
+    finally { finish(generation); }
+  };
+  useEffect(() => {
+    lifecycle.current += 1;
+    void loadEntries();
+    return () => {
+      lifecycle.current += 1;
+      if (pending.current?.action === 'scan' || pending.current?.action === 'uninstall') {
+        void requestSoftwareScanCancel().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (confirmOpen) {
+      if (dialog.current && !dialog.current.open) dialog.current.showModal();
+      nameInput.current?.focus();
+    } else if (dialog.current?.open) {
+      dialog.current.close();
+      cleanupTrigger.current?.focus();
     }
+  }, [confirmOpen]);
+
+  const cancelScan = async () => {
+    if (pending.current?.action !== 'scan') return;
+    // Invalidate the old request before asking native code to cancel its current scan.
+    lifecycle.current += 1;
+    const generation = begin('cancel');
+    if (generation === null) return;
+    try { await requestSoftwareScanCancel(); }
+    catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '未能取消扫描。')); }
+    finally { finish(generation); }
   };
-
-  useEffect(() => { void loadEntries(); }, []);
-
   const chooseSoftware = (entry: InstalledSoftware) => {
-    setSelectedId(entry.id);
-    setPlan(null);
-    setSelectedPaths(new Set());
-    setTypedName('');
-    setError('');
-    setNotice('');
+    if ((busy && busy !== 'scan') || selectedId === entry.id) return;
+    if (busy === 'scan') void cancelScan();
+    setSelectedId(entry.id); resetPlan(); setTab('related'); setError(''); setNotice('');
   };
-
   const scanResiduals = async () => {
     if (!selected) return;
-    setBusy('scan');
-    setError('');
-    setNotice('');
+    const generation = begin('scan');
+    if (generation === null) return;
     try {
-      const next = await requestSoftwareResidualScan(selected);
-      setPlan(next);
-      setSelectedPaths(new Set(next.residuals
-        .filter((residual) => residual.defaultSelected)
-        .map((residual) => residual.path)));
-      setTypedName('');
-      setNotice(next.residuals.length
-        ? `找到 ${next.residuals.length} 个关联位置，请逐项检查。`
-        : '通用扫描没有找到证据充分的关联位置；不会根据模糊名称扩大搜索范围。');
-    } catch (scanError) {
-      setError(messageFrom(scanError, '关联残留扫描失败。'));
-    } finally {
-      setBusy('');
-    }
+      const next = launchedSoftware && plan ? await requestSoftwareResidualRefresh(plan) : await requestSoftwareResidualScan(selected);
+      if (lifecycle.current === generation) acceptPlan(next);
+    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '关联项目扫描失败。')); }
+    finally { finish(generation); }
   };
-
   const launchUninstaller = async () => {
-    if (!selected || selected.noRemove) return;
-    const confirmed = window.confirm(
-      `将启动“${selected.displayName}”在 Windows 中注册的卸载程序。\n\n` +
-      '小助手不会静默卸载，也不会自动点击卸载程序中的确认按钮。是否继续？',
-    );
-    if (!confirmed) return;
-    setBusy('uninstall');
-    setError('');
+    if (!selected || selected.noRemove || busy) return;
+    if (!window.confirm(`将启动“${selected.displayName}”在 Windows 注册的卸载程序。\n\n不会静默卸载，也不会自动点击卸载程序中的确认按钮。是否继续？`)) return;
+    const generation = begin('uninstall');
+    if (generation === null) return;
     try {
       if (!plan || plan.softwareId !== selected.id) {
         const next = await requestSoftwareResidualScan(selected);
-        setPlan(next);
-        setSelectedPaths(new Set(next.residuals
-          .filter((residual) => residual.defaultSelected)
-          .map((residual) => residual.path)));
-        setTypedName('');
+        if (lifecycle.current !== generation) return;
+        acceptPlan(next);
       }
       const result = await requestSoftwareUninstall(selected);
-      setNotice(`${result.message} 已在启动前保存关联位置，卸载完成后可继续审核清理。`);
-    } catch (uninstallError) {
-      setError(messageFrom(uninstallError, '无法启动注册卸载程序。'));
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const cleanupResiduals = async () => {
-    if (!plan || typedName !== plan.displayName || selectedPaths.size === 0) return;
-    const personalCount = plan.residuals.filter((residual) =>
-      residual.personalData && selectedPaths.has(residual.path)).length;
-    const confirmed = window.confirm(
-      `准备把 ${selectedPaths.size} 个“${plan.displayName}”关联位置移入回收站。` +
-      (personalCount ? `\n\n其中 ${personalCount} 项包含插件、设置或其他个人数据。` : '') +
-      '\n\n路径已由原生扫描锁定，是否执行？',
-    );
-    if (!confirmed) return;
-    setBusy('cleanup');
-    setError('');
-    try {
-      const result = await requestSoftwareCleanup(
-        plan,
-        [...selectedPaths],
-        typedName,
-      );
-      setNotice(result.message);
-      if (result.failedPaths.length) {
-        setSelectedPaths(new Set(result.failedPaths));
-        setTypedName('');
-      } else {
-        setPlan(null);
-        setSelectedPaths(new Set());
-        setTypedName('');
-        await loadEntries();
+      if (lifecycle.current === generation) {
+        if (result.succeeded) { setLaunchedSoftware(selected); setNotice('卸载程序已启动；完成其中的操作后，可复查残留。'); }
+        else setError(result.message || '卸载程序未成功启动。');
       }
-    } catch (cleanupError) {
-      setError(messageFrom(cleanupError, '残留清理未完成。'));
-    } finally {
-      setBusy('');
-    }
+    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法启动注册卸载程序。')); }
+    finally { finish(generation); }
   };
-
+  const cleanupResiduals = async () => {
+    if (!plan || !selected || plan.softwareId !== selected.id || typedName !== plan.displayName || !checked.length || !confirmOpen) return;
+    const generation = begin('cleanup');
+    if (generation === null) return;
+    try {
+      // Capture the reviewed allowlist; never derive cleanup paths from UI text or the link target.
+      const result = await requestSoftwareCleanup(plan, checked.map((item) => item.path), typedName);
+      if (lifecycle.current !== generation) return;
+      setTypedName('');
+      if (result.failedPaths.length || !result.succeeded) {
+        const removed = new Set(result.removedPaths);
+        setPlan({ ...plan, residuals: plan.residuals.filter((item) => !removed.has(item.path)) });
+        setSelectedPaths(new Set(result.failedPaths.filter((path) => plan.residuals.some((item) => item.path === path))));
+        setError(result.message || '部分项目未能移入回收站，请重新审核。');
+        setConfirmOpen(false);
+      } else {
+        // Keep unselected candidates after uninstall: the registration may be
+        // gone, so discarding this native plan would make them unreachable.
+        const removed = new Set(result.removedPaths);
+        const remaining = plan.residuals.filter((item) => !removed.has(item.path));
+        setPlan({ ...plan, residuals: remaining });
+        setSelectedPaths(new Set()); setFocusedPath(remaining[0]?.path ?? '');
+        setConfirmOpen(false); setPage(0);
+        setNotice(result.message || '所选项目已移入回收站。');
+      }
+    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '关联项目清理未完成。')); }
+    finally { finish(generation); }
+  };
+  const revealFocused = async () => {
+    if (!plan || !focused) return;
+    const generation = begin('reveal');
+    if (generation === null) return;
+    try { await requestSoftwareReveal(plan.token, focused.path); }
+    catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法打开文件位置。')); }
+    finally { finish(generation); }
+  };
+  const copyPath = async () => {
+    if (!focused) return;
+    const generation = lifecycle.current;
+    try {
+      await navigator.clipboard.writeText(focused.path);
+      if (lifecycle.current === generation) setNotice('路径已复制。');
+    } catch { if (lifecycle.current === generation) setError('复制失败，请检查剪贴板权限。'); }
+  };
   const togglePath = (path: string) => {
+    if (busy) return;
     setSelectedPaths((current) => {
       const next = new Set(current);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
+      if (next.has(path)) next.delete(path); else next.add(path);
       return next;
     });
   };
+  const changeCategory = (value: Category) => {
+    setCategory(value); setPage(0);
+    setFocusedPath(residuals.find((item) => value === 'all' || categoryOf(item) === value)?.path ?? '');
+  };
+  const changePage = (value: number) => {
+    setPage(value); setFocusedPath(filtered[value * PAGE_SIZE]?.path ?? '');
+  };
 
-  return (
-    <section className={styles.workspace}>
-      <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
-
-      <div className={styles.safetyBar}>
-        <span><strong>两阶段保护</strong>先启动软件自己的卸载程序，再按需清理已审核残留。</span>
-        <span><strong>不是 rm -rf</strong>拒绝系统根目录和任意路径，清理内容进入回收站。</span>
-        <button type="button" disabled={Boolean(busy)} onClick={() => void loadEntries()}>
-          {busy === 'list' ? '读取中…' : '刷新软件列表'}
-        </button>
-      </div>
-
-      {error && <p className={styles.error}>{error}</p>}
-      {notice && <p className={styles.notice}>{notice}</p>}
-
-      <div className={styles.contentGrid}>
-        <aside className={styles.inventory}>
-          <header>
-            <div><span>INSTALLED</span><strong>{entries.length} 个已注册软件</strong></div>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、厂商或版本…" />
-          </header>
-          <div className={styles.softwareList}>
-            {visibleEntries.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className={entry.id === selectedId ? styles.activeSoftware : undefined}
-                onClick={() => chooseSoftware(entry)}
-              >
-                <i>{entry.displayName.slice(0, 1).toLocaleUpperCase('zh-CN')}</i>
-                <span>
-                  <strong>{entry.displayName}</strong>
-                  <small>{joinPresent(entry.publisher, entry.displayVersion) || '未提供厂商与版本'}</small>
-                </span>
-                <em>{entry.currentUser ? '当前用户' : '所有用户'}</em>
-              </button>
-            ))}
-            {!visibleEntries.length && <p>没有匹配的软件。</p>}
-          </div>
-        </aside>
-
-        <main className={styles.detail}>
-          {!selected && <div className={styles.empty}>请选择一个软件查看卸载与残留信息。</div>}
-          {selected && (
-            <>
-              <section className={styles.softwareSummary}>
-                <div>
-                  <span>SELECTED APPLICATION</span>
-                  <h3>{selected.displayName}</h3>
-                  <p>{joinPresent(selected.publisher, selected.displayVersion) || 'Windows 注册信息不完整'}</p>
-                </div>
-                <div className={styles.summaryActions}>
-                  <button type="button" disabled={Boolean(busy)} onClick={() => void scanResiduals()}>
-                    {busy === 'scan' ? '扫描中…' : '先扫描关联位置'}
-                  </button>
-                  <button type="button" disabled={Boolean(busy) || selected.noRemove} onClick={() => void launchUninstaller()}>
-                    {busy === 'uninstall' ? '准备并启动中…' : '启动标准卸载'}
-                  </button>
-                </div>
-              </section>
-
-              <dl className={styles.metadata}>
-                <div><dt>安装范围</dt><dd>{selected.currentUser ? '仅当前用户' : '所有用户 / 可能需管理员权限'}</dd></div>
-                <div><dt>注册大小</dt><dd>{selected.estimatedSizeBytes ? formatBytes(selected.estimatedSizeBytes) : '未提供'}</dd></div>
-                <div><dt>安装位置</dt><dd title={selected.installLocation}>{selected.installLocation || '未能从注册信息推断'}</dd></div>
-                <div><dt>卸载方式</dt><dd>{selected.windowsInstaller ? 'Windows Installer (MSI)' : '软件自带卸载程序'}</dd></div>
-                <div className={styles.metadataWide}>
-                  <dt>注册表来源</dt>
-                  <dd title={selected.registryPath}>{selected.registryPath || '未报告'}</dd>
-                </div>
-                <div className={styles.metadataWide}>
-                  <dt>位置来源</dt>
-                  <dd>{selected.installLocationInferred
-                    ? '注册项未填写 InstallLocation，已从 DisplayIcon 或 UninstallString 中存在的程序文件推断。'
-                    : 'Windows 卸载注册项直接提供。'}</dd>
-                </div>
-              </dl>
-
-              <section className={styles.residualSection}>
-                <header>
-                  <div><span>RESIDUAL REVIEW</span><h3>关联文件与个人数据</h3></div>
-                  {plan && <small>{selectedPaths.size} / {plan.residuals.length} 项已选择</small>}
-                </header>
-                {!plan && (
-                  <div className={styles.scanEmpty}>
-                    <strong>尚未扫描</strong>
-                    <p>扫描会组合卸载注册项、有效 EXE、版本信息、发布者、受限数据目录和开始菜单名称；不使用针对某个软件的硬编码目录。</p>
-                  </div>
-                )}
-                {plan && !plan.residuals.length && (
-                  <div className={styles.scanEmpty}><strong>没有已知残留</strong><p>标准卸载完成后可刷新列表再次确认。</p></div>
-                )}
-                {plan && plan.residuals.length > 0 && (
-                  <>
-                    <div className={styles.residualList}>
-                      {plan.residuals.map((residual) => (
-                        <ResidualRow
-                          key={residual.path}
-                          residual={residual}
-                          checked={selectedPaths.has(residual.path)}
-                          onToggle={() => togglePath(residual.path)}
-                        />
-                      ))}
-                    </div>
-                    <div className={styles.cleanupConfirm}>
-                      <label>
-                        <span>输入完整软件名称以确认彻底清理</span>
-                        <input
-                          value={typedName}
-                          onChange={(event) => setTypedName(event.target.value)}
-                          placeholder={plan.displayName}
-                          autoComplete="off"
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        disabled={Boolean(busy) || typedName !== plan.displayName || selectedPaths.size === 0}
-                        onClick={() => void cleanupResiduals()}
-                      >
-                        {busy === 'cleanup' ? '正在移入回收站…' : '清理所选残留'}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </section>
-            </>
-          )}
-        </main>
-      </div>
-    </section>
-  );
+  return <section className={styles.workspace} data-testid="software-uninstaller-workspace">
+    <div className={styles.topbar}><ToolWorkspaceHeader title={tool.name} onBack={onBack} /><button type="button" disabled={!!busy} onClick={() => void loadEntries()} aria-label="刷新软件列表">↻ {busy === 'list' ? '读取中…' : '刷新列表'}</button></div>
+    {(error || notice) && !confirmOpen && <p className={error ? styles.error : styles.notice} role={error ? 'alert' : 'status'}>{error || notice}<button type="button" aria-label="关闭提示" onClick={() => { setError(''); setNotice(''); }}>×</button></p>}
+    <div className={styles.contentGrid}>
+      <aside className={styles.inventory} aria-label="已安装软件">
+        <header><div><h3>已安装软件</h3><span>{entries.length}</span></div><input aria-label="搜索已安装软件" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索软件、厂商…" /></header>
+        <div className={styles.softwareList} role="listbox" aria-label="软件列表">
+          {visibleEntries.map((entry) => <button key={entry.id} type="button" role="option" aria-selected={entry.id === selectedId} disabled={!!busy && busy !== 'scan'} onClick={() => chooseSoftware(entry)}><i aria-hidden="true">{initial(entry.displayName)}</i><span><strong title={entry.displayName}>{entry.displayName}</strong><small title={entry.publisher}>{entry.publisher || '未提供厂商'}</small></span></button>)}
+          {!visibleEntries.length && <p>{busy === 'list' ? '正在读取软件…' : '没有匹配的软件。'}</p>}
+        </div>
+      </aside>
+      <section className={styles.detail} aria-label="软件详情">
+        {!selected && <div className={styles.empty}>请选择软件。</div>}
+        {selected && <>
+          <div className={styles.softwareSummary}><i aria-hidden="true">{initial(selected.displayName)}</i><div><h3 title={selected.displayName}>{selected.displayName}</h3><p title={joinPresent(selected.publisher, selected.displayVersion)}>{joinPresent(selected.publisher, selected.currentUser ? '当前用户' : '所有用户')}</p></div><div className={styles.summaryActions}><button type="button" disabled={!!busy && busy !== 'scan'} onClick={() => void (busy === 'scan' ? cancelScan() : scanResiduals())}>{busy === 'scan' ? '取消扫描' : launchedSoftware && plan ? '复查残留' : plan ? '重新扫描' : '扫描关联项目'}</button><button className={styles.primary} type="button" disabled={!!busy || selected.noRemove} title={selected.noRemove ? '该注册项禁止卸载' : undefined} onClick={() => void launchUninstaller()}>{busy === 'uninstall' ? '准备中…' : '卸载软件'}</button></div></div>
+          <div className={styles.installPath}><span>安装位置</span><code title={selected.installLocation}>{selected.installLocation || '注册信息未提供'}</code><button type="button" onClick={() => setTab('info')}>查看详情 ›</button></div>
+          <div className={styles.tabs} role="tablist" aria-label="软件详情分类"><button id="software-related-tab" type="button" role="tab" aria-selected={tab === 'related'} aria-controls="software-related-panel" tabIndex={tab === 'related' ? 0 : -1} onClick={() => setTab('related')} onKeyDown={(event) => { if (event.key === 'ArrowRight') { setTab('info'); document.getElementById('software-info-tab')?.focus(); } }}>关联项目 {plan ? residuals.length : ''}</button><button id="software-info-tab" type="button" role="tab" aria-selected={tab === 'info'} aria-controls="software-info-panel" tabIndex={tab === 'info' ? 0 : -1} onClick={() => setTab('info')} onKeyDown={(event) => { if (event.key === 'ArrowLeft') { setTab('related'); document.getElementById('software-related-tab')?.focus(); } }}>软件信息</button><span role="status" title={plan?.scanWarnings?.join('\n')}>{scanStatus}</span></div>
+          {tab === 'info' ? <section className={styles.infoPanel} id="software-info-panel" role="tabpanel" aria-labelledby="software-info-tab"><dl className={styles.metadata}>
+            <div><dt>软件名称</dt><dd>{selected.displayName}</dd></div><div><dt>版本</dt><dd>{selected.displayVersion || '未提供'}</dd></div>
+            <div><dt>发布者</dt><dd>{selected.publisher || '未提供'}</dd></div><div><dt>注册大小</dt><dd>{selected.estimatedSizeBytes ? formatBytes(selected.estimatedSizeBytes) : '未提供'}</dd></div>
+            <div><dt>安装范围</dt><dd>{selected.currentUser ? '仅当前用户' : '所有用户，可能需管理员权限'}</dd></div><div><dt>卸载方式</dt><dd>{selected.windowsInstaller ? 'Windows Installer (MSI)' : '软件自带卸载程序'}</dd></div>
+            <div className={styles.metadataWide}><dt>安装位置</dt><dd>{selected.installLocation || '未提供'}</dd></div>
+            <div className={styles.metadataWide}><dt>位置来源</dt><dd>{selected.installLocationInferred ? '根据注册的程序或卸载命令推断' : 'Windows 卸载注册项'}</dd></div>
+            <div className={styles.metadataWide}><dt>注册表来源</dt><dd>{selected.registryPath || '未提供'}</dd></div>
+            {plan?.scanWarnings?.length ? <div className={styles.metadataWide}><dt>扫描提醒</dt><dd>{plan.scanWarnings.map((warning, index) => <p key={index}>{warning}</p>)}</dd></div> : null}
+          </dl></section> : <section className={styles.relatedPanel} id="software-related-panel" role="tabpanel" aria-labelledby="software-related-tab">
+            <div className={styles.filters} aria-label="关联项目筛选">{categories.map((item) => <button key={item.value} type="button" aria-pressed={category === item.value} onClick={() => changeCategory(item.value)}>{item.label} <span>{residuals.filter((residual) => item.value === 'all' || categoryOf(residual) === item.value).length}</span></button>)}</div>
+            <div className={styles.residualTable} role="table" aria-label="关联项目">
+              <div className={styles.tableHeader} role="row"><span role="columnheader"><input type="checkbox" aria-label="选择本页关联项目" disabled={!!busy || !pageRows.length} checked={allPageChecked} ref={(input) => { if (input) input.indeterminate = somePageChecked && !allPageChecked; }} onChange={() => setSelectedPaths((current) => { const next = new Set(current); for (const item of pageRows) { if (allPageChecked) next.delete(item.path); else next.add(item.path); } return next; })} /></span><span role="columnheader">项目 / 位置</span><span role="columnheader">关联依据</span><span role="columnheader">大小</span></div>
+              {pageRows.map((residual) => <div key={residual.path} className={focused?.path === residual.path ? styles.focusedRow : styles.residualRow} role="row" data-selected={selectedPaths.has(residual.path) || undefined} onClick={() => setFocusedPath(residual.path)}>
+                <span role="cell"><input type="checkbox" aria-label={`选择 ${residual.path}`} disabled={!!busy} checked={selectedPaths.has(residual.path)} onChange={() => togglePath(residual.path)} /></span>
+                <span role="cell"><button type="button" className={styles.rowDetails} aria-label={`查看 ${residual.path}`} aria-pressed={focused?.path === residual.path} onClick={() => setFocusedPath(residual.path)}><ResidualIcon shortcut={residual.kind === 'shortcut'} /><span><strong>{basename(residual.path) || residual.label}</strong><small title={residual.path}>{parentPath(residual.path)}</small></span></button></span>
+                <span role="cell"><span className={categoryOf(residual) === 'personal' ? styles.personalBadge : styles.evidenceBadge} title={`${residual.evidence} · ${residual.confidence === 'high' ? '高可信' : '需复核'}`}>{evidenceLabel(residual)}</span></span>
+                <span role="cell" className={styles.sizeCell}>{residual.sizeTruncated ? '≥ ' : ''}{formatBytes(residual.sizeBytes)}</span>
+              </div>)}
+              {!pageRows.length && <div className={styles.scanEmpty}>{!plan ? <><strong>{busy === 'scan' ? '正在扫描关联项目…' : '尚未扫描关联项目'}</strong><button type="button" disabled={!!busy} onClick={() => void scanResiduals()}>扫描关联项目</button></> : <strong>{residuals.length ? '该分类没有关联项目' : '未找到可确认的关联项目'}</strong>}</div>}
+            </div>
+            <div className={styles.pagination}><span>共 {filtered.length} 项</span><span>每页 5 项</span><button type="button" aria-label="上一页关联项目" disabled={currentPage === 0} onClick={() => changePage(currentPage - 1)}>‹</button><span aria-live="polite">{currentPage + 1} / {pages}</span><button type="button" aria-label="下一页关联项目" disabled={currentPage + 1 >= pages} onClick={() => changePage(currentPage + 1)}>›</button></div>
+            <section className={styles.pathDetail} aria-label="关联项目详情"><header><h4>{focused ? focused.kind === 'shortcut' ? '快捷方式详情' : '关联项目详情' : '项目详情'}</h4><span>{focused ? focused.confidence === 'high' ? '高可信' : '需要复核' : ''}</span><div><button type="button" disabled={!focused} onClick={() => void copyPath()}>复制路径</button><button type="button" disabled={!focused || !!busy || !plan} onClick={() => void revealFocused()}>打开位置</button></div></header><dl><dt>位置</dt><dd title={focused?.path}>{focused?.path || '选择上方项目查看完整位置'}</dd>{focused?.kind === 'shortcut' ? <><dt>目标</dt><dd title={focused.targetPath}>{focused.targetPath || '未提供可确认的目标'}</dd></> : <><dt>依据</dt><dd title={focused?.evidence}>{focused?.evidence || '—'}</dd></>}</dl></section>
+          </section>}
+          <footer className={styles.cleanupBar}><span>已选 <strong>{checked.length}</strong> 项 · {sizeIncomplete ? '至少 ' : ''}{formatBytes(selectedBytes)}</span><button type="button" disabled={!checked.length || !!busy} onClick={() => setSelectedPaths(new Set())}>取消选择</button><button ref={cleanupTrigger} type="button" className={styles.danger} disabled={!plan || !checked.length || !!busy} onClick={() => { setTypedName(''); setError(''); setConfirmOpen(true); }}>清理所选…</button></footer>
+        </>}
+      </section>
+    </div>
+    <dialog ref={dialog} className={styles.confirmDialog} aria-labelledby="software-cleanup-title" onCancel={(event) => { event.preventDefault(); if (busy !== 'cleanup') setConfirmOpen(false); }}>
+      <header><h3 id="software-cleanup-title">确认清理关联项目</h3><button type="button" aria-label="关闭清理确认" disabled={busy === 'cleanup'} onClick={() => setConfirmOpen(false)}>×</button></header>
+      <p>将把“<strong>{plan?.displayName}</strong>”的 {checked.length} 个已审核位置移入回收站。请先完成软件卸载；仍注册的软件不会被清理。</p>
+      {personalCount > 0 && <p className={styles.personalWarning}>其中 {personalCount} 项包含个人数据，可能包括设置、缓存或插件。请确认这些内容不再需要。</p>}
+      <ul className={styles.confirmPaths}>{checked.map((item) => <li key={item.path}>{item.path}{item.personalData && <b>个人数据</b>}</li>)}</ul>
+      <label>输入完整软件名称以确认<input ref={nameInput} aria-label="确认清理的软件名称" value={typedName} disabled={busy === 'cleanup'} onChange={(event) => setTypedName(event.target.value)} placeholder={plan?.displayName} autoComplete="off" spellCheck={false} /></label>
+      {error && <p className={styles.dialogError} role="alert">{error}</p>}
+      <footer><button type="button" disabled={busy === 'cleanup'} onClick={() => setConfirmOpen(false)}>取消</button><button type="button" className={styles.danger} disabled={!!busy || !plan || typedName !== plan.displayName || !checked.length} onClick={() => void cleanupResiduals()}>{busy === 'cleanup' ? '正在移入回收站…' : '确认移入回收站'}</button></footer>
+    </dialog>
+  </section>;
 }
 
-function ResidualRow({ residual, checked, onToggle }: {
-  residual: SoftwareResidual;
-  checked: boolean;
-  onToggle(): void;
-}) {
-  return (
-    <label className={residual.personalData ? styles.personalResidual : undefined}>
-      <input type="checkbox" checked={checked} onChange={onToggle} />
-      <i>{kindGlyph(residual.kind)}</i>
-      <span>
-        <strong>{residual.label}</strong>
-        <code title={residual.path}>{residual.path}</code>
-        <p>{residual.evidence}</p>
-      </span>
-      <em>
-        {residual.personalData && <b>个人数据</b>}
-        <b className={residual.confidence === 'high' ? styles.highConfidence : styles.mediumConfidence}>
-          {residual.confidence === 'high' ? '高可信' : '中可信'}
-        </b>
-        <small>{residual.sizeTruncated ? '至少 ' : ''}{formatBytes(residual.sizeBytes)} · {residual.itemCount} 项</small>
-      </em>
-    </label>
-  );
+function ResidualIcon({ shortcut }: { shortcut: boolean }) {
+  return shortcut
+    ? <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="#3688d4" strokeWidth="1.6"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 15 16 7m-7 0h7v7" /></svg>
+    : <svg aria-hidden="true" viewBox="0 0 24 24" fill="#ffd363" stroke="#d6a12f" strokeWidth="1.2"><path d="M2.5 7V5.5A1.5 1.5 0 0 1 4 4h5l2 2h9a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5Z" /><path d="M2.5 8h19" /></svg>;
 }
-
-function kindGlyph(kind: SoftwareResidual['kind']) {
-  if (kind === 'personal') return '♥';
-  if (kind === 'cache') return '◇';
-  if (kind === 'shortcut') return '↗';
-  return '▣';
+function categoryOf(item: SoftwareResidual): Exclude<Category, 'all'> {
+  if (item.kind === 'shortcut') return 'shortcut';
+  return item.personalData || item.kind === 'personal' || item.kind === 'cache' ? 'personal' : 'program';
 }
-
+function evidenceLabel(item: SoftwareResidual) {
+  if (item.personalData) return '个人数据';
+  if (item.confidence !== 'high') return '需要复核';
+  if (/目标|指向/.test(item.evidence)) return '目标程序匹配';
+  if (/InstallLocation|安装目录|安装位置/.test(item.evidence)) return '安装位置匹配';
+  if (/注册/.test(item.evidence)) return '注册信息匹配';
+  return '关联信息匹配';
+}
+function basename(path: string) { return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path; }
+function parentPath(path: string) { const clean = path.replace(/[\\/]+$/, ''); return clean.slice(0, Math.max(clean.lastIndexOf('\\'), clean.lastIndexOf('/'))) || clean; }
+function initial(name: string) { return Array.from(name)[0]?.toLocaleUpperCase('zh-CN') || '软'; }
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / 1024 ** index).toFixed(index > 1 ? 1 : 0)} ${units[index]}`;
 }
-
-function joinPresent(...values: string[]) {
-  return values.filter(Boolean).join(' · ');
-}
-
-function messageFrom(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
-}
+function joinPresent(...values: string[]) { return values.filter(Boolean).join(' · '); }
+function messageFrom(error: unknown, fallback: string) { return error instanceof Error ? error.message : fallback; }

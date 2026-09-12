@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   const ui = (role, name) => page.getByRole(role, { name, exact: true });
   try {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
-    await ui('button', '◎ 网络协议').click();
+    await ui('button', '网络协议').click();
     await page.getByRole('article').filter({ hasText: '十六进制报文分析器' }).getByRole('button', { name: '打开', exact: true }).click();
     const selected = ui('region', '当前选区');
     await ui('button', '源端口').waitFor();
@@ -32,7 +32,7 @@ const { chromium } = require('playwright');
     await ui('button', '保存字段').click();
     assert.match(await ui('tabpanel', '自定义字段 (1)').innerText(), /测试消息头/);
     await page.reload();
-    await ui('button', '◎ 网络协议').click();
+    await ui('button', '网络协议').click();
     await page.getByRole('article').filter({ hasText: '十六进制报文分析器' }).getByRole('button', { name: '打开', exact: true }).click();
     await ui('tab', '自定义字段 (1)').click();
     assert.match(await ui('tabpanel', '自定义字段 (1)').innerText(), /测试消息头/);

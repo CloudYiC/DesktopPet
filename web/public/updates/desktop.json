@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.0",
+  "latestVersion": "0.13.1",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.0",
-  "releaseNotes": "Adds desktop-only Serial, MQTT 3.1.1 and Modbus RTU/TCP debugging tools, bringing the built-in catalog to 20 tools. Includes fixed scrolling message views, text/HEX data, serial line endings and repeat send, MQTT QoS 0/1/2 and validated TLS, and Modbus register tables with per-operation write confirmation. Sessions stop when leaving the tool or closing the workbench. MQTT uses Clean Session and never persists passwords. The independent web catalog is unchanged.",
-  "publishedAt": "2026-09-12T14:46:37Z",
+  "title": "云依助手 0.13.1",
+  "releaseNotes": "Redesigns Software Uninstaller with a scrolling app list, fixed details, five-item pagination and an explicit cleanup confirmation. Adds bounded, cancellable background discovery of nested Start Menu and desktop shortcuts by their actual targets, post-uninstall residual revalidation and shared-folder protection. Unselected items remain available after partial cleanup. Desktop sidebar icons now use a consistent outline SVG style. All 20 built-in tools and the packaged pink Yiyi character are retained.",
+  "publishedAt": "2026-09-12T16:01:52Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.0.exe",
-      "sha256": "16E8FE31B5BCFC10D557B25B698773774B1CD548E392A5C674B947E5568160F7",
-      "size": 23288547,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.1.exe",
+      "sha256": "5B06916041D77E8BE31778062A1E4D148DD8D935704E84130F2B7A2C1D093AC0",
+      "size": 23316272,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.0.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.1.exe"
   }
 }

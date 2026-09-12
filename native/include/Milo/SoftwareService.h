@@ -4,6 +4,9 @@
 /// @brief Installed-software inventory, standard uninstall and safe cleanup.
 
 #include <cstdint>
+#include <atomic>
+#include <functional>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -28,6 +31,7 @@ struct InstalledSoftware {
 /// An exact existing path associated with the selected application.
 struct SoftwareResidual {
   std::string path;
+  std::string targetPath;
   std::string label;
   std::string kind;
   std::string evidence;
@@ -37,6 +41,8 @@ struct SoftwareResidual {
   bool sizeTruncated{};
   bool defaultSelected{};
   bool personalData{};
+  // Native-only identity seal. Never accepted back from the WebView.
+  std::string nativeIdentity;
 };
 
 /// Server-side cleanup session; only these exact paths may later be removed.
@@ -45,6 +51,10 @@ struct SoftwareCleanupPlan {
   std::string softwareId;
   std::string displayName;
   std::vector<SoftwareResidual> residuals;
+  bool scanTruncated{};
+  std::vector<std::string> scanWarnings;
+  std::uint64_t nativeCreatedTick{};
+  std::uint64_t nativeGeneration{};
 };
 
 /// Result returned by standard-uninstall and residual-cleanup operations.
@@ -64,7 +74,12 @@ class SoftwareService final {
  public:
   std::vector<InstalledSoftware> ListInstalled() const;
   SoftwareCleanupPlan ScanResiduals(const std::string& softwareId,
-                                    const std::string& expectedName);
+                                    const std::string& expectedName,
+                                    const std::function<bool()>& cancelled = {});
+  void CancelScan();
+  SoftwareCleanupPlan RefreshResiduals(const std::string& planToken);
+  SoftwareOperationResult RevealResidual(const std::string& planToken,
+                                          const std::string& path);
   SoftwareOperationResult LaunchRegisteredUninstaller(
       const std::string& softwareId, const std::string& expectedName,
       bool confirmed) const;
@@ -73,6 +88,10 @@ class SoftwareService final {
       const std::vector<std::string>& selectedPaths, bool confirmed);
 
  private:
+  friend struct SoftwareServiceTestAccess;
+  std::atomic<std::uint64_t> scanGeneration_{0};
+  mutable std::mutex planMutex_;
+  std::function<bool(const std::string&)> registrationCheckForTest_;
   SoftwareCleanupPlan activePlan_;
 };
 

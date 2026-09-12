@@ -173,6 +173,7 @@ target_link_libraries(MiloDesktopPet PRIVATE
   ole32
   sapi
   shell32
+  uuid
   shlwapi
   iphlpapi
   version
@@ -328,6 +329,7 @@ if(BUILD_TESTING)
     bcrypt
     ole32
     shell32
+    uuid
     version
   )
   if(MSVC)

@@ -142,7 +142,7 @@ const { chromium } = require('playwright');
 
   try {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
-    await page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
+    await page.getByRole('button', { name: /^工具首页/ }).click();
     const cards = page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) });
     assert.equal(await cards.count(), 20, 'Number Format stays removed and three native debuggers are available');
     assert.equal(await page.getByRole('heading', { name: '数字格式化', exact: true }).count(), 0);

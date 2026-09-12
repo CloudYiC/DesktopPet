@@ -109,7 +109,7 @@ $teal-dark: var(--theme-primary-deep);
       width: 25px;
       height: 25px;
       place-items: center;
-      color: $teal;
+      color: #626b73;
       font-size: 0.75rem;
       font-style: normal;
       font-weight: 800;
@@ -135,6 +135,8 @@ $teal-dark: var(--theme-primary-deep);
   }
 
   .activeNav { color: $teal-dark; background: #e5f2ef; }
+  .activeNav > i,
+  button:hover > i { color: $teal-dark; }
 }
 
 .petCard {
@@ -244,11 +246,13 @@ $teal-dark: var(--theme-primary-deep);
 }
 
 .profileButton > i {
-  color: #fff;
-  background: linear-gradient(145deg, #efb08a, #df886f);
-  border-radius: 50%;
-  font-family: Georgia, serif;
+  color: #626b73;
+  background: transparent;
 }
+
+.sidebar svg { display: block; width: 22px; height: 22px; flex: 0 0 auto; }
+.bottomActive > i,
+.profileButton:hover > i { color: $teal-dark; }
 
 .bottomActive {
   background: #eef6f3;

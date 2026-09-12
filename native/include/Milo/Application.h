@@ -9,7 +9,10 @@
 #include <wrl/client.h>
 
 #include <memory>
+#include <atomic>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -98,6 +101,12 @@ class Application final {
   void SendState(WebViewWindow* target = nullptr);
   nlohmann::json BuildState();
   void SendError(WebViewWindow& target, const std::string& message);
+  void StartSoftwareScan(HWND source, const std::string& requestId,
+                         const std::string& softwareId,
+                         const std::string& displayName,
+                         const std::string& planToken = std::string());
+  void CancelSoftwareScan(bool waitForWorker = false);
+  void DrainSoftwareScan();
 
   // Character wardrobe persistence.
   void LoadCharacters();
@@ -112,6 +121,15 @@ class Application final {
   ReminderStore reminders_;
   /// Revalidates registered uninstallers and cleanup paths across requests.
   SoftwareService softwareService_;
+  // Only the UI thread talks to WebView2. The scan worker posts into this mailbox.
+  std::thread softwareScanThread_;
+  std::atomic<bool> softwareScanRunning_{false};
+  std::atomic<std::uint64_t> softwareScanGeneration_{0};
+  std::mutex softwareScanMutex_;
+  std::string softwareScanResponse_;
+  std::string softwareScanRequestId_;
+  std::string softwareScanRequestType_;
+  HWND softwareScanWindow_{};
   /// Owns the bounded asynchronous Winsock session used by Network Debugger.
   NetworkDebugService networkDebugService_;
   /// Desktop-only sessions; each service owns its worker and bounded queues.

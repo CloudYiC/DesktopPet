@@ -688,6 +688,30 @@ export async function requestSoftwareResidualScan(
   return response.plan;
 }
 
+/** Cancels only the current read-only software scan; never launches or deletes. */
+export async function requestSoftwareScanCancel(): Promise<void> {
+  if (!nativeBridge) return;
+  await requestNativePayload<Record<string, never>>('software.scan.cancel', {});
+}
+
+/** Revalidates only saved candidates after the registered uninstaller has run. */
+export async function requestSoftwareResidualRefresh(plan: SoftwareCleanupPlan): Promise<SoftwareCleanupPlan> {
+  if (!nativeBridge) return plan;
+  const result = await requestNativePayload<{ plan: SoftwareCleanupPlan }>(
+    'software.refresh', { planToken: plan.token }, 60_000,
+  );
+  return result.plan;
+}
+
+/** Reveals an exact current-plan item in Explorer without executing its target. */
+export async function requestSoftwareReveal(planToken: string, path: string): Promise<SoftwareOperationResult> {
+  if (!nativeBridge) throw new Error('浏览器预览不能打开本机文件位置。');
+  const response = await requestNativePayload<{ operation: SoftwareOperationResult }>(
+    'software.reveal', { planToken, path },
+  );
+  return response.operation;
+}
+
 /** Starts the application's registered interactive uninstaller. */
 export async function requestSoftwareUninstall(
   software: InstalledSoftware,

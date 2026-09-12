@@ -16,7 +16,7 @@ const { chromium } = require('playwright');
   const output = path.resolve(__dirname, '../artifacts/tool-layout');
   const header = () => page.locator('header[aria-label="工具详情导航"]');
   const sidebar = () => page.getByRole('complementary').first();
-  const toolHome = () => page.getByRole('button', { name: /^⌂ 工具首页/ }).click();
+  const toolHome = () => page.getByRole('button', { name: /^工具首页/ }).click();
   const openTool = async (name) => {
     const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) });
     assert.equal(await card.getByRole('button', { name: /^(Enable|启用|停用)$/ }).count(), 0, 'built-in tools never require enabling');
@@ -31,6 +31,13 @@ const { chromium } = require('playwright');
       elements.map((element) => ({ name: element.querySelector('h3').textContent, description: element.querySelector('p').textContent })));
     assert.equal(cards.length, 20);
     assert.equal(Math.round((await sidebar().boundingBox()).width), 192);
+    for (const name of ['home', 'data', 'network', 'system', 'file-conversion', 'today', 'all', 'status', 'settings']) {
+      const icon = sidebar().locator(`svg[data-nav-icon="${name}"]`).first();
+      assert.equal(await icon.getAttribute('aria-hidden'), 'true', `${name} is decorative, not repeated by screen readers`);
+      assert.equal(await icon.getAttribute('stroke'), 'currentColor', `${name} follows the navigation state color`);
+      assert.equal(await icon.getAttribute('viewBox'), '0 0 24 24');
+    }
+    assert.equal(await sidebar().getByRole('button', { name: /^工具首页/ }).getAttribute('aria-current'), 'page');
     for (const { name, description } of cards) {
       await openTool(name);
       assert.equal(await header().count(), 1, `${name} has a single navigation row`);
@@ -59,7 +66,7 @@ const { chromium } = require('playwright');
       }
     }
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.getByRole('button', { name: /^⌁ 今天/ }).click();
+    await page.getByRole('button', { name: /^今天/ }).click();
     assert.equal(await header().count(), 0, 'Pet pages keep their existing heading');
     const petPadding = await page.getByRole('main').last().evaluate((element) => getComputedStyle(element).padding);
     assert.equal(petPadding, '12px 16px 16px', 'Pet pages use the same compact content insets as tools');

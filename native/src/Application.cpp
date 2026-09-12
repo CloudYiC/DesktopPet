@@ -190,6 +190,7 @@ nlohmann::json InstalledSoftwareToJson(const InstalledSoftware& entry) {
 
 nlohmann::json SoftwareResidualToJson(const SoftwareResidual& residual) {
   return {{"path", residual.path},
+          {"targetPath", residual.targetPath},
           {"label", residual.label},
           {"kind", residual.kind},
           {"evidence", residual.evidence},
@@ -212,6 +213,8 @@ nlohmann::json SoftwareCleanupPlanToJson(
   return {{"token", plan.token},
           {"softwareId", plan.softwareId},
           {"displayName", plan.displayName},
+          {"scanTruncated", plan.scanTruncated},
+          {"scanWarnings", plan.scanWarnings},
           {"residuals", residuals}};
 }
 
@@ -544,6 +547,7 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
 }
 
 Application::~Application() {
+  CancelSoftwareScan(true);
   networkDebugService_.Stop();
   serialDebugService_.Stop();
   mqttDebugService_.Stop();
@@ -573,7 +577,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.13.0";
+    const std::string marker = "CuteYiyiDesktopPet 0.13.1";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -1108,6 +1112,89 @@ void Application::HandleWebMessage(WebViewWindow& source,
               .dump());
       return;
     }
+    if (type.compare(0, 9, "software.") == 0) {
+      std::string requestId;
+      const bool validRequest = TryReadJsonString(payload, "requestId", &requestId) &&
+                                !requestId.empty() && requestId.size() <= 80;
+      if (!validRequest || source.Kind() != WindowKind::Dashboard ||
+          quitting_ || rawMessage.size() > 1024U * 1024U ||
+          (!IsWindowVisible(source.Handle()) && type != "software.scan.cancel")) {
+        source.PostJson(nlohmann::json{{"type", type + ".error"},
+            {"payload", {{"requestId", requestId},
+                         {"message", "请在已打开的工作台中操作软件卸载工具。"}}}}.dump());
+        return;
+      }
+      // Reject malformed field types with the original request ID. A generic
+      // WebView error would leave the caller waiting until its timeout.
+      bool validFields = true;
+      const auto boundedString = [&payload](const char* key, std::size_t limit) {
+        std::string value;
+        return TryReadJsonString(payload, key, &value) && !value.empty() &&
+               value.size() <= limit && value.find('\0') == std::string::npos;
+      };
+      if (type == "software.scan" || type == "software.uninstall") {
+        validFields = boundedString("softwareId", 2048) &&
+                      boundedString("displayName", 640);
+      } else if (type == "software.refresh" || type == "software.reveal" ||
+                 type == "software.cleanup") {
+        validFields = boundedString("planToken", 32);
+      }
+      if (type == "software.reveal") validFields = validFields && boundedString("path", 32768);
+      if (type == "software.cleanup") validFields = validFields && boundedString("typedName", 640);
+      if (type == "software.uninstall" || type == "software.cleanup") {
+        validFields = validFields && payload.contains("confirmed") &&
+                      payload.at("confirmed").is_boolean();
+      }
+      if (!validFields) {
+        source.PostJson(nlohmann::json{{"type", type + ".error"},
+            {"payload", {{"requestId", requestId}, {"message", "软件操作请求字段无效。"}}}}.dump());
+        return;
+      }
+      DrainSoftwareScan();
+      if (softwareScanRunning_.load() && type != "software.scan.cancel") {
+        source.PostJson(nlohmann::json{{"type", type + ".error"},
+            {"payload", {{"requestId", requestId},
+                         {"message", "扫描仍在进行，请等待完成或先取消扫描。"}}}}.dump());
+        return;
+      }
+    }
+    if (type == "software.scan.cancel") {
+      const std::string requestId = payload.value("requestId", "");
+      CancelSoftwareScan();
+      source.PostJson(nlohmann::json{{"type", "software.scan.cancel.result"},
+          {"payload", {{"requestId", requestId}}}}.dump());
+      return;
+    }
+    if (type == "software.refresh") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string planToken = payload.value("planToken", "");
+      try {
+        if (planToken.size() != 32) throw std::runtime_error("清理计划标识无效。");
+        StartSoftwareScan(source.Handle(), requestId, "", "", planToken);
+      } catch (const std::exception& error) {
+        source.PostJson(nlohmann::json{{"type", "software.refresh.error"},
+            {"payload", {{"requestId", requestId}, {"message", error.what()}}}}.dump());
+      }
+      return;
+    }
+    if (type == "software.reveal") {
+      const std::string requestId = payload.value("requestId", "");
+      const std::string planToken = payload.value("planToken", "");
+      const std::string path = payload.value("path", "");
+      try {
+        if (planToken.size() != 32 || path.empty() || path.size() > 32768) {
+          throw std::runtime_error("文件位置请求无效，请重新扫描。");
+        }
+        const SoftwareOperationResult result = softwareService_.RevealResidual(planToken, path);
+        source.PostJson(nlohmann::json{{"type", result.succeeded ? "software.reveal.result" : "software.reveal.error"},
+            {"payload", {{"requestId", requestId}, {"message", result.message},
+                         {"operation", SoftwareOperationToJson(result)}}}}.dump());
+      } catch (const std::exception& error) {
+        source.PostJson(nlohmann::json{{"type", "software.reveal.error"},
+            {"payload", {{"requestId", requestId}, {"message", error.what()}}}}.dump());
+      }
+      return;
+    }
     if (type == "software.list") {
       const std::string requestId = payload.value("requestId", "");
       if (requestId.empty() || requestId.size() > 80) {
@@ -1144,18 +1231,12 @@ void Application::HandleWebMessage(WebViewWindow& source,
       const std::string displayName = payload.value("displayName", "");
       if (requestId.empty() || requestId.size() > 80 || softwareId.empty() ||
           softwareId.size() > 2048 || !IsValidLabel(displayName, 160)) {
-        SendError(source, "软件残留扫描请求无效。");
+        source.PostJson(nlohmann::json{{"type", "software.scan.error"},
+            {"payload", {{"requestId", requestId}, {"message", "软件残留扫描请求无效。"}}}}.dump());
         return;
       }
       try {
-        const SoftwareCleanupPlan plan =
-            softwareService_.ScanResiduals(softwareId, displayName);
-        source.PostJson(
-            nlohmann::json{{"type", "software.scan.result"},
-                           {"payload",
-                            {{"requestId", requestId},
-                             {"plan", SoftwareCleanupPlanToJson(plan)}}}}
-                .dump());
+        StartSoftwareScan(source.Handle(), requestId, softwareId, displayName);
       } catch (const std::exception& error) {
         source.PostJson(
             nlohmann::json{{"type", "software.scan.error"},
@@ -1173,7 +1254,8 @@ void Application::HandleWebMessage(WebViewWindow& source,
       const bool confirmed = payload.value("confirmed", false);
       if (requestId.empty() || requestId.size() > 80 || softwareId.empty() ||
           softwareId.size() > 2048 || !IsValidLabel(displayName, 160)) {
-        SendError(source, "软件卸载请求无效。");
+        source.PostJson(nlohmann::json{{"type", "software.uninstall.error"},
+            {"payload", {{"requestId", requestId}, {"message", "软件卸载请求无效。"}}}}.dump());
         return;
       }
       try {
@@ -1208,18 +1290,24 @@ void Application::HandleWebMessage(WebViewWindow& source,
       if (payload.contains("selectedPaths") &&
           payload.at("selectedPaths").is_array()) {
         const nlohmann::json& paths = payload.at("selectedPaths");
-        if (paths.size() <= 32) {
+        if (paths.size() <= 256) {
           for (nlohmann::json::const_iterator path = paths.begin();
                path != paths.end(); ++path) {
-            if (path->is_string() && path->get<std::string>().size() <= 32768)
-              selectedPaths.push_back(path->get<std::string>());
+            if (!path->is_string() || path->get<std::string>().empty() ||
+                path->get<std::string>().size() > 32768 ||
+                path->get<std::string>().find('\0') != std::string::npos) {
+              selectedPaths.clear();
+              break;
+            }
+            selectedPaths.push_back(path->get<std::string>());
           }
         }
       }
       if (requestId.empty() || requestId.size() > 80 ||
           planToken.size() != 32 || !IsValidLabel(typedName, 160) ||
           selectedPaths.empty()) {
-        SendError(source, "软件残留清理请求无效。");
+        source.PostJson(nlohmann::json{{"type", "software.cleanup.error"},
+            {"payload", {{"requestId", requestId}, {"message", "软件残留清理请求无效。"}}}}.dump());
         return;
       }
       try {
@@ -1524,8 +1612,93 @@ void Application::HandleWebMessage(WebViewWindow& source,
   }
 }
 
+void Application::StartSoftwareScan(HWND source, const std::string& requestId,
+                                    const std::string& softwareId,
+                                    const std::string& displayName,
+                                    const std::string& planToken) {
+  DrainSoftwareScan();
+  if (softwareScanRunning_.load()) throw std::runtime_error("请先取消正在进行的扫描。");
+  if (softwareScanThread_.joinable()) softwareScanThread_.join();
+  const std::uint64_t generation = ++softwareScanGeneration_;
+  const std::string requestType = planToken.empty() ? "software.scan" : "software.refresh";
+  softwareScanWindow_ = source;
+  softwareScanRequestId_ = requestId;
+  softwareScanRequestType_ = requestType;
+  softwareScanRunning_.store(true);
+  try {
+    softwareScanThread_ = std::thread([this, generation, requestId, requestType,
+                                       softwareId, displayName, planToken]() {
+      const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+      std::string response;
+      try {
+        if (FAILED(initialized)) throw std::runtime_error("无法初始化快捷方式扫描服务。");
+        const auto cancelled = [this, generation]() {
+          return softwareScanGeneration_.load() != generation;
+        };
+        if (cancelled()) throw std::runtime_error("扫描已取消。");
+        const SoftwareCleanupPlan plan = planToken.empty()
+            ? softwareService_.ScanResiduals(softwareId, displayName, cancelled)
+            : softwareService_.RefreshResiduals(planToken);
+        if (cancelled()) throw std::runtime_error("扫描已取消。");
+        response = nlohmann::json{{"type", requestType + ".result"},
+            {"payload", {{"requestId", requestId},
+                         {"plan", SoftwareCleanupPlanToJson(plan)}}}}.dump();
+      } catch (const std::exception& error) {
+        response = nlohmann::json{{"type", requestType + ".error"},
+            {"payload", {{"requestId", requestId}, {"message", error.what()}}}}.dump();
+      } catch (...) {
+        response = nlohmann::json{{"type", requestType + ".error"},
+            {"payload", {{"requestId", requestId}, {"message", "扫描未完成，请重试。"}}}}.dump();
+      }
+      if (SUCCEEDED(initialized)) CoUninitialize();
+      {
+        std::lock_guard<std::mutex> lock(softwareScanMutex_);
+        if (softwareScanGeneration_.load() == generation) softwareScanResponse_.swap(response);
+      }
+      softwareScanRunning_.store(false);
+    });
+  } catch (...) {
+    softwareScanRunning_.store(false);
+    softwareScanRequestId_.clear();
+    throw;
+  }
+}
+
+void Application::CancelSoftwareScan(bool waitForWorker) {
+  ++softwareScanGeneration_;
+  softwareService_.CancelScan();
+  if (!softwareScanRequestId_.empty() && dashboardWindow_ != nullptr &&
+      dashboardWindow_->Handle() == softwareScanWindow_ && !quitting_) {
+    dashboardWindow_->PostJson(nlohmann::json{{"type", softwareScanRequestType_ + ".error"},
+        {"payload", {{"requestId", softwareScanRequestId_}, {"message", "扫描已取消。"}}}}.dump());
+  }
+  softwareScanRequestId_.clear();
+  {
+    std::lock_guard<std::mutex> lock(softwareScanMutex_);
+    softwareScanResponse_.clear();
+  }
+  if (waitForWorker && softwareScanThread_.joinable()) softwareScanThread_.join();
+}
+
+void Application::DrainSoftwareScan() {
+  if (softwareScanRunning_.load()) return;
+  if (softwareScanThread_.joinable()) softwareScanThread_.join();
+  std::string response;
+  {
+    std::lock_guard<std::mutex> lock(softwareScanMutex_);
+    response.swap(softwareScanResponse_);
+  }
+  softwareScanRequestId_.clear();
+  if (!response.empty() && !quitting_ && dashboardWindow_ != nullptr &&
+      dashboardWindow_->Handle() == softwareScanWindow_ &&
+      IsWindowVisible(softwareScanWindow_)) {
+    dashboardWindow_->PostJson(response);
+  }
+}
+
 void Application::HandleTimer() {
   try {
+    DrainSoftwareScan();
     // TakeDue atomically claims occurrences before any UI or audio side effect.
     const std::vector<Reminder> due =
         reminders_.TakeDue(UnixTimeMilliseconds());
@@ -1601,6 +1774,7 @@ void Application::ShowDashboard() {
 }
 
 void Application::CloseDashboard() {
+  CancelSoftwareScan();
   // Network debugging is intentionally scoped to a visible workbench session;
   // hiding the dashboard must never leave a listener running in the background.
   networkDebugService_.Stop();
@@ -1634,6 +1808,7 @@ void Application::SavePetPosition(HWND window) {
 
 void Application::Quit() {
   quitting_ = true;
+  CancelSoftwareScan(true);
   restorePetAfterDashboard_ = false;
   networkDebugService_.Stop();
   serialDebugService_.Stop();

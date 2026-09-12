@@ -224,6 +224,7 @@ export interface InstalledSoftware {
 /** One exact, native-approved path associated with an installed application. */
 export interface SoftwareResidual {
   path: string;
+  targetPath?: string;
   label: string;
   kind: 'program' | 'cache' | 'personal' | 'shortcut';
   evidence: string;
@@ -241,6 +242,8 @@ export interface SoftwareCleanupPlan {
   softwareId: string;
   displayName: string;
   residuals: SoftwareResidual[];
+  scanTruncated?: boolean;
+  scanWarnings?: string[];
 }
 
 /** Outcome of a registered uninstaller or reviewed residual cleanup. */
