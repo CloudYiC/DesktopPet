@@ -262,6 +262,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.12.7-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Redesigned desktop text comparison with aligned red/green rows and inline change highlights' },
+      { kind: '+', text: 'Added change counts, difference navigation, changes-only filtering and collapsible inputs' },
+      { kind: '~', text: 'Replaced index-based text comparison with bounded line alignment and Unicode-aware inline matching' },
+    ],
+  },
+  {
     version: 'v0.12.6-desktop',
     date: '2026-09-12',
     items: [

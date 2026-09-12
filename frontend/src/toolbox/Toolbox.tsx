@@ -22,6 +22,7 @@ import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
 import { NetworkDebugger } from './NetworkDebugger';
+import { TextDiffWorkspace } from './TextDiffWorkspace';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 
 interface ToolboxProps {
@@ -98,6 +99,9 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
     }
     if (activeTool.id === 'network-debugger') {
       return <NetworkDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'diff') {
+      return <TextDiffWorkspace onBack={() => setActiveToolId(null)} />;
     }
     return <ToolWorkspace tool={activeTool} onBack={() => setActiveToolId(null)} />;
   }
@@ -557,7 +561,6 @@ interface ToolWorkspaceProps {
 
 function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
   const [input, setInput] = useState(sampleInput(tool.id));
-  const [secondaryInput, setSecondaryInput] = useState(sampleSecondaryInput(tool.id));
   const [operation, setOperation] = useState(defaultOperation(tool.id));
   const [pattern, setPattern] = useState('\\b\\w{4,}\\b');
   const [flags, setFlags] = useState('gi');
@@ -568,7 +571,6 @@ function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
 
   useEffect(() => {
     setInput(sampleInput(tool.id));
-    setSecondaryInput(sampleSecondaryInput(tool.id));
     setOperation(defaultOperation(tool.id));
     setOutput('');
     setError('');
@@ -587,8 +589,6 @@ function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
         setOutput(matches.length
           ? matches.map((match, index) => `${index + 1}. ${match[0]}  [位置 ${match.index ?? 0}]`).join('\n')
           : '没有找到匹配内容。');
-      } else if (tool.id === 'diff') {
-        setOutput(createLineDiff(input, secondaryInput));
       } else {
         setOutput(await executeTool(toNativeRequest(tool.id, operation, input)));
       }
@@ -631,25 +631,11 @@ function ToolWorkspace({ tool, onBack }: ToolWorkspaceProps) {
           <span>{workspaceInputLabel(tool.id)}</span>
           <textarea value={input} onChange={(event) => setInput(event.target.value)} spellCheck={false} />
         </label>
-        {tool.id === 'diff' ? (
-          <label className={styles.editorPanel}>
-            <span>修改后文本</span>
-            <textarea value={secondaryInput} onChange={(event) => setSecondaryInput(event.target.value)} spellCheck={false} />
-          </label>
-        ) : (
-          <div className={`${styles.editorPanel} ${styles.outputPanel}`}>
-            <div><span>输出</span><button type="button" disabled={!output} onClick={copyOutput}>{copied ? '已复制' : '复制'}</button></div>
-            {error ? <p className={styles.toolError}>{error}</p> : <pre>{output || '运行后结果会显示在这里。'}</pre>}
-          </div>
-        )}
-      </div>
-
-      {tool.id === 'diff' && (
-        <div className={`${styles.editorPanel} ${styles.diffOutput}`}>
-          <div><span>比较结果</span><button type="button" disabled={!output} onClick={copyOutput}>{copied ? '已复制' : '复制'}</button></div>
-          {error ? <p className={styles.toolError}>{error}</p> : <pre>{output || '运行后会按行标出新增、删除和未变化内容。'}</pre>}
+        <div className={`${styles.editorPanel} ${styles.outputPanel}`}>
+          <div><span>输出</span><button type="button" disabled={!output} onClick={copyOutput}>{copied ? '已复制' : '复制'}</button></div>
+          {error ? <p className={styles.toolError}>{error}</p> : <pre>{output || '运行后结果会显示在这里。'}</pre>}
         </div>
-      )}
+      </div>
     </section>
   );
 }
@@ -673,7 +659,6 @@ function OperationControls(props: OperationControlsProps) {
       </div>
     );
   }
-  if (props.toolId === 'diff') return <span className={styles.operationHint}>按行比较两侧文本</span>;
   const options = operationOptions(props.toolId);
   return (
     <label className={styles.operationSelect}>
@@ -724,7 +709,6 @@ function defaultOperation(toolId: string) {
 function sampleInput(toolId: string) {
   if (toolId === 'json-format') return '{"name":"可爱依依","features":["reminder","toolbox"]}';
   if (toolId === 'regex') return '云依助手的本地工具现在和可爱依依住在一起。';
-  if (toolId === 'diff') return '可爱依依\n提醒事项\n桌面互动';
   if (toolId === 'url-encode') return 'https://example.com/search?q=可爱依依';
   if (toolId === 'numfmt') return '-1234567890.50';
   if (toolId === 'timestamp') return String(Date.now());
@@ -734,16 +718,11 @@ function sampleInput(toolId: string) {
 }
 
 function workspaceInputLabel(toolId: string) {
-  if (toolId === 'diff') return '原始文本';
   if (toolId === 'numfmt') return '十进制数字';
   if (toolId === 'timestamp') return 'Unix 时间戳';
   if (toolId === 'uuid') return '生成数量（1–50）';
   if (toolId === 'password') return '密码长度（4–128）';
   return '输入';
-}
-
-function sampleSecondaryInput(toolId: string) {
-  return toolId === 'diff' ? '可爱依依\n开发工具箱\n桌面互动' : '';
 }
 
 function toNativeRequest(toolId: string, operation: string, input: string): ToolExecuteRequest {
@@ -753,22 +732,4 @@ function toNativeRequest(toolId: string, operation: string, input: string): Tool
     input,
     padded: true,
   };
-}
-
-/** Small deterministic line diff used until CloudYiCSC's richer plugin moves. */
-function createLineDiff(left: string, right: string) {
-  const before = left.split(/\r?\n/);
-  const after = right.split(/\r?\n/);
-  const length = Math.max(before.length, after.length);
-  const lines: string[] = [];
-  for (let index = 0; index < length; index += 1) {
-    const oldLine = before[index];
-    const newLine = after[index];
-    if (oldLine === newLine) lines.push(`  ${oldLine ?? ''}`);
-    else {
-      if (oldLine !== undefined) lines.push(`- ${oldLine}`);
-      if (newLine !== undefined) lines.push(`+ ${newLine}`);
-    }
-  }
-  return lines.join('\n');
 }

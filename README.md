@@ -97,6 +97,8 @@ CloudYiCSC 的界面顺序、C/C++11 边界、已完成工具和后续迁移规�
 [`docs/packet-inspector.md`](docs/packet-inspector.md)。
 统一工具顶部、侧栏空间与布局回归说明见
 [`docs/tool-layout.md`](docs/tool-layout.md)。
+文本比较的彩色对照、差异跳转与输入边界见
+[`docs/text-diff.md`](docs/text-diff.md)。
 网络调试助手的模式、收发规则与监听安全边界见
 [`docs/network-debugger.md`](docs/network-debugger.md)。
 系统信息范围、端口结束进程保护和模块启停边界见
@@ -152,7 +154,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.6.exe
+out/dist/CloudYiAssistant-Setup-0.12.7.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -173,7 +175,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.6.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.7.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。

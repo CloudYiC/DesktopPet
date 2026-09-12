@@ -49,7 +49,7 @@ export const TOOL_CATEGORIES: ToolCategory[] = [
 export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { id: 'json-format', name: 'JSON 格式化', shortName: 'JSON', description: '格式化、压缩并校验 JSON 文本。', category: 'data', glyph: '{ }', runtime: 'react' },
   { id: 'regex', name: '正则表达式', shortName: 'Regex', description: '测试表达式并查看所有匹配结果。', category: 'data', glyph: '.*', runtime: 'react' },
-  { id: 'diff', name: '文本比较', shortName: 'Diff', description: '按行查看两段文本的差异。', category: 'data', glyph: '±', runtime: 'react' },
+  { id: 'diff', name: '文本比较', shortName: 'Diff', description: '左右对照文本差异，高亮行内改动并快速跳转。', category: 'data', glyph: '±', runtime: 'react' },
   { id: 'base64', name: 'Base64', shortName: 'Base64', description: '使用迁移后的 C 核心编码和解码 UTF-8 文本。', category: 'data', glyph: 'B64', runtime: 'c-core' },
   { id: 'hex', name: 'Hex 编解码', shortName: 'Hex', description: '在 UTF-8 文本与十六进制字节之间转换。', category: 'data', glyph: '0x', runtime: 'c-core' },
   { id: 'hash', name: '哈希计算', shortName: 'Hash', description: '使用 C 实现计算 MD5 或 SHA-256。', category: 'data', glyph: '#', runtime: 'c-core' },

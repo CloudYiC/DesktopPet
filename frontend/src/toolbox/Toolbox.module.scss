@@ -363,11 +363,6 @@ $peach: var(--theme-accent);
   label:last-child input { width: 58px; }
 }
 
-.operationHint {
-  color: $muted;
-  font-size: 0.6875rem;
-}
-
 .runButton {
   min-width: 96px;
   min-height: 40px;
@@ -464,12 +459,6 @@ $peach: var(--theme-accent);
   border-radius: 12px;
   font-size: 0.75rem;
   line-height: 1.65;
-}
-
-.diffOutput {
-  min-height: 210px;
-
-  pre { min-height: 150px; }
 }
 
 .nativeToolbar,

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.6",
+  "latestVersion": "0.12.7",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.6",
-  "releaseNotes": "Unifies desktop tool headers into compact back navigation and title rows, narrows the sidebar and tool-page spacing, and keeps descriptions in the tool list. Preserves the initial window size, assistant pages and safety prompts.",
-  "publishedAt": "2026-09-12T01:44:50.000Z",
+  "title": "云依助手 0.12.7",
+  "releaseNotes": "Redesigns desktop text comparison with aligned red/green rows, inline highlights, change counts, difference navigation, changes-only filtering and collapsible inputs. Replaces index-based comparison with bounded line alignment and Unicode-aware matching.",
+  "publishedAt": "2026-09-12T02:38:27.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.6.exe",
-      "sha256": "E0338E65197C0AFB57DECF0437CBEA6DBE78E574A91B6C053CB065333B467D62",
-      "size": 23194753,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.7.exe",
+      "sha256": "55D7EFDBF5D5C2E218E1B141463E8EE3FE5C1476AB821D9A0C03295FBF7F9A58",
+      "size": 23199648,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.6.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.7.exe"
   }
 }
