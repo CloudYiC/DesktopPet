@@ -10,8 +10,8 @@ const storageKey = 'yiyi.plugins.installed.v2';
 const catalog = fs.readFileSync(path.resolve(__dirname, '../frontend/src/toolbox/catalog.ts'), 'utf8');
 const tools = Array.from(catalog.matchAll(/\{ id: '([^']+)', name: '([^']+)'[^\n]*?category: '([^']+)'/g),
   ([, id, name, category]) => ({ id, name, category }));
-assert.equal(tools.length, 17, 'the desktop retains all 17 working built-in tools');
-assert.equal(new Set(tools.map((tool) => tool.id)).size, 17);
+assert.equal(tools.length, 20, 'the desktop contains 20 working built-in tools');
+assert.equal(new Set(tools.map((tool) => tool.id)).size, 20);
 
 // This is a source-contract check, not a native installation or database test.
 // The UI scenarios below separately exercise restoration from an older host.
@@ -83,7 +83,7 @@ const scenarios = [
       const header = () => page.locator('header[aria-label="工具详情导航"]');
       async function verifyCatalog() {
         await main().getByPlaceholder('搜索工具…', { exact: true }).waitFor();
-        assert.equal(await cards().count(), 17, `${scenario.name}: every tool remains visible`);
+        assert.equal(await cards().count(), tools.length, `${scenario.name}: every tool remains visible`);
         assert.deepEqual((await cards().getByRole('heading').allTextContents()).sort(), tools.map((tool) => tool.name).sort());
         assert.equal(await main().getByRole('combobox').count(), 0, 'catalog has no enabled/available status filter');
         assert.equal(await main().getByRole('button', { name: /^(Enable|启用|停用|Disable|收藏|隐藏)$/ }).count(), 0);
@@ -118,22 +118,23 @@ const scenarios = [
         const search = main().getByPlaceholder('搜索工具…', { exact: true });
         await page.keyboard.press('Control+k'); assert.equal(await search.evaluate((element) => document.activeElement === element), true);
         await search.fill('JSON'); assert.equal(await cards().count(), 1);
-        await search.fill(''); assert.equal(await cards().count(), 17, 'search clearing restores all built-ins');
+        await search.fill(''); assert.equal(await cards().count(), tools.length, 'search clearing restores all built-ins');
         const unexpected = await page.evaluate(() => window.__builtinFixture.requests.filter((request) => {
           if (['app.ready', 'workspace.navigation.update', 'system.snapshot', 'ports.list', 'software.list', 'network.poll', 'network.stop'].includes(request.type)) return false;
+          if (/^(serial|mqtt|modbus)\.(enumerate|ports|poll|stop)$/.test(request.type)) return false;
           // Packet inspector parses its fixed sample on mount; leaving the
           // network workspace also requests safe session cleanup (stop only).
           return !(request.type === 'tool.execute' && request.payload.toolId === 'packet-inspector');
         }));
         assert.deepEqual(unexpected, [], 'opening built-ins causes no enable, deletion, network-start, send or unexpected host calls');
         assert.deepEqual(errors, [], `${scenario.name}: no uncaught browser errors`);
-        console.log(`PASS: ${scenario.name}, all 17 tools directly opened.`);
+        console.log(`PASS: ${scenario.name}, all ${tools.length} tools directly opened.`);
       } catch (error) {
         await page.screenshot({ path: path.join(output, `${scenario.name}-failure.png`), fullPage: true, animations: 'disabled' });
         throw error;
       } finally { await context.close(); }
     }
-    console.log('PASS: legacy availability data is ignored; no enable/store/filter/badge UI; 85 direct opens, search, and old marketplace-to-tool-home restoration. Native migration source contracts also passed.');
+    console.log('PASS: legacy availability data is ignored; no enable/store/filter/badge UI; 100 direct opens, search, and old marketplace-to-tool-home restoration. Native migration source contracts also passed.');
     console.log(`Screenshots: ${output}`);
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

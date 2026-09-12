@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.0-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '+', text: 'Added desktop Serial, MQTT and Modbus debugging clients with native communication workers' },
+      { kind: '+', text: 'Added serial text/HEX transfers, MQTT topic subscription and publishing, and Modbus RTU/TCP register operations' },
+      { kind: '~', text: 'All 20 built-in desktop tools open directly; the three device clients use compact controls and internally scrolling results' },
+      { kind: '~', text: 'Device sessions stop when leaving the workbench; Modbus writes require explicit confirmation and MQTT credentials are not persisted' },
+    ],
+  },
+  {
     version: 'v0.12.14-desktop',
     date: '2026-09-12',
     items: [

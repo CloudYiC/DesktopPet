@@ -20,6 +20,9 @@ import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
 import { NetworkDebugger } from './NetworkDebugger';
+import { SerialDebugger } from './SerialDebugger';
+import { MqttDebugger } from './MqttDebugger';
+import { ModbusDebugger } from './ModbusDebugger';
 import { TextDiffWorkspace } from './TextDiffWorkspace';
 import { UtilityCodecWorkspace } from './UtilityCodecWorkspace';
 import { UtilitySpecializedWorkspace } from './UtilitySpecializedWorkspace';
@@ -90,6 +93,15 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
     }
     if (activeTool.id === 'network-debugger') {
       return <NetworkDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'serial-debugger') {
+      return <SerialDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'mqtt-debugger') {
+      return <MqttDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'modbus-debugger') {
+      return <ModbusDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
     }
     if (activeTool.id === 'diff') {
       return <TextDiffWorkspace onBack={() => setActiveToolId(null)} />;

@@ -29,7 +29,7 @@ const { chromium } = require('playwright');
     fs.mkdirSync(output, { recursive: true });
     const cards = await page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) }).evaluateAll((elements) =>
       elements.map((element) => ({ name: element.querySelector('h3').textContent, description: element.querySelector('p').textContent })));
-    assert.equal(cards.length, 17);
+    assert.equal(cards.length, 20);
     assert.equal(Math.round((await sidebar().boundingBox()).width), 192);
     for (const { name, description } of cards) {
       await openTool(name);

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.14",
+  "latestVersion": "0.13.0",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.14",
-  "releaseNotes": "Removes the built-in module manager and enable/disable registry. All 17 packaged tools now open directly, without status badges, status filters, favorites or hiding. Previously disabled tools remain available and an old module-manager start page restores to the tool home. Assistant Settings now contains General, Local Data and About; native safety checks and image-processing behavior are unchanged.",
-  "publishedAt": "2026-09-12T13:15:14.407Z",
+  "title": "云依助手 0.13.0",
+  "releaseNotes": "Adds desktop-only Serial, MQTT 3.1.1 and Modbus RTU/TCP debugging tools, bringing the built-in catalog to 20 tools. Includes fixed scrolling message views, text/HEX data, serial line endings and repeat send, MQTT QoS 0/1/2 and validated TLS, and Modbus register tables with per-operation write confirmation. Sessions stop when leaving the tool or closing the workbench. MQTT uses Clean Session and never persists passwords. The independent web catalog is unchanged.",
+  "publishedAt": "2026-09-12T14:46:37Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.14.exe",
-      "sha256": "BBF28C153AEB352D33C3ED014FFEE9908212612F709F793633107F4461F9B790",
-      "size": 23214192,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.0.exe",
+      "sha256": "16E8FE31B5BCFC10D557B25B698773774B1CD548E392A5C674B947E5568160F7",
+      "size": 23288547,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.14.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.0.exe"
   }
 }

@@ -49,12 +49,15 @@
 - 网络与协议中提供十六进制报文分析器：可粘贴普通 Hex 或 Wireshark hexdump，按偏移查看 Ethernet、VLAN、ARP、IPv4/IPv6、TCP、UDP、ICMP 与未知载荷；协议、字节、ASCII 和字段联动，支持偏移跳转、大小端解释、64 KiB 内部滚动，以及私有协议字段的本机保存与编辑
 - Windows 桌面客户端内置网络调试助手，支持 TCP 客户端、可接入多个连接的 TCP 服务端和 UDP；采用顶部全宽连接参数、中间内部滚动日志、底部全宽发送区的纵向布局，可按文本或 Hex 收发，追加 LF/CRLF、定时自动发送，并查看接收块日志和 RX/TX 统计
 - 网络调试助手默认只监听本机回环地址；监听局域网地址前必须明确确认，不修改 Windows 防火墙，关闭工作台或退出应用后也不会继续后台监听
+- Windows 客户端新增串口调试助手、MQTT 调试助手和 Modbus 调试助手，沿用紧凑顶部、固定结果区和内部滚动；不在独立网页端开放设备通信
+- 串口调试支持 COM 枚举、串口参数、文本/HEX、行尾、循环发送和字节统计；MQTT 提供 Broker 连接、主题订阅与消息发布；Modbus 将 RTU 串口与 TCP 网络分开配置，并以表格呈现线圈和寄存器
+- 新增通信工具只在明确操作时连接用户填写的设备或 Broker；退出工具或关闭工作台停止会话，MQTT 密码不写入设置或日志，Modbus 写入默认关闭且每次执行前二次确认
 - 网络连接区在空间充足时将本地地址/端口、远端地址/端口与连接按钮排在同一行；发送区将行尾、循环参数、TCP 服务端发送目标和发送按钮同行排列，窗口宽度不超过 900px 时发送目标改占下一行，其余参数按空间自然换行；移除默认说明但保留风险确认和错误反馈，不缩小控件来隐藏内容
 - 已内置 Unix 时间戳转换、UUID v4/v7 和安全密码生成器
 - 九个常用桌面工具采用专用紧凑工作区：编解码反向转换与字节统计、JSON 缩进、摘要核对、时间戳结果卡、UUID 批量复制、密码隐藏与正则高亮；编辑和结果区域独立滚动，参数变化后不会误复制旧结果
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
-- 17 个桌面工具全部随安装包内置并直接可用；工具卡片只提供中文“打开”操作，不再显示启用状态、技术标签或状态筛选
+- 20 个桌面工具全部随安装包内置并直接可用；工具卡片只提供中文“打开”操作，不再显示启用状态、技术标签或状态筛选
 - 助手设置采用“常规 / 本机数据 / 关于”三个顶部标签，保留三套浅色主题、界面字号、上次页面恢复、本机事项与角色数据概览和版本信息；依依设置、事项、状态与工具页统一顶部 12px、左右 16px 的详情间距
 - 系统中心只读显示 Windows 版本、设备与 BIOS、CPU 核心、内存/提交量、系统盘、显卡与屏幕、网络、时区、电源和持续运行时间
 - 端口管理显示 IPv4 TCP/UDP、本地/远端地址、连接状态、PID 和进程名称
@@ -106,6 +109,8 @@ Base64／Hex／URL、JSON、哈希、时间戳、UUID、密码及正则工作区
 [`docs/utility-workspaces.md`](docs/utility-workspaces.md)。
 网络调试助手的模式、收发规则与监听安全边界见
 [`docs/network-debugger.md`](docs/network-debugger.md)。
+串口、MQTT 与 Modbus 三个客户端的功能、安全边界和验证说明见
+[`docs/device-debuggers.md`](docs/device-debuggers.md)。
 系统信息范围、端口结束进程保护和内置工具权限边界见
 [`docs/system-permissions.md`](docs/system-permissions.md)，数据库文件与 SQL 安全边界见
 [`docs/database-studio.md`](docs/database-studio.md)，图片输入输出边界见
@@ -159,7 +164,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.14.exe
+out/dist/CloudYiAssistant-Setup-0.13.0.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -171,7 +176,7 @@ out/dist/CloudYiAssistant-Setup-0.12.14.exe
 - 自动检测并按需安装 WebView2 Evergreen Runtime
 - 覆盖安装升级时自动关闭旧进程
 - 粉色依依作为安装程序、主程序和初始托盘的静态图标
-- 17 个桌面工具随安装包完整提供，打开工具卡片即可使用
+- 20 个桌面工具随安装包完整提供，打开工具卡片即可使用
 - 网络调试助手随桌面客户端提供 TCP/UDP 原生收发能力
 - 卸载时一并清除名称、设置、提醒、自定义角色以及旧版迁移数据
 
@@ -180,7 +185,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.14.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.13.0.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。

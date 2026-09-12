@@ -1,0 +1,118 @@
+$ink: var(--theme-ink, #3f342e);
+$muted: var(--theme-muted, #8d8077);
+$teal: var(--theme-primary, #168b85);
+$deep: var(--theme-primary-deep, #116d69);
+$paper: var(--theme-paper, #fffdf9);
+$sand: var(--theme-sand, #f4ede4);
+$line: color-mix(in srgb, $muted 19%, transparent);
+
+.workspace { display: flex; min-width: 0; height: calc(100dvh - 28px); min-height: 400px; flex-direction: column; gap: 10px; color: $ink; font-size: .8125rem; }
+.workspace > header, .connection, .publish { flex-shrink: 0; }
+.workspace button, .workspace input, .workspace select { font: inherit; }
+.workspace button { cursor: pointer; }
+.workspace button:disabled { cursor: not-allowed; opacity: .5; }
+.workspace button:focus-visible, .workspace input:focus-visible, .workspace select:focus-visible, .workspace textarea:focus-visible { outline: 2px solid $teal; outline-offset: -2px; }
+.connection, .subscriptions, .messages, .publish { min-width: 0; border: 1px solid $line; border-radius: 10px; background: $paper; }
+.connection { padding: 12px 14px 0; }
+.connectionFields { display: grid; grid-template-columns: minmax(130px, 1.25fr) 84px 125px minmax(130px, 1fr) 120px; gap: 10px; align-items: end; }
+.connectionFields > label, .advanced > label:not(.check), .subscriptionSettings > label { display: grid; min-width: 0; gap: 6px; color: $muted; font-size: .75rem; }
+.workspace input:not([type='checkbox']), .workspace select { width: 100%; min-width: 0; height: 36px; padding: 5px 9px; border: 1px solid $line; border-radius: 6px; color: $ink; background: $sand; font-size: .8125rem; }
+.workspace input:disabled, .workspace select:disabled { opacity: .66; }
+.workspace input[type='checkbox'] { width: 15px; height: 15px; margin: 0; accent-color: $teal; }
+.primary, .stop { min-height: 36px; padding: 6px 12px; border: 1px solid $teal; border-radius: 6px; background: $teal; color: #fff; font-weight: 650 !important; }
+.stop { color: $deep; background: $paper; }
+.primary:hover:not(:disabled) { background: $deep; }
+.connectionFooter { display: flex; min-width: 0; min-height: 40px; margin-top: 10px; align-items: center; gap: 12px; border-top: 1px solid $line; color: $muted; font-size: .75rem; }
+.connectionFooter strong { flex-shrink: 0; color: $muted; }.connectionFooter strong.connected { color: $teal; }
+.connectionFooter > span { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.connectionFooter > button { min-height: 30px; padding: 3px 0; flex-shrink: 0; border: 0; color: $deep; background: none; }
+.advanced { display: grid; max-height: 180px; overflow: auto; padding: 9px 0 12px; border-top: 1px solid $line; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) 125px auto auto; align-items: end; gap: 9px 12px; }
+.advanced small { grid-column: 1 / -1; color: $muted; font-size: .75rem; line-height: 1.5; }
+.sessionMode { display: flex; min-height: 36px; align-items: center; color: $muted; white-space: nowrap; }
+.check { display: flex; min-height: 36px; align-items: center; gap: 7px; color: $ink; white-space: nowrap; }
+.middle { display: grid; min-width: 0; min-height: 0; flex: 1 1 0; grid-template-columns: 228px minmax(0, 1fr); gap: 10px; }
+.subscriptions, .messages { min-height: 0; padding: 12px; }
+.subscriptions { display: flex; flex-direction: column; }
+.subscriptions > header, .messages > header, .publish > header, .content > header { display: flex; min-width: 0; min-height: 30px; align-items: center; gap: 9px; }
+.workspace h3 { margin: 0; font-size: .9375rem; font-weight: 650; white-space: nowrap; }
+.subscriptions > header { flex-shrink: 0; margin-bottom: 8px; }
+.subscriptions > header > span { margin-left: auto; color: $muted; font-size: .75rem; }
+.subscriptionToggle { display: none; }
+.subscriptionSettings { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.subscribeActions { display: grid; flex-shrink: 0; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 9px; align-items: end; }
+.subscribeActions label { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.subscriptionList { min-height: 0; overflow: auto; margin-top: 10px; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.subscriptionList > div { display: grid; min-width: 0; padding: 10px 1px; grid-template-columns: minmax(0, 1fr) 30px; gap: 5px; border-bottom: 1px solid $line; }
+.subscriptionList span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; }
+.subscriptionList small { grid-column: 1; color: $muted; font-size: .75rem; }
+.subscriptionList button { grid-column: 2; grid-row: 1 / 3; align-self: center; width: 30px; height: 30px; border: 1px solid $line; border-radius: 5px; color: $deep; background: $paper; }
+.subscriptionList p { margin: 16px 2px; color: $muted; font-size: .75rem; line-height: 1.7; overflow-wrap: anywhere; }
+.messages { display: flex; min-width: 0; flex-direction: column; }
+.messages > header { margin-bottom: 8px; flex-shrink: 0; }
+.messages > header input { width: min(210px, 45%); height: 32px !important; margin-left: auto; }
+.messages > header button { height: 32px; padding: 3px 9px; flex-shrink: 0; border: 1px solid $line; border-radius: 6px; color: $deep; background: $paper; }
+.messageBody { display: grid; min-width: 0; min-height: 0; flex: 1; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.messageTable { display: flex; min-width: 0; min-height: 0; overflow: auto; flex-direction: column; border: 1px solid $line; border-radius: 6px; }
+.tableHead, .messageList > button { display: grid; min-width: 330px; grid-template-columns: 94px 36px minmax(100px, 1fr) 36px 38px; gap: 8px; align-items: center; text-align: left; }
+.tableHead { min-height: 29px; padding: 4px 9px; flex-shrink: 0; overflow-y: hidden; scrollbar-gutter: stable; color: $muted; background: $sand; font-size: .75rem; }
+.messageList { min-width: 330px; min-height: 0; flex: 1; overflow: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
+.messageList > button { width: 100%; min-height: 32px; padding: 5px 9px; border: 0; border-bottom: 1px solid $line; color: $ink; background: transparent; }
+.messageList > button:hover, .messageList > button[aria-selected='true'] { background: color-mix(in srgb, $teal 13%, $paper); }
+.messageList time { color: $muted; font: .75rem/1.5 Consolas, monospace; }
+.messageList b { font-size: .75rem; font-weight: 650; }.rx { color: $deep; }.tx { color: #b76d2e; }
+.messageList span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; }
+.messageList small { color: $muted; font-size: .75rem; }
+.messageList p { margin: 15px 12px; color: $muted; font-size: .75rem; line-height: 1.6; }
+.content { display: flex; min-width: 0; min-height: 0; flex-direction: column; }
+.content > header { min-height: 33px; flex-shrink: 0; justify-content: space-between; }
+.content > header > div:first-child { display: flex; min-width: 0; align-items: baseline; gap: 8px; }
+.content strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8125rem; }
+.content header span { color: $muted; white-space: nowrap; font-size: .75rem; }
+.content pre { min-width: 0; min-height: 0; margin: 4px 0 0; padding: 10px; flex: 1; overflow: auto; overscroll-behavior: contain; border-radius: 6px; color: #e2eeea; background: #202b2a; font: .8125rem/1.65 Consolas, 'Cascadia Code', monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.segmented { display: flex; flex-shrink: 0; gap: 1px; padding: 2px; border-radius: 6px; background: $sand; }
+.segmented button { min-height: 28px; padding: 3px 10px; border: 0; border-radius: 4px; color: $muted; background: transparent; font-size: .75rem; }
+.segmented button[aria-pressed='true'] { color: $deep; background: $paper; font-weight: 650; }
+.publish { padding: 10px 12px 12px; }
+.publish > header > span { min-width: 0; margin-left: auto; color: $muted; font-size: .75rem; overflow-wrap: anywhere; }
+.publishControls { display: grid; min-width: 0; margin-top: 6px; grid-template-columns: minmax(0, 1fr) 115px auto; gap: 14px; align-items: center; }
+.publishControls > label:not(.check) { display: flex; min-width: 0; align-items: center; gap: 9px; white-space: nowrap; }
+.publishBody { display: grid; min-width: 0; margin-top: 8px; grid-template-columns: minmax(0, 1fr) 122px; gap: 10px; }
+.publishEditor { display: flex; min-width: 0; padding: 4px; flex-direction: column; border: 1px solid $line; border-radius: 6px; }
+.publishEditor > .segmented { align-self: flex-start; }
+.publish textarea { display: block; width: 100%; min-width: 0; height: 54px; margin-top: 3px; padding: 6px 9px; overflow: auto; resize: none; border: 0; border-radius: 4px; color: $ink; background: color-mix(in srgb, $sand 70%, $paper); font: .8125rem/1.65 Consolas, 'Cascadia Code', monospace; }
+.publishBody > button { align-self: stretch; }
+.publishBody kbd { display: block; margin-top: 7px; font-family: inherit; font-size: .75rem; line-height: 1.4; opacity: .8; }
+.invalid { color: #a44335 !important; }
+.notice, .error { max-height: 42px; overflow: auto; margin: 7px 0 0; color: $deep; font-size: .75rem; line-height: 1.6; overflow-wrap: anywhere; }
+.error { color: #a44335; }
+
+@media (max-width: 1100px) {
+  .connection { padding: 10px 11px 0; }
+  .connectionFields { grid-template-columns: minmax(110px, 1.2fr) 72px 116px minmax(110px, 1fr) 110px; gap: 7px; }
+  .middle { grid-template-columns: 190px minmax(0, 1fr); gap: 8px; }
+  .subscriptions, .messages { padding: 10px; }
+  .advanced { grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) 115px; }
+  .messages > header { gap: 6px; }.messages > header input { width: min(170px, 43%); }
+  .content > header > div:first-child { display: grid; gap: 0; }.content strong { max-width: 220px; }
+  .segmented button { padding: 3px 8px; }
+}
+@media (max-width: 900px) {
+  .connectionFields { grid-template-columns: minmax(100px, 1fr) 75px 120px; }.clientId { grid-column: 1 / 3; }
+  .connectionFooter { flex-wrap: wrap; gap: 5px 10px; padding: 6px 0; }.connectionFooter > span { width: 100%; margin-left: 0; order: 3; }
+  .connectionFooter > button { margin-left: auto; }.advanced { max-height: 140px; }
+  .middle { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .subscriptions { padding: 5px 10px; }.subscriptions > header { margin-bottom: 0; }.subscriptionToggle { display: block; min-height: 30px; margin-left: 5px; padding: 3px 6px; border: 0; color: $deep; background: none; }
+  .subscriptionSettings { display: none; }.subscriptionsExpanded .subscriptionSettings { display: flex; max-height: 145px; overflow: auto; padding-top: 6px; flex: 0 0 auto; }.subscriptionsExpanded .subscriptionList { flex-shrink: 0; }.subscriptionsExpanded .subscriptionList p { margin: 7px 0; }
+  .publishControls { grid-template-columns: minmax(0, 1fr) 95px auto; gap: 9px; }.publishControls > label:not(.check) { gap: 6px; }.publishBody { grid-template-columns: minmax(0, 1fr) 100px; }
+}
+@media (max-width: 620px) {
+  .connectionFields { grid-template-columns: minmax(0, 1fr) 90px; }.connectionFields > label:nth-child(3) { grid-column: 1; }.clientId { grid-column: 1; grid-row: 3; }
+  .connectionFields > button { grid-column: 2; grid-row: 2 / 4; align-self: stretch; }.advanced { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .connectionFooter > span { white-space: normal; }.publishControls { grid-template-columns: minmax(0, 1fr) auto; }.publishControls > label:first-child { grid-column: 1 / -1; }
+  .content header span { display: none; }.content > header { gap: 5px; }.messages > header input { width: 40%; }.publishBody { grid-template-columns: minmax(0, 1fr) 80px; }.publishBody kbd { display: none; }
+}
+@media (max-height: 680px) {
+  .workspace { gap: 7px; }.connection { padding-top: 8px; }.connectionFooter { margin-top: 7px; min-height: 34px; }
+  .subscriptions, .messages { padding: 7px 9px; }.messages > header { margin-bottom: 5px; }.messageBody { gap: 5px; }
+  .publish { padding-top: 7px; padding-bottom: 8px; }.publish textarea { height: 37px; }.publishControls { margin-top: 3px; }.publishBody { margin-top: 5px; }
+}

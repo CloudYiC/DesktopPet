@@ -545,6 +545,9 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
 
 Application::~Application() {
   networkDebugService_.Stop();
+  serialDebugService_.Stop();
+  mqttDebugService_.Stop();
+  modbusDebugService_.Stop();
   RemoveTrayIcon();
   dashboardWindow_.reset();
   petWindow_.reset();
@@ -570,7 +573,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.12.14";
+    const std::string marker = "CuteYiyiDesktopPet 0.13.0";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -812,6 +815,43 @@ void Application::HandleWebMessage(WebViewWindow& source,
                           result.succeeded ? "tool.result" : "tool.error"},
                          {"payload", responsePayload}}
               .dump());
+      return;
+    }
+    if (type.compare(0, 7, "serial.") == 0 ||
+        type.compare(0, 5, "mqtt.") == 0 ||
+        type.compare(0, 7, "modbus.") == 0) {
+      std::string requestId;
+      try {
+        if (!TryReadJsonString(payload, "requestId", &requestId) ||
+            requestId.empty() || requestId.size() > 80 ||
+            type.size() > 40 || rawMessage.size() > 1024U * 1024U ||
+            source.Kind() != WindowKind::Dashboard || quitting_) {
+          throw std::runtime_error("调试请求无效，或工作台已关闭。");
+        }
+        const std::string action = type.substr(type.find('.') + 1);
+        if (!IsWindowVisible(source.Handle()) && action != "poll" &&
+            action != "stop") {
+          throw std::runtime_error("请先打开工作台再进行设备通信。");
+        }
+        // Per-capability services validate their action allow-list and every
+        // payload field before enqueueing work. They never block on device IO.
+        nlohmann::json result;
+        if (type.compare(0, 7, "serial.") == 0) {
+          result = serialDebugService_.Handle(type.substr(7), payload);
+        } else if (type.compare(0, 5, "mqtt.") == 0) {
+          result = mqttDebugService_.Handle(type.substr(5), payload);
+        } else {
+          result = modbusDebugService_.Handle(type.substr(7), payload);
+        }
+        result["requestId"] = requestId;
+        source.PostJson(nlohmann::json{{"type", type + ".result"},
+                                       {"payload", result}}.dump());
+      } catch (const std::exception& error) {
+        source.PostJson(nlohmann::json{
+            {"type", type + ".error"},
+            {"payload", {{"requestId", requestId}, {"message", error.what()}}}}
+            .dump());
+      }
       return;
     }
     if (type == "network.start") {
@@ -1564,6 +1604,9 @@ void Application::CloseDashboard() {
   // Network debugging is intentionally scoped to a visible workbench session;
   // hiding the dashboard must never leave a listener running in the background.
   networkDebugService_.Stop();
+  serialDebugService_.Stop();
+  mqttDebugService_.Stop();
+  modbusDebugService_.Stop();
   if (dashboardWindow_ != nullptr) {
     dashboardWindow_->Hide();
   }
@@ -1593,6 +1636,9 @@ void Application::Quit() {
   quitting_ = true;
   restorePetAfterDashboard_ = false;
   networkDebugService_.Stop();
+  serialDebugService_.Stop();
+  mqttDebugService_.Stop();
+  modbusDebugService_.Stop();
   RemoveTrayIcon();
   if (dashboardWindow_ != nullptr &&
       IsWindow(dashboardWindow_->Handle())) {

@@ -16,6 +16,9 @@
 
 #include "Milo/ReminderStore.h"
 #include "Milo/NetworkDebugService.h"
+#include "Milo/SerialDebugService.h"
+#include "Milo/MqttDebugService.h"
+#include "Milo/ModbusDebugService.h"
 #include "Milo/SoftwareService.h"
 #include "Milo/WebViewWindow.h"
 
@@ -111,6 +114,10 @@ class Application final {
   SoftwareService softwareService_;
   /// Owns the bounded asynchronous Winsock session used by Network Debugger.
   NetworkDebugService networkDebugService_;
+  /// Desktop-only sessions; each service owns its worker and bounded queues.
+  SerialDebugService serialDebugService_;
+  MqttDebugService mqttDebugService_;
+  ModbusDebugService modbusDebugService_;
   std::wstring uiDirectory_;
   std::wstring webViewDataDirectory_;
   std::wstring characterDirectory_;

@@ -60,6 +60,8 @@ add_library(cloudyi_core_c STATIC
   c_core/src/base64.c
   c_core/src/hex.c
   c_core/src/md5.c
+  c_core/src/modbus_protocol.c
+  c_core/src/mqtt_codec.c
   c_core/src/packet_inspector.c
   c_core/src/sha256.c
   c_core/src/store_tools.c
@@ -67,7 +69,26 @@ add_library(cloudyi_core_c STATIC
 )
 target_include_directories(cloudyi_core_c PUBLIC c_core/include)
 if(MSVC)
-  target_compile_options(cloudyi_core_c PRIVATE /W4)
+  target_compile_options(cloudyi_core_c PRIVATE /W4 /utf-8)
+endif()
+
+# Real desktop-only communication services. Pure protocol framing stays in C;
+# cancellable worker ownership and JSON validation remain at the C++11 boundary.
+add_library(cloudyi_debuggers STATIC
+  src/SerialPortWin32.c
+  src/SerialDebugService.cpp
+  src/MqttDebugService.cpp
+  src/ModbusDebugService.cpp
+)
+target_include_directories(cloudyi_debuggers PUBLIC include)
+target_compile_definitions(cloudyi_debuggers PRIVATE
+  UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN SECURITY_WIN32
+)
+target_link_libraries(cloudyi_debuggers PUBLIC milo_json cloudyi_core_c
+  PRIVATE ws2_32 advapi32 secur32 crypt32
+)
+if(MSVC)
+  target_compile_options(cloudyi_debuggers PRIVATE /W4 /utf-8)
 endif()
 
 # Windows metrics remain procedural C while the C++11 service owns strings,
@@ -143,6 +164,7 @@ target_link_libraries(MiloDesktopPet PRIVATE
   milo_webview2
   cloudyi_core_c
   cloudyi_win32_c
+  cloudyi_debuggers
   bcrypt
   comdlg32
   comctl32
@@ -338,4 +360,25 @@ if(BUILD_TESTING)
     )
   endif()
   add_test(NAME MiloDatabaseServiceTests COMMAND MiloDatabaseServiceTests)
+
+  # These tests use protocol vectors and loopback-only synthetic peers. They do
+  # not require attached serial hardware and never contact a real device.
+  add_executable(MiloModbusProtocolTests tests/ModbusProtocolTests.c)
+  target_link_libraries(MiloModbusProtocolTests PRIVATE cloudyi_core_c)
+  if(MSVC)
+    target_compile_options(MiloModbusProtocolTests PRIVATE /W4 /utf-8)
+  endif()
+  add_test(NAME MiloModbusProtocolTests COMMAND MiloModbusProtocolTests)
+  foreach(debugger_test SerialDebugService MqttCodec MqttDebugService ModbusDebugService)
+    add_executable(Milo${debugger_test}Tests tests/${debugger_test}Tests.cpp)
+    target_link_libraries(Milo${debugger_test}Tests PRIVATE cloudyi_debuggers
+      ws2_32 advapi32 secur32 crypt32)
+    target_compile_definitions(Milo${debugger_test}Tests PRIVATE
+      UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+    if(MSVC)
+      target_compile_options(Milo${debugger_test}Tests PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    add_test(NAME Milo${debugger_test}Tests COMMAND Milo${debugger_test}Tests)
+    set_tests_properties(Milo${debugger_test}Tests PROPERTIES TIMEOUT 60)
+  endforeach()
 endif()

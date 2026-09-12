@@ -314,6 +314,9 @@ if (nativeBridge) {
         message.type.startsWith('image.') ||
         message.type.startsWith('software.') ||
         message.type.startsWith('network.') ||
+        message.type.startsWith('serial.') ||
+        message.type.startsWith('mqtt.') ||
+        message.type.startsWith('modbus.') ||
         message.type.startsWith('ports.list.') ||
         message.type.startsWith('ports.terminate.')) {
       const requestId = message.payload?.requestId ?? '';
@@ -332,11 +335,13 @@ if (nativeBridge) {
   });
 }
 
-function requestNativePayload<T>(
+/** Shared request transport for dedicated desktop-only capability bridges. */
+export function requestNativePayload<T>(
   type: string,
   payload: Record<string, unknown>,
   timeoutMilliseconds = 12_000,
 ) {
+  if (!nativeBridge) return Promise.reject<T>(new Error('此功能需要在云依助手客户端中使用。'));
   const requestId = `native-${Date.now()}-${++toolRequestSequence}`;
   return new Promise<T>((resolve, reject) => {
     const timeout = window.setTimeout(() => {
@@ -348,7 +353,7 @@ function requestNativePayload<T>(
       reject,
       timeout,
     });
-    nativeBridge?.postMessage({ type, payload: { requestId, ...payload } });
+    nativeBridge.postMessage({ type, payload: { ...payload, requestId } });
   });
 }
 
