@@ -247,6 +247,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.2-desktop',
+    date: '2026-09-13',
+    items: [
+      { kind: '~', text: 'Refreshed System Center, Port Manager and Software Uninstaller with coordinated slate-blue surfaces and distinct category and status colors' },
+      { kind: '~', text: 'Organized all System Center fields into four detail tabs with compact colored overview cards' },
+      { kind: '~', text: 'Kept port operations fully visible with a vertically scrolling table, wrapping long values and responsive narrow-window cards' },
+      { kind: '~', text: 'Centered custom process and uninstall confirmation dialogs in the whole client, with cancel-first focus, retry feedback and duplicate-submit protection' },
+      { kind: '-', text: 'Removed the permanent Port Manager safety footer while retaining explicit confirmation and native process protections' },
+    ],
+  },
+  {
     version: 'v0.13.1-desktop',
     date: '2026-09-13',
     items: [

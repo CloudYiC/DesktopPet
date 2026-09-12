@@ -1,0 +1,28 @@
+.dialog {
+  position: fixed; inset: 0; width: min(460px, calc(100vw - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0;
+  overflow: auto; box-sizing: border-box; color: #24354a; background: #fffefa; border: 1px solid #d6e1e7; border-radius: 18px; box-shadow: 0 22px 80px #172c4059;
+  font: inherit; font-size: .875rem;
+  &::backdrop { background: #10253666; backdrop-filter: blur(2px); }
+  button { min-height: 40px; padding: 8px 18px; font: inherit; font-weight: 650; color: #334c60; background: white; border: 1px solid #d6e1e7; border-radius: 9px; cursor: pointer; }
+  button:hover:not(:disabled) { background: #f0f6f8; }
+  button:focus-visible { outline: 2px solid var(--theme-primary, #168b85); outline-offset: 3px; }
+  button:disabled { opacity: .55; cursor: default; }
+}
+.header { display: flex; align-items: center; gap: 12px; padding: 22px 22px 14px; }
+.header h2 { flex: 1; margin: 0; font-size: 1.125rem; font-family: inherit; font-weight: 750; }
+.symbol { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; color: #b64642; background: #fff0ec; border: 1px solid #f7d7d0; border-radius: 12px; }
+.symbol svg { width: 24px; height: 24px; }
+.dialog .close { min-width: 30px; min-height: 30px; padding: 0; color: #7a8a97; background: transparent; border: 0; font-size: 1.5rem; }
+.body { padding: 0 22px 20px; line-height: 1.7; overflow-wrap: anywhere; }
+.body p { margin: 0 0 12px; }
+.body p:last-child { margin-bottom: 0; }
+.body strong { font-weight: 700; }
+.body dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 9px 12px; margin: 0 0 16px; padding: 14px; background: #f0f5f8; border: 1px solid #e0e8ee; border-radius: 10px; }
+.body dt { color: #657587; }
+.body dd { margin: 0; color: #24354a; font-weight: 650; }
+.footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 22px; background: #f6f8fa; border-top: 1px solid #e3e9ee; }
+.dialog .confirm { color: white; border-color: #ba4740; background: #ba4740; }
+.dialog .confirm:hover:not(:disabled) { background: #a33e38; }
+.error { margin: 0 22px 18px; padding: 10px 12px; color: #9c3530; border: 1px solid #f0c9c4; background: #fff0ed; border-radius: 8px; line-height: 1.6; overflow-wrap: anywhere; }
+.dialog[data-tone='primary'] { .symbol { color: #147d80; background: #e5f3f2; border-color: #c7e5e2; } .confirm { background: var(--theme-primary, #168b85); border-color: var(--theme-primary, #168b85); } }
+@media (prefers-reduced-motion: reduce) { .dialog::backdrop { backdrop-filter: none; } }
