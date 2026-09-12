@@ -168,13 +168,3 @@ int cy_web_timestamp_to_iso(unsigned int value_hi, unsigned int value_lo, int un
   uint64_t raw = ((uint64_t)value_hi << 32) | (uint64_t)value_lo;
   return cy_timestamp_to_iso((int64_t)raw, unit, (char *)cy_web_output, CY_WEB_OUTPUT_CAP);
 }
-
-int cy_web_number_group(int in_len) {
-  if (in_len < 0 || in_len > CY_WEB_INPUT_CAP) return -1;
-  return cy_number_group(
-    (const char *)cy_web_input,
-    (size_t)in_len,
-    (char *)cy_web_output,
-    CY_WEB_OUTPUT_CAP
-  );
-}

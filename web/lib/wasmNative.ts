@@ -29,7 +29,6 @@ interface CloudyicWasmExports extends WebAssembly.Exports {
     symbols: number,
   ): number
   cy_web_timestamp_to_iso(valueHi: number, valueLo: number, unit: number): number
-  cy_web_number_group(inputLength: number): number
 }
 
 interface LoadedNative {
@@ -203,10 +202,6 @@ export function timestampToIso(value: number | bigint, unit: 'seconds' | 'millis
   return callNativeBytes(new Uint8Array(), (exports) =>
     exports.cy_web_timestamp_to_iso(hi, lo, unit === 'milliseconds' ? 1 : 0),
   )
-}
-
-export function numberGroup(input: string) {
-  return callNative(input, (exports, length) => exports.cy_web_number_group(length))
 }
 
 export async function copyText(text: string) {

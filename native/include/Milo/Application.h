@@ -116,7 +116,7 @@ class Application final {
   std::wstring characterDirectory_;
   std::wstring onboardingMarker_;
   std::wstring activeCharacterIconPath_;
-  /// Database Studio can only operate on a path selected by a native dialog.
+  /// Database Workbench can only operate on a path selected by a native dialog.
   std::wstring activeDatabasePath_;
   POINT petPosition_{};
   bool hasPetPosition_{};

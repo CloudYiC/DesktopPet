@@ -1,6 +1,6 @@
 # 工具详情布局（0.12.6）
 
-桌面端所有 18 个工具共用 `shared/tool-workspace/ToolWorkspaceHeader.tsx`：
+桌面端所有 17 个工具共用 `shared/tool-workspace/ToolWorkspaceHeader.tsx`：
 返回工具列表、分隔符和工具名称在同一行显示，不再单独占用一行返回按钮，
 也不显示大图标和工具简介。简介只保留在工具列表，搜索仍能匹配简介。
 报文分析器的网页版也复用该顶部组件。

@@ -20,6 +20,5 @@ int cy_password_generate(
 );
 
 int cy_timestamp_to_iso(int64_t value, int unit, char *out, size_t out_cap);
-int cy_number_group(const char *input, size_t input_len, char *out, size_t out_cap);
 
 #endif

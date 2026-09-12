@@ -49,7 +49,7 @@
 - 网络与协议中提供十六进制报文分析器：可粘贴普通 Hex 或 Wireshark hexdump，按偏移查看 Ethernet、VLAN、ARP、IPv4/IPv6、TCP、UDP、ICMP 与未知载荷；协议、字节、ASCII 和字段联动，支持偏移跳转、大小端解释、64 KiB 内部滚动，以及私有协议字段的本机保存与编辑
 - Windows 桌面客户端内置网络调试助手，支持 TCP 客户端、可接入多个连接的 TCP 服务端和 UDP；采用左侧连接与发送、右侧固定日志的等高布局，可按文本或 Hex 收发，追加 LF/CRLF、定时自动发送，并在不会撑高页面的滚动区域中查看接收块日志和 RX/TX 统计
 - 网络调试助手默认只监听本机回环地址；监听局域网地址前必须明确确认，不修改 Windows 防火墙，关闭工作台或退出应用后也不会继续后台监听
-- 已内置数字格式化、Unix 时间戳转换、UUID v4/v7 和安全密码生成器
+- 已内置 Unix 时间戳转换、UUID v4/v7 和安全密码生成器
 - Base64、Hex、URL、MD5 和 SHA-256 使用可迁移的纯 C 核心；Win32、WebView2 与 JSON 桥接保留在 C++11 边界
 - UUID 和密码由 Windows 系统安全随机源提供随机字节，再交给纯 C 核心完成格式和字符规则
 - 模块管理只展示已经可用的内置工具；助手设置包含三套浅色主题、界面字号、上次页面恢复、模块状态、本机数据概览和版本信息
@@ -59,7 +59,7 @@
 - 软件卸载读取 Windows 已注册软件并显示完整注册表来源；缺少 `InstallLocation` 时可从有效的 `DisplayIcon`/`UninstallString` 推断程序目录，随后启动软件自带卸载程序并逐项审核残留
 - 关联扫描不维护按软件名称编写的目录表；它通用组合卸载注册名称、注册项键名、有效 EXE 的产品/公司信息、安装目录、受限的 AppData/ProgramData/Profile 目录及开始菜单名称，并为结果标注依据和可信度
 - 残留清理不接受任意路径或通配符，拒绝用户根目录和 Windows/Program Files/AppData 根目录；个人配置默认不勾选，完整输入软件名称并二次确认后才移入回收站
-- 数据库工作室可通过 Windows 原生文件选择器打开或新建 SQLite 数据库，浏览表、视图、索引、触发器和列结构
+- 数据库工作台可打开或新建 SQLite 数据库，以结构树、SQL／结构／建表语句标签页和固定结果区操作，支持只读预览、上下分区调节和结果复制
 - SQL 编辑器默认由原生层强制只读，支持多语句、查询结果表格、500 行显示上限、执行耗时和变更统计；写入必须显式开启并在执行前再次确认
 - 图片转换器支持本地拖放和双栏预览，可缩放、保持比例、旋转、翻转、调整 JPEG/WebP 质量，并导出 PNG、JPEG、WebP 或 ICO
 - “全部事项”承担统一事项管理：搜索、状态/优先级筛选，并按超时、今天、明天、未来 7 天和以后自动分组；不再重复设置效率文档或项目看板
@@ -154,7 +154,7 @@ Bootstrapper，两个微软前置程序在打包前都会验证数字签名。
 生成结果位于：
 
 ```text
-out/dist/CloudYiAssistant-Setup-0.12.8.exe
+out/dist/CloudYiAssistant-Setup-0.12.9.exe
 ```
 
 安装包支持 Windows 10/11 x64，并提供：
@@ -175,7 +175,7 @@ WebView2 Bootstrapper 只在目标电脑缺少运行时的情况下执行，并�
 
 ## 在另一台电脑安装
 
-把 `CloudYiAssistant-Setup-0.12.8.exe` 复制到 Windows 10/11 x64 电脑并双击，
+把 `CloudYiAssistant-Setup-0.12.9.exe` 复制到 Windows 10/11 x64 电脑并双击，
 按向导安装即可，不需要复制源码或 `ui` 文件夹。当前个人构建没有购买代码签名
 证书，因此 Windows SmartScreen 可能显示“未知发布者”；确认安装包来自可信来源后，
 可以选择“更多信息”继续运行。正式公开分发前建议为安装包添加 Authenticode 签名。
@@ -205,7 +205,7 @@ npm run dev
 
 旧 CloudYiCSC 的 Web 前端已经迁入 `web/`，并改造成不依赖旧 monorepo、Go 或
 Wails 的独立 React 18 静态站点。它保留 13 个可直接在浏览器运行的工具，其中
-Base64、Hex、URL、MD5、SHA-256、UUID、密码、时间戳和数字格式化复用 C/WebAssembly；
+Base64、Hex、URL、MD5、SHA-256、UUID、密码和时间戳复用 C/WebAssembly；
 十六进制报文分析器使用同等的浏览器本地解析与字节可视化，不上传报文内容。
 网络调试助手仅由 Windows 桌面客户端提供，不加入独立 `web/` 部署版；浏览器静态站点
 不会开放 TCP/UDP 套接字或在后台监听端口。

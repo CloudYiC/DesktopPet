@@ -6,14 +6,6 @@ static void cy_copy(char *dst, const char *src, size_t len) {
   for (size_t i = 0; i < len; ++i) dst[i] = src[i];
 }
 
-static int cy_is_space(unsigned char ch) {
-  return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\f' || ch == '\v';
-}
-
-static int cy_is_digit(unsigned char ch) {
-  return ch >= '0' && ch <= '9';
-}
-
 static int write_uuid(const unsigned char bytes[16], char *out, size_t out_cap) {
   if (!out || out_cap < 37) return -1;
   int j = 0;
@@ -187,75 +179,4 @@ int cy_timestamp_to_iso(int64_t value, int unit, char *out, size_t out_cap) {
   out[23] = 'Z';
   out[24] = '\0';
   return 24;
-}
-
-int cy_number_group(const char *input, size_t input_len, char *out, size_t out_cap) {
-  if (!input || !out || out_cap == 0) return -1;
-
-  size_t start = 0;
-  while (start < input_len && cy_is_space((unsigned char)input[start])) start++;
-  size_t end = input_len;
-  while (end > start && cy_is_space((unsigned char)input[end - 1])) end--;
-  if (start >= end) return -1;
-
-  int negative = 0;
-  if (input[start] == '-' || input[start] == '+') {
-    negative = input[start] == '-';
-    start++;
-  }
-
-  char integer[256];
-  char fraction[256];
-  size_t int_len = 0;
-  size_t frac_len = 0;
-  int seen_dot = 0;
-  int seen_digit = 0;
-
-  for (size_t i = start; i < end; ++i) {
-    unsigned char ch = (unsigned char)input[i];
-    if (ch == ',' || ch == '_' || cy_is_space(ch)) continue;
-    if (ch == '.') {
-      if (seen_dot) return -1;
-      seen_dot = 1;
-      continue;
-    }
-    if (!cy_is_digit(ch)) return -1;
-    seen_digit = 1;
-    if (seen_dot) {
-      if (frac_len + 1 >= sizeof(fraction)) return -1;
-      fraction[frac_len++] = (char)ch;
-    } else {
-      if (int_len + 1 >= sizeof(integer)) return -1;
-      integer[int_len++] = (char)ch;
-    }
-  }
-  if (!seen_digit) return -1;
-  if (int_len == 0) integer[int_len++] = '0';
-
-  size_t first_group = int_len % 3;
-  if (first_group == 0) first_group = 3;
-
-  size_t j = 0;
-  if (negative) {
-    if (j + 1 >= out_cap) return -1;
-    out[j++] = '-';
-  }
-  for (size_t i = 0; i < int_len; ++i) {
-    if (i > 0 && (i == first_group || (i > first_group && (i - first_group) % 3 == 0))) {
-      if (j + 1 >= out_cap) return -1;
-      out[j++] = ',';
-    }
-    if (j + 1 >= out_cap) return -1;
-    out[j++] = integer[i];
-  }
-  if (frac_len > 0) {
-    if (j + 1 >= out_cap) return -1;
-    out[j++] = '.';
-    for (size_t i = 0; i < frac_len; ++i) {
-      if (j + 1 >= out_cap) return -1;
-      out[j++] = fraction[i];
-    }
-  }
-  out[j] = '\0';
-  return (int)j;
 }

@@ -172,18 +172,6 @@ ToolExecutionResult DecodeUrl(const std::string& input) {
                       : Failure("URL 解码结果不是有效的 UTF-8 文本。");
 }
 
-ToolExecutionResult FormatNumber(const std::string& input) {
-  if (input.size() > 510U) {
-    return Failure("数字内容过长，当前最多支持 510 个字符。");
-  }
-  std::vector<char> output(input.size() + input.size() / 3U + 8U);
-  const int written = cy_number_group(input.data(), input.size(),
-                                      output.data(), output.size());
-  return written < 0
-             ? Failure("请输入普通十进制数字，可包含符号、小数点或已有分隔符。")
-             : Success(output.data(), static_cast<std::size_t>(written));
-}
-
 ToolExecutionResult ConvertTimestamp(const std::string& input,
                                      const std::string& operation) {
   long long value = 0;
@@ -363,8 +351,6 @@ ToolExecutionResult ExecuteTool(const std::string& toolId,
     if (operation == "encode-component") return EncodeUrl(input, true);
     if (operation == "encode-url") return EncodeUrl(input, false);
     if (operation == "decode") return DecodeUrl(input);
-  } else if (toolId == "numfmt") {
-    if (operation == "group") return FormatNumber(input);
   } else if (toolId == "timestamp") {
     if (operation == "seconds" || operation == "milliseconds") {
       return ConvertTimestamp(input, operation);

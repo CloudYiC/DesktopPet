@@ -6,7 +6,6 @@ export const WASM_NATIVE_TOOL_IDS = [
   'uuid',
   'password',
   'timestamp',
-  'numfmt',
 ] as const
 
 export const TYPESCRIPT_TOOL_IDS = [

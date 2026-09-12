@@ -53,7 +53,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { id: 'base64', name: 'Base64', shortName: 'Base64', description: '使用迁移后的 C 核心编码和解码 UTF-8 文本。', category: 'data', glyph: 'B64', runtime: 'c-core' },
   { id: 'hex', name: 'Hex 编解码', shortName: 'Hex', description: '在 UTF-8 文本与十六进制字节之间转换。', category: 'data', glyph: '0x', runtime: 'c-core' },
   { id: 'hash', name: '哈希计算', shortName: 'Hash', description: '使用 C 实现计算 MD5 或 SHA-256。', category: 'data', glyph: '#', runtime: 'c-core' },
-  { id: 'numfmt', name: '数字格式化', shortName: 'Number', description: '使用 C 核心为十进制数字添加分组符。', category: 'data', glyph: '123', runtime: 'c-core' },
   { id: 'timestamp', name: '时间戳', shortName: 'Time', description: '将 Unix 秒或毫秒时间戳转换为 UTC 时间。', category: 'data', glyph: '◷', runtime: 'c-core' },
   { id: 'uuid', name: 'UUID 生成器', shortName: 'UUID', description: '使用系统安全随机源生成 UUID v4 或 v7。', category: 'data', glyph: 'ID', runtime: 'c-core' },
   { id: 'password', name: '密码生成器', shortName: 'Password', description: '使用系统安全随机源按规则生成本地密码。', category: 'data', glyph: '***', runtime: 'c-core' },
@@ -64,7 +63,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { id: 'port-manager', name: '端口管理', shortName: 'Ports', description: '查看 IPv4 TCP/UDP 端口，并经确认结束非关键进程。', category: 'system', glyph: ':80', runtime: 'native-system' },
   { id: 'software-uninstaller', name: '软件卸载', shortName: 'Uninstall', description: '启动注册卸载程序，并审核清理配置、插件、缓存与程序残留。', category: 'system', glyph: 'APP', runtime: 'native-system' },
   { id: 'image-toolbox', name: '图片转换器', shortName: 'Image', description: '本地预览、缩放、旋转、翻转并导出 PNG/JPEG/WebP/ICO。', category: 'file-conversion', glyph: 'IMG', runtime: 'react' },
-  { id: 'database-studio', name: '数据库工作室', shortName: 'Database', description: '打开或新建 SQLite，查看结构并安全执行 SQL。', category: 'data', glyph: 'DB', runtime: 'native-system' },
+  { id: 'database-studio', name: '数据库工作台', shortName: 'Database', description: '打开或新建 SQLite，查看结构并安全执行 SQL。', category: 'data', glyph: 'DB', runtime: 'native-system' },
 ];
 
 export const READY_TOOL_COUNT = TOOL_DEFINITIONS.length;

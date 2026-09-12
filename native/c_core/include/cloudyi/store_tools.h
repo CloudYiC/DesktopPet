@@ -1,4 +1,4 @@
-/* Local generators and number utilities migrated from CloudYiCSC. */
+/* Local generators and timestamp utilities migrated from CloudYiCSC. */
 #ifndef CLOUDYI_STORE_TOOLS_H
 #define CLOUDYI_STORE_TOOLS_H
 
@@ -26,10 +26,6 @@ int cy_password_generate(const unsigned char *random_bytes, size_t random_len,
 
 /* unit: 0 = Unix seconds, 1 = Unix milliseconds. */
 int cy_timestamp_to_iso(int64_t value, int unit, char *out, size_t out_cap);
-
-/* Adds decimal thousands separators while preserving sign and fraction. */
-int cy_number_group(const char *input, size_t input_len,
-                    char *out, size_t out_cap);
 
 #ifdef __cplusplus
 }

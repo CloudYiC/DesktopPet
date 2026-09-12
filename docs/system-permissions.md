@@ -44,14 +44,16 @@ LocalAppData 和 RoamingAppData 根目录。Profile、AppData 或 ProgramData �
 回收站而不是不可恢复地强制删除。完整说明见
 [`software-uninstaller.md`](software-uninstaller.md)。
 
-## 数据库工作室
+## 数据库工作台
 
-数据库工作室仅连接用户通过 Windows 原生文件选择器明确选中的 SQLite 文件。WebView
+数据库工作台仅连接用户通过 Windows 原生文件选择器明确选中的 SQLite 文件。WebView
 消息不能传入任意文件路径，后续刷新和 SQL 执行只能访问原生进程当前保存的数据库路径。
 
 - 打开数据库后默认使用 SQLite 只读连接；
-- 原生层使用 `sqlite3_stmt_readonly` 逐条检查语句，前端开关不能绕过只读限制；
+- `allowWrite=false` 时原生层使用 `sqlite3_stmt_readonly` 逐条检查，拒绝写入和结构变更；
 - 开启写入需要一次确认，每次执行写入模式 SQL 还会再次确认；
+- “预览数据”始终传入只读选项；编辑器允许写入也不会改变预览方式；
+- 授权确认位于界面层，`allowWrite` 仍由桥接载荷传递，不宣称能抵御任意篡改桥接消息；
 - 单次 SQL 文本上限为 256 KB，结果最多返回 500 行，避免 WebView 消息无限增长；
 - BLOB 只显示字节数，不把任意二进制内容传进界面；
 - 数据库文件始终留在本机，不上传到 CloudYi 或其他网络服务。

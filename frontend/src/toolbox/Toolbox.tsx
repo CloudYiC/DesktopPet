@@ -678,7 +678,6 @@ function operationOptions(toolId: string) {
     { value: 'decode', label: '解码' },
   ];
   if (toolId === 'json-format') return [{ value: 'format', label: '格式化' }, { value: 'minify', label: '压缩' }];
-  if (toolId === 'numfmt') return [{ value: 'group', label: '添加千位分组符' }];
   if (toolId === 'timestamp') return [
     { value: 'seconds', label: 'Unix 秒 → UTC' },
     { value: 'milliseconds', label: 'Unix 毫秒 → UTC' },
@@ -699,7 +698,6 @@ function defaultOperation(toolId: string) {
   if (toolId === 'hash') return 'sha256';
   if (toolId === 'url-encode') return 'encode-component';
   if (toolId === 'json-format') return 'format';
-  if (toolId === 'numfmt') return 'group';
   if (toolId === 'timestamp') return 'milliseconds';
   if (toolId === 'uuid') return 'v4';
   if (toolId === 'password') return 'strong';
@@ -710,7 +708,6 @@ function sampleInput(toolId: string) {
   if (toolId === 'json-format') return '{"name":"可爱依依","features":["reminder","toolbox"]}';
   if (toolId === 'regex') return '云依助手的本地工具现在和可爱依依住在一起。';
   if (toolId === 'url-encode') return 'https://example.com/search?q=可爱依依';
-  if (toolId === 'numfmt') return '-1234567890.50';
   if (toolId === 'timestamp') return String(Date.now());
   if (toolId === 'uuid') return '5';
   if (toolId === 'password') return '24';
@@ -718,7 +715,6 @@ function sampleInput(toolId: string) {
 }
 
 function workspaceInputLabel(toolId: string) {
-  if (toolId === 'numfmt') return '十进制数字';
   if (toolId === 'timestamp') return 'Unix 时间戳';
   if (toolId === 'uuid') return '生成数量（1–50）';
   if (toolId === 'password') return '密码长度（4–128）';

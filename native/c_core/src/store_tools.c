@@ -11,15 +11,6 @@ static void cy_copy(char *dst, const char *src, size_t len) {
   for (index = 0; index < len; ++index) dst[index] = src[index];
 }
 
-static int cy_is_space(unsigned char ch) {
-  return ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' ||
-         ch == '\f' || ch == '\v';
-}
-
-static int cy_is_digit(unsigned char ch) {
-  return ch >= '0' && ch <= '9';
-}
-
 static int cy_write_uuid(const unsigned char bytes[16], char *out,
                          size_t out_cap) {
   int source;
@@ -279,77 +270,4 @@ int cy_timestamp_to_iso(int64_t value, int unit, char *out, size_t out_cap) {
   out[23] = 'Z';
   out[24] = '\0';
   return 24;
-}
-
-int cy_number_group(const char *input, size_t input_len,
-                    char *out, size_t out_cap) {
-  size_t start = 0;
-  size_t end = input_len;
-  char integer[256];
-  char fraction[256];
-  size_t integer_len = 0;
-  size_t fraction_len = 0;
-  size_t first_group;
-  size_t source;
-  size_t target = 0;
-  char sign = '\0';
-  int seen_dot = 0;
-  int seen_digit = 0;
-
-  if (!input || !out || out_cap == 0) return -1;
-  while (start < input_len && cy_is_space((unsigned char)input[start])) ++start;
-  while (end > start && cy_is_space((unsigned char)input[end - 1])) --end;
-  if (start >= end) return -1;
-  if (input[start] == '-' || input[start] == '+') {
-    sign = input[start];
-    ++start;
-  }
-
-  for (source = start; source < end; ++source) {
-    const unsigned char ch = (unsigned char)input[source];
-    if (ch == ',' || ch == '_' || cy_is_space(ch)) continue;
-    if (ch == '.') {
-      if (seen_dot) return -1;
-      seen_dot = 1;
-      continue;
-    }
-    if (!cy_is_digit(ch)) return -1;
-    seen_digit = 1;
-    if (seen_dot) {
-      if (fraction_len + 1 >= sizeof(fraction)) return -1;
-      fraction[fraction_len++] = (char)ch;
-    } else {
-      if (integer_len + 1 >= sizeof(integer)) return -1;
-      integer[integer_len++] = (char)ch;
-    }
-  }
-  if (!seen_digit) return -1;
-  if (integer_len == 0) integer[integer_len++] = '0';
-  first_group = integer_len % 3;
-  if (first_group == 0) first_group = 3;
-
-  if (sign) {
-    if (target + 1 >= out_cap) return -1;
-    out[target++] = sign;
-  }
-  for (source = 0; source < integer_len; ++source) {
-    if (source > 0 &&
-        (source == first_group ||
-         (source > first_group && (source - first_group) % 3 == 0))) {
-      if (target + 1 >= out_cap) return -1;
-      out[target++] = ',';
-    }
-    if (target + 1 >= out_cap) return -1;
-    out[target++] = integer[source];
-  }
-  if (fraction_len > 0) {
-    if (target + 1 >= out_cap) return -1;
-    out[target++] = '.';
-    for (source = 0; source < fraction_len; ++source) {
-      if (target + 1 >= out_cap) return -1;
-      out[target++] = fraction[source];
-    }
-  }
-  out[target] = '\0';
-  return (int)target;
 }

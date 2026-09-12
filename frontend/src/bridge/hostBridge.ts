@@ -462,7 +462,7 @@ export async function requestDatabaseExecute(
       result: normalized.startsWith('select')
         ? {
             columns: ['id', 'name', 'status'],
-            rows: [['1', 'CloudYi Assistant', 'active'], ['2', 'Database Studio', 'active']],
+            rows: [['1', 'CloudYi Assistant', 'active'], ['2', 'Database Workbench', 'active']],
             affectedRows: 0,
             lastInsertId: 0,
             elapsedMilliseconds: 2,
@@ -754,17 +754,6 @@ async function executeMockTool(request: ToolExecuteRequest) {
   if (request.toolId === 'hash' && request.operation === 'sha256') {
     const digest = await window.crypto.subtle.digest('SHA-256', bytes);
     return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-  }
-  if (request.toolId === 'numfmt') {
-    const compact = request.input.trim().replace(/[,_\s]/g, '');
-    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(compact)) {
-      throw new Error('请输入普通十进制数字。');
-    }
-    const negative = compact.startsWith('-');
-    const unsigned = compact.replace(/^[+-]/, '');
-    const [integer = '0', fraction] = unsigned.split('.');
-    const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return `${negative ? '-' : ''}${grouped || '0'}${fraction ? `.${fraction}` : ''}`;
   }
   if (request.toolId === 'timestamp') {
     if (!/^-?\d+$/.test(request.input.trim())) throw new Error('时间戳必须是整数。');

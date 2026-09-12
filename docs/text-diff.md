@@ -21,7 +21,7 @@
 
 - `node scripts/test-text-diff-model.cjs`：行对齐、行内高亮、空白/换行、Unicode、随机重建和大文本预算。
 - `node scripts/test-text-diff-ui.cjs`：隔离浏览器中的高亮、跳转、筛选、复制、固定滚动和自适应布局。
-- `node scripts/test-tool-layout-ui.cjs`：18 个工具与依依页面的紧凑布局回归。
+- `node scripts/test-tool-layout-ui.cjs`：17 个工具与依依页面的紧凑布局回归。
 
 UI 测试可通过 `PACKET_TEST_URL` 和 `PACKET_TEST_BROWSER` 指定本地预览及浏览器；截图输出到忽略目录 `artifacts/text-diff/`。测试剪贴板使用内存替身，不覆盖系统剪贴板。
 

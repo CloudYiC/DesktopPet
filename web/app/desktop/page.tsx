@@ -153,7 +153,7 @@ export default function DesktopPage() {
           <Feature
             mark="C"
             title="Native paths where practical"
-            body="C is used for compact algorithms such as UUID, password generation, timestamps, and number formatting. TypeScript stays where browser semantics are the feature."
+            body="C is used for compact algorithms such as UUID, password generation, and timestamps. TypeScript stays where browser semantics are the feature."
           />
           <Feature
             mark="SIG"

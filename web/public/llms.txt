@@ -7,7 +7,7 @@ Repository: https://github.com/CloudYiC/DesktopPet
 
 ## Browser tools
 
-- C/WebAssembly: MD5, SHA-256, Base64, Hex, URL encoding, UUID, password, timestamp, number formatting
+- C/WebAssembly: MD5, SHA-256, Base64, Hex, URL encoding, UUID, password, timestamp
 - TypeScript: JSON formatting, JWT inspection, regular expressions, text diff
 - Tool input stays in the browser and is not uploaded for computation.
 

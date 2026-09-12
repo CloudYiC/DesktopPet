@@ -46,7 +46,7 @@ npm run dev`}</pre>
         <section id="web-tools" className={styles.section}>
           <h2>哪些工具能直接在浏览器里运行？</h2>
           <p>
-            Hash、Base64、Hex、URL 编解码、UUID、密码、时间戳和数字格式化通过
+            Hash、Base64、Hex、URL 编解码、UUID、密码和时间戳通过
             C/WebAssembly 运行；JSON、JWT、正则和文本比较使用 TypeScript。
           </p>
           <p>这些工具不会为了计算而把输入发送到服务器。</p>

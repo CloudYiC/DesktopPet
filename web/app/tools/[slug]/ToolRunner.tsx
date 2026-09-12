@@ -34,7 +34,6 @@ export function ToolRunner({ toolId }: ToolRunnerProps) {
   if (toolId === 'uuid') return <UuidRunner />
   if (toolId === 'password') return <PasswordRunner />
   if (toolId === 'timestamp') return <TimestampRunner />
-  if (toolId === 'numfmt') return <NumberFormatRunner />
   if (toolId === 'json-format') return <JsonRunner />
   if (toolId === 'jwt') return <JwtRunner />
   if (toolId === 'regex') return <RegexRunner />
@@ -591,44 +590,6 @@ function TimestampRunner() {
         <OutputCard label="SECONDS" value={seconds} />
         <OutputCard label="MILLISECONDS" value={milliseconds} />
       </div>
-    </div>
-  )
-}
-
-function NumberFormatRunner() {
-  const [input, setInput] = useState('1234567890.42')
-  const [output, setOutput] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let alive = true
-    if (!input.trim()) {
-      setOutput('')
-      setError(null)
-      return
-    }
-    ;(async () => {
-      try {
-        const next = await wasm.numberGroup(input)
-        if (!alive) return
-        setOutput(next)
-        setError(null)
-      } catch (err) {
-        if (!alive) return
-        setOutput('')
-        setError(err instanceof Error ? err.message : 'Number formatting failed')
-      }
-    })()
-    return () => {
-      alive = false
-    }
-  }, [input])
-
-  return (
-    <div className={styles.tool}>
-      {error && <ErrorBanner message={error} />}
-      <InputCard label="NUMBER" value={input} onChange={setInput} />
-      <OutputCard label="FORMATTED" value={output} />
     </div>
   )
 }

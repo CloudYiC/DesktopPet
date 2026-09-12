@@ -235,8 +235,6 @@ int main() {
                "%E5%8F%AF%E7%88%B1%20%E4%BE%9D%E4%BE%9D");
   passed &= ExpectOutput("url-encode", "decode",
                "%E5%8F%AF%E7%88%B1+%E4%BE%9D%E4%BE%9D", "可爱 依依");
-  passed &= ExpectOutput("numfmt", "group", "-1234567.890", "-1,234,567.890");
-  passed &= ExpectOutput("numfmt", "group", "+1234", "+1,234");
   passed &= ExpectOutput("timestamp", "seconds", "0",
                          "1970-01-01T00:00:00.000Z");
   passed &= ExpectOutput("timestamp", "milliseconds", "1704067200123",
@@ -246,6 +244,14 @@ int main() {
   passed &= ExpectPassword("strong", "24", true);
   passed &= ExpectPassword("pin", "6", false);
   passed &= ExpectPacketInspection();
+
+  // Old bookmarks or callers must not execute a removed tool.
+  const milo::ToolExecutionResult removed =
+      milo::ExecuteTool("numfmt", "group", "1234");
+  if (removed.succeeded || removed.error.empty()) {
+    std::cerr << "Removed number formatter was unexpectedly accepted.\n";
+    passed = false;
+  }
 
   const milo::ToolExecutionResult invalid =
       milo::ExecuteTool("hex", "decode", "xyz");

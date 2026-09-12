@@ -209,21 +209,6 @@ export const TOOLS: ToolEntry[] = [
     tags: ['diff', 'compare', 'text'],
     builtIn: false,
   },
-  {
-    id: 'numfmt',
-    name: 'Number Format',
-    description: 'Pretty-print large numbers with separators.',
-    longDescription:
-      'Normalize messy numeric strings and add thousands separators. The desktop path uses a small native formatter.',
-    category: 'time-number',
-    icon: '1k',
-    version: '0.1.0',
-    size: '2 KB',
-    publishedAt: '2026-04-08',
-    updatedDays: 17,
-    tags: ['number', 'format', 'currency'],
-    builtIn: false,
-  },
 ]
 
 export interface CategoryEntry {
@@ -261,6 +246,15 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v0.12.9-desktop',
+    date: '2026-09-12',
+    items: [
+      { kind: '~', text: 'Renamed and redesigned Database Workbench with a schema tree, SQL/structure/DDL tabs and fixed result grid' },
+      { kind: '+', text: 'Added resizable editor/results panes, SQL highlighting, result copying and duplicate-execution protection' },
+      { kind: '-', text: 'Removed Number Format from desktop and web catalogs, runners and dedicated C/WASM APIs' },
+    ],
+  },
   {
     version: 'v0.12.8-desktop',
     date: '2026-09-12',

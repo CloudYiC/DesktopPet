@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.12.8",
+  "latestVersion": "0.12.9",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.12.8",
-  "releaseNotes": "Adds local solid-background replacement with white, blue, red, custom and transparent targets, background sampling, tolerance and feathering. Pins image previews and save controls while settings scroll independently. Image processing runs in a cancellable worker and prevents saving stale previews.",
-  "publishedAt": "2026-09-12T03:13:38.000Z",
+  "title": "云依助手 0.12.9",
+  "releaseNotes": "Redesigns and renames Database Workbench with a schema tree, SQL/structure/DDL tabs, resizable editor/results panes, SQL highlighting, fixed virtualized result grid and result copying. Adds duplicate-execution protection and read-only previews. Removes Number Format from desktop, web and dedicated C/WASM APIs.",
+  "publishedAt": "2026-09-12T03:50:54.000Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.8.exe",
-      "sha256": "204F8AC4DCC704A3B8F2BE8EFD8475477790D2641C0373A50C90F260D00CCDE3",
-      "size": 23203492,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.9.exe",
+      "sha256": "3508AECC5E1361F0337E5E65E1241DCB7AC988503808F6CD85E60FF59F3C5281",
+      "size": 23206728,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.8.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.12.9.exe"
   }
 }
