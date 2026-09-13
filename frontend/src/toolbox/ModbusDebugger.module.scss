@@ -1,11 +1,13 @@
-$ink: var(--theme-ink, #3f342e);
-$muted: var(--theme-muted, #8d8077);
-$paper: var(--theme-paper, #fffdf9);
-$sand: var(--theme-sand, #f4ede4);
-$teal: var(--theme-primary, #168b85);
-$line: color-mix(in srgb, $muted 20%, transparent);
+@use '../../../shared/tool-workspace/toolPalette' as palette;
 
-.workspace { height: calc(100dvh - 28px); min-height: 0; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
+$ink: palette.$ink;
+$muted: palette.$muted;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$teal: palette.$primary;
+$line: palette.$line;
+
+.workspace { @include palette.workspace; height: calc(100dvh - 28px); min-height: 0; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace select, .workspace textarea { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 34px; padding: 5px 13px; border: 1px solid $line; color: $teal; background: $paper; border-radius: 7px; cursor: pointer; white-space: nowrap; }
@@ -26,9 +28,9 @@ $line: color-mix(in srgb, $muted 20%, transparent);
 .connection > header { flex-wrap: wrap; gap: 8px; }
 .tabs { display: flex; flex: 1 0 100%; padding: 2px; border: 1px solid $line; border-radius: 8px; min-width: 0; }
 .tabs button { flex: 1; min-width: 0; min-height: 31px; border: 0; background: transparent; color: $ink; }
-.tabs [aria-selected=true] { background: $teal; color: white; }
+.tabs [aria-selected=true] { background: palette.$teal-soft; color: palette.$deep; }
 .state, .connected { white-space: nowrap; color: $muted; }
-.connected { color: #168851; }
+.connected { color: palette.$success; }
 .connected:before { content: '●'; margin-right: 6px; }
 // Advanced controls expand in-flow; a popup would be clipped by the left scroller.
 .advanced { margin-left: auto; min-width: 0; }
@@ -54,7 +56,7 @@ $line: color-mix(in srgb, $muted 20%, transparent);
 .requestFooter { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: $muted; font-size: .75rem; flex-wrap: wrap; }
 .requestFooter > span { flex-basis: 100%; }
 .requestFooter label { display: flex; align-items: center; gap: 6px; }
-.allow { color: #ac7033; }
+.allow { color: palette.$amber; }
 .writeValues { display: grid; gap: 5px; margin-top: 10px; font-size: .75rem; color: $muted; }
 .writeValues textarea { height: 64px; min-width: 0; padding: 7px 10px; overflow: auto; resize: vertical; max-height: 180px; border: 1px solid $line; border-radius: 6px; background: $sand; color: $ink; }
 
@@ -63,28 +65,38 @@ $line: color-mix(in srgb, $muted 20%, transparent);
 .dataPanel header > span { color: $muted; }
 .dataPanel header select { width: 140px; margin-left: auto; }
 .dataPanel footer { margin-top: 7px; min-height: 22px; max-height: 44px; overflow: auto; color: $muted; font-size: .75rem; flex-shrink: 0; }
-.dataPanel footer[role=alert] { color: #ad4739; }
+.dataPanel footer[role=alert] { color: palette.$danger; }
 .tableScroll { min-height: 0; flex: 1; overflow: auto; border: 1px solid $line; border-radius: 6px; }
 .tableScroll table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .75rem; }
-.tableScroll th { position: sticky; top: 0; background: $sand; text-align: left; font-weight: 600; }
+.tableScroll th { position: sticky; top: 0; background: palette.$blue-soft; color: palette.$blue; text-align: left; font-weight: 600; }
 .tableScroll th, .tableScroll td { padding: 8px; border-bottom: 1px solid $line; overflow-wrap: anywhere; }
 .tableScroll th:last-child { width: 106px; }
-.tableScroll tbody tr:nth-child(even) { background: color-mix(in srgb, $teal 5%, $paper); }
+.tableScroll tbody tr:nth-child(even) { background: $sand; }
 .tableScroll code { font-family: Consolas, monospace; }
 .empty { color: $muted; text-align: center; padding: 20px 10px; font-size: .8125rem; }
 .logPanel { height: clamp(156px, 24dvh, 230px); flex-shrink: 0; display: flex; flex-direction: column; }
 .logPanel header { margin-bottom: 7px; }
 .logPanel h3 { margin-right: auto; }
 .logPanel header button { min-height: 28px; padding: 2px 12px; }
-.log { min-height: 0; flex: 1; overflow: auto; background: #222b2a; border-radius: 6px; color: #dae9e7; padding: 8px 10px; font: 12px/1.7 Consolas, monospace; }
+.log { min-height: 0; flex: 1; overflow: auto; background: palette.$console; border-radius: 6px; color: palette.$console-text; padding: 8px 10px; font: 12px/1.7 Consolas, monospace; }
 .log > div { display: grid; grid-template-columns: 30px 90px minmax(0, 1fr); gap: 8px; margin-bottom: 5px; }
 .log code { font: inherit; overflow-wrap: anywhere; white-space: pre-wrap; }
-.log time { color: #98aaa6; }
+.log time { color: palette.$console-muted; }
 .log small { grid-column: 3; overflow-wrap: anywhere; }
-.log p { margin: 2px; color: #96aaa5; }
-.tx { color: #f0b253; }
-.rx { color: #5ac798; }
+.log p { margin: 2px; color: palette.$console-muted; }
+.tx { color: palette.$tx; }
+.rx { color: palette.$rx; }
 .confirmValues { max-height: 170px; overflow: auto; font-family: Consolas, monospace; }
+
+// Palette-only distinctions for connection, request, tabular data and raw bytes.
+.connection { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.requestPanel { background: linear-gradient(180deg, palette.$teal-soft, $paper 64px); }
+.dataPanel, .logPanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.tabs { background: $paper; }
+.tableScroll { background: $paper; }
+.tableScroll td:nth-child(3) { color: palette.$violet; }
+.tableScroll td:nth-child(4) { color: palette.$blue; }
+.log { scrollbar-color: palette.$console-muted palette.$console; }
 
 @media (min-width: 901px) and (max-width: 1100px) {
   .workbench { grid-template-columns: 310px minmax(0, 1fr); gap: 10px; }

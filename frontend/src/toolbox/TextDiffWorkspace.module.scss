@@ -1,4 +1,11 @@
+@use '../../../shared/tool-workspace/toolPalette' as palette;
+
 .workspace {
+  @include palette.workspace;
+  --theme-ink: #{palette.$ink};
+  --theme-muted: #{palette.$muted};
+  --theme-paper: #{palette.$paper};
+  --theme-sand: #{palette.$surface};
   display: flex;
   flex-direction: column;
   height: calc(100vh - 28px);
@@ -20,7 +27,7 @@
 .inputPanel, .resultPanel {
   min-width: 0;
   background: var(--theme-paper);
-  border: 1px solid color-mix(in srgb, var(--theme-muted) 19%, transparent);
+  border: 1px solid palette.$line;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -68,8 +75,8 @@
     resize: none;
     overflow: auto;
     color: var(--theme-ink);
-    background: color-mix(in srgb, var(--theme-sand) 50%, var(--theme-paper));
-    border: 1px solid color-mix(in srgb, var(--theme-muted) 20%, transparent);
+    background: palette.$surface;
+    border: 1px solid palette.$line;
     border-radius: 8px;
     font-family: Consolas, 'Cascadia Code', monospace;
     font-size: 0.8125rem;
@@ -79,30 +86,30 @@
 }
 
 .beforeDot, .afterDot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 2px; }
-.beforeDot { background: #cd685f; }
-.afterDot { background: #35986e; }
+.beforeDot { background: palette.$danger; }
+.afterDot { background: palette.$success; }
 .compareToolbar { justify-content: flex-end; }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
 .check input { width: 14px; height: 14px; margin: 0; accent-color: var(--theme-primary); }
 .compareToolbar > .check { margin-right: auto; }
 .keyboardHint { color: var(--theme-muted); font-size: 0.75rem; }
-.primaryButton { min-height: 34px; padding: 6px 22px; color: white; background: var(--theme-primary); border: 0; border-radius: 7px; font-weight: 650 !important; }
+.primaryButton { min-height: 34px; padding: 6px 22px; color: white; background: palette.$primary; border: 0; border-radius: 7px; font-weight: 650 !important; }
 .primaryButton:hover { background: var(--theme-primary-deep); }
 .pending, .error { margin: 0; padding: 9px 14px; border-radius: 8px; line-height: 1.5; }
-.pending { background: #fff4d9; color: #775518; }
-.error { background: #fdeae7; color: #973b33; }
+.pending { background: palette.$amber-soft; color: palette.$amber; }
+.error { background: palette.$danger-soft; color: palette.$danger; }
 .summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .summary h3 { margin: 0; font-size: 0.9375rem; }
 .stats { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.75rem; }
 .stats span { padding: 4px 8px; border-radius: 5px; font-weight: 600; }
-.addBadge { color: #25694e; background: #e1f2e9; }
-.removeBadge { color: #a3453b; background: #fbe7e3; }
-.changeBadge { color: #89611a; background: #fcf0d1; }
+.addBadge { color: palette.$success; background: palette.$success-soft; }
+.removeBadge { color: palette.$danger; background: palette.$danger-soft; }
+.changeBadge { color: palette.$amber; background: palette.$amber-soft; }
 .resultSubbar { padding-top: 0; padding-bottom: 8px; color: var(--theme-muted); font-size: 0.75rem; }
 .navigation { display: flex; align-items: center; gap: 8px; }
 .navigation output { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
 .navigation button { width: 28px; height: 28px; color: var(--theme-primary-deep); border: 1px solid color-mix(in srgb, var(--theme-muted) 25%, transparent); background: var(--theme-paper); border-radius: 5px; }
-.columnHeads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; scrollbar-gutter: stable; background: var(--theme-sand); border-block: 1px solid color-mix(in srgb, var(--theme-muted) 15%, transparent); }
+.columnHeads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; scrollbar-gutter: stable; background: palette.$blue-soft; border-block: 1px solid palette.$line; }
 .columnHeads > div { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 9px 14px; font-weight: 600; }
 .columnHeads > div + div { border-left: 1px solid color-mix(in srgb, var(--theme-muted) 20%, transparent); }
 .columnHeads small { margin-left: auto; color: var(--theme-muted); font-size: 0.75rem; font-weight: 400; }
@@ -114,17 +121,17 @@
 .diffCell { display: grid; min-width: 0; grid-template-columns: 38px 20px minmax(0, 1fr); align-items: stretch; border-left: 3px solid transparent; }
 .diffCell + .diffCell { border-left: 1px solid color-mix(in srgb, var(--theme-muted) 20%, transparent); }
 .lineNumber, .sign { padding-top: 7px; font-family: Consolas, monospace; font-size: 0.75rem; text-align: center; user-select: none; }
-.lineNumber { color: #8b8982; background: rgba(140, 125, 107, .035); }
+.lineNumber { color: palette.$muted; background: rgba(95, 115, 134, .04); }
 .sign { color: inherit; font-weight: 700; }
 .diffCell code { min-width: 0; padding: 5px 10px 5px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: Consolas, 'Cascadia Code', monospace; font-size: 0.8125rem; line-height: 1.65; tab-size: 4; }
-.removed { color: #723b35; background: #fff0ed; }
-.added { color: #29583f; background: #eaf7ef; }
-.removed .sign { color: #b3473d; }
-.added .sign { color: #26794f; }
+.removed { color: #743c39; background: palette.$danger-soft; }
+.added { color: #285a46; background: palette.$success-soft; }
+.removed .sign { color: palette.$danger; }
+.added .sign { color: palette.$success; }
 .diffCell mark { padding: 1px 0; color: inherit; border-radius: 2px; font-weight: 650; }
-.removed mark { background: #f7bfb5; }
-.added mark { background: #ace0bb; }
-.missing { background: repeating-linear-gradient(135deg, #f4f1ed, #f4f1ed 5px, #f9f7f3 5px, #f9f7f3 10px); }
+.removed mark { background: #f3b9b4; }
+.added mark { background: #a9dbc0; }
+.missing { background: repeating-linear-gradient(135deg, #edf2f6, #edf2f6 5px, #f8fafc 5px, #f8fafc 10px); }
 .activeRow > .diffCell:first-child { border-left-color: var(--theme-primary); }
 .emptyLine { color: inherit; opacity: .6; font-size: 0.6875rem; font-style: italic; }
 .skipped { padding: 8px; color: var(--theme-muted); background: var(--theme-sand); text-align: center; font-size: 0.75rem; }

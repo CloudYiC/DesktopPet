@@ -1,12 +1,14 @@
-$ink: var(--theme-ink);
-$muted: var(--theme-muted);
-$paper: var(--theme-paper);
-$sand: var(--theme-sand);
-$teal: var(--theme-primary);
-$teal-dark: var(--theme-primary-deep);
-$peach: var(--theme-accent);
+@use '../../../shared/tool-workspace/toolPalette' as palette;
+
+$ink: palette.$ink;
+$muted: palette.$muted;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$teal: palette.$primary;
+$teal-dark: palette.$deep;
 
 .workspace {
+  @include palette.workspace;
   display: flex;
   min-width: 0;
   height: calc(100dvh - 28px);
@@ -26,8 +28,8 @@ $peach: var(--theme-accent);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: color-mix(in srgb, $paper 92%, transparent);
-  border: 1px solid rgba(86, 66, 52, 0.08);
+  background: linear-gradient(110deg, palette.$teal-soft, $paper 65%);
+  border: 1px solid palette.$line;
   border-radius: 16px;
 }
 
@@ -59,8 +61,8 @@ $peach: var(--theme-accent);
 .activeMode,
 .activeSmallTab {
   color: $teal-dark !important;
-  background: $paper !important;
-  box-shadow: 0 3px 10px rgba(61, 50, 43, 0.08);
+  background: palette.$teal-soft !important;
+  box-shadow: 0 3px 10px rgba(36, 53, 74, 0.08);
 }
 
 .sessionStatus {
@@ -90,18 +92,18 @@ $peach: var(--theme-accent);
 .stateDot {
   width: 9px;
   height: 9px;
-  background: #b9afa7;
-  border: 2px solid color-mix(in srgb, #b9afa7 22%, transparent);
+  background: $muted;
+  border: 2px solid color-mix(in srgb, $muted 22%, transparent);
   border-radius: 50%;
   background-clip: padding-box;
 }
 .state_connecting,
 .state_starting,
-.state_stopping { background-color: #e8a243; animation: statePulse 1.2s ease infinite; }
+.state_stopping { background-color: palette.$amber; animation: statePulse 1.2s ease infinite; }
 .state_connected,
 .state_listening,
-.state_ready { background-color: $teal; }
-.state_error { background-color: #d45c55; }
+.state_ready { background-color: palette.$success; }
+.state_error { background-color: palette.$danger; }
 
 .debuggerLayout {
   display: grid;
@@ -134,9 +136,9 @@ $peach: var(--theme-accent);
 .sendPanel {
   min-width: 0;
   background: $paper;
-  border: 1px solid rgba(86, 66, 52, 0.08);
+  border: 1px solid palette.$line;
   border-radius: 18px;
-  box-shadow: 0 10px 25px rgba(70, 58, 49, 0.045);
+  box-shadow: 0 10px 25px rgba(36, 53, 74, 0.045);
 }
 
 .connectionPanel {
@@ -187,13 +189,13 @@ $peach: var(--theme-accent);
     padding: 0 9px;
     color: $ink;
     background: $sand;
-    border: 1px solid rgba(86, 66, 52, 0.09);
+    border: 1px solid palette.$line;
     border-radius: 9px;
     outline: none;
     font-size: 0.75rem;
 
     &:focus { border-color: color-mix(in srgb, $teal 46%, transparent); }
-    &:disabled { color: #9f948c; opacity: 0.82; }
+    &:disabled { color: $muted; opacity: 0.82; }
   }
 }
 
@@ -208,15 +210,15 @@ $peach: var(--theme-accent);
   padding: 9px 10px;
   align-items: flex-start;
   gap: 7px;
-  color: #8a5a32;
-  background: #fff3dd;
+  color: palette.$amber;
+  background: palette.$amber-soft;
   border-radius: 9px;
   font-size: 0.6875rem;
   line-height: 1.5;
 
   input { width: 14px; height: 14px; margin: 1px 0 0; flex: 0 0 auto; accent-color: $teal; }
   span { min-width: 0; }
-  strong { display: block; color: #714724; font-size: 0.6875rem; }
+  strong { display: block; color: palette.$amber; font-size: 0.6875rem; }
 }
 
 .startButton,
@@ -235,14 +237,14 @@ $peach: var(--theme-accent);
   &:disabled { cursor: not-allowed; opacity: 0.55; }
 }
 
-.stopButton { color: #a14943; background: #ffebe7; }
+.stopButton { color: palette.$danger; background: palette.$danger-soft; }
 
 .peerPanel {
   display: grid;
   min-height: 0;
   padding-top: 12px;
   gap: 8px;
-  border-top: 1px solid rgba(86, 66, 52, 0.08);
+  border-top: 1px solid palette.$line;
 
   > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   > div strong { color: $ink; font-size: 0.75rem; }
@@ -253,7 +255,7 @@ $peach: var(--theme-accent);
     padding: 0 7px;
     place-items: center;
     color: $teal-dark;
-    background: #e5f3f0;
+    background: palette.$teal-soft;
     border-radius: 999px;
     font-size: 0.6875rem;
     font-weight: 800;
@@ -286,7 +288,7 @@ $peach: var(--theme-accent);
   small { color: $muted; font-size: 0.625rem; }
 }
 
-.selectedPeer { color: $teal-dark !important; background: #e9f5f2 !important; border-color: rgba(22, 139, 133, 0.22) !important; }
+.selectedPeer { color: $teal-dark !important; background: palette.$teal-soft !important; border-color: color-mix(in srgb, $teal 32%, palette.$line) !important; }
 
 .receivePanel {
   grid-area: receive;
@@ -350,7 +352,7 @@ $peach: var(--theme-accent);
   font-size: 0.6875rem;
   font-weight: 700;
 
-  &:hover { background: #edf7f5; }
+  &:hover { background: palette.$teal-soft; }
 }
 
 .logConsole {
@@ -360,13 +362,13 @@ $peach: var(--theme-accent);
   overflow: auto;
   overflow-anchor: none;
   overscroll-behavior: contain;
-  color: #dbe7e4;
-  background: #202725;
+  color: palette.$console-text;
+  background: palette.$console;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
   scrollbar-gutter: stable;
-  scrollbar-color: #67726f #202725;
+  scrollbar-color: palette.$console-muted palette.$console;
 }
 
 .emptyLog {
@@ -378,8 +380,8 @@ $peach: var(--theme-accent);
   gap: 6px;
   text-align: center;
 
-  strong { color: #e8f2ef; font-size: 0.8125rem; }
-  span { max-width: 360px; color: #91a09c; font-size: 0.6875rem; line-height: 1.55; }
+  strong { color: palette.$console-text; font-size: 0.8125rem; }
+  span { max-width: 360px; color: palette.$console-muted; font-size: 0.6875rem; line-height: 1.55; }
 }
 
 .logEntry {
@@ -395,7 +397,7 @@ $peach: var(--theme-accent);
   pre {
     min-width: 0;
     margin: 0;
-    color: #d9e5e2;
+    color: palette.$console-text;
     font-family: Consolas, "Cascadia Code", monospace;
     font-size: 0.75rem;
     line-height: 1.55;
@@ -413,16 +415,16 @@ $peach: var(--theme-accent);
   font-family: Consolas, "Cascadia Code", monospace;
   font-size: 0.6875rem;
 
-  time { color: #87938f; }
-  b { color: #74d2be; }
-  span { max-width: 92px; overflow: hidden; color: #b0bcb8; text-overflow: ellipsis; white-space: nowrap; }
-  em { color: #778682; font-style: normal; }
+  time { color: palette.$console-muted; }
+  b { color: palette.$rx; }
+  span { max-width: 92px; overflow: hidden; color: palette.$console-muted; text-overflow: ellipsis; white-space: nowrap; }
+  em { color: palette.$console-muted; font-style: normal; }
 }
 
-.log_sent .logMeta b { color: #f3ae78; }
-.log_system .logMeta b { color: #aeb8e8; }
+.log_sent .logMeta b { color: palette.$tx; }
+.log_system .logMeta b { color: palette.$console-info; }
 .log_error .logMeta b,
-.log_error pre { color: #ff9e98; }
+.log_error pre { color: palette.$console-error; }
 
 .newDataButton {
   position: absolute;
@@ -456,7 +458,7 @@ $peach: var(--theme-accent);
     padding: 11px;
     color: $ink;
     background: $sand;
-    border: 1px solid rgba(86, 66, 52, 0.09);
+    border: 1px solid palette.$line;
     border-radius: 10px;
     font-family: Consolas, "Cascadia Code", monospace;
     font-size: 0.75rem;
@@ -484,7 +486,7 @@ $peach: var(--theme-accent);
   }
 }
 
-.invalidSize { color: #bd5049 !important; }
+.invalidSize { color: palette.$danger !important; }
 
 .sendControls {
   display: grid;
@@ -505,7 +507,7 @@ $peach: var(--theme-accent);
     padding: 0 8px;
     color: $ink;
     background: $sand;
-    border: 1px solid rgba(86, 66, 52, 0.09);
+    border: 1px solid palette.$line;
     border-radius: 8px;
     font-size: 0.6875rem;
     outline: none;
@@ -532,7 +534,7 @@ $peach: var(--theme-accent);
     padding: 0 7px;
     color: $ink;
     background: $sand;
-    border: 1px solid rgba(86, 66, 52, 0.09);
+    border: 1px solid palette.$line;
     border-radius: 8px;
     font-size: 0.6875rem;
   }
@@ -571,7 +573,7 @@ $peach: var(--theme-accent);
   align-items: center;
   gap: 9px;
   color: $teal-dark;
-  background: #e9f5f2;
+  background: palette.$teal-soft;
   border-radius: 11px;
 
   > span {
@@ -590,10 +592,16 @@ $peach: var(--theme-accent);
 }
 
 .errorFeedback {
-  color: #9b4641;
-  background: #fff0ed;
-  > span { background: #cf5c54; }
+  color: palette.$danger;
+  background: palette.$danger-soft;
+  > span { background: palette.$danger; }
 }
+
+// Subtle title-area tints distinguish settings, sending and receiving without
+// adding a header row or changing the established split workspace geometry.
+.connectionPanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.sendPanel { background: linear-gradient(180deg, palette.$teal-soft, $paper 64px); }
+.receivePanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
 
 @keyframes statePulse {
   50% { box-shadow: 0 0 0 5px rgba(232, 162, 67, 0.14); }

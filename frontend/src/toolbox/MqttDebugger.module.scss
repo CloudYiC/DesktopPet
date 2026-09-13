@@ -1,12 +1,14 @@
-$ink: var(--theme-ink, #3f342e);
-$muted: var(--theme-muted, #8d8077);
-$teal: var(--theme-primary, #168b85);
-$deep: var(--theme-primary-deep, #116d69);
-$paper: var(--theme-paper, #fffdf9);
-$sand: var(--theme-sand, #f4ede4);
-$line: color-mix(in srgb, $muted 19%, transparent);
+@use '../../../shared/tool-workspace/toolPalette' as palette;
 
-.workspace { display: flex; min-width: 0; height: calc(100dvh - 28px); min-height: 400px; flex-direction: column; gap: 10px; color: $ink; font-size: .8125rem; }
+$ink: palette.$ink;
+$muted: palette.$muted;
+$teal: palette.$primary;
+$deep: palette.$deep;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$line: palette.$line;
+
+.workspace { @include palette.workspace; display: flex; min-width: 0; height: calc(100dvh - 28px); min-height: 400px; flex-direction: column; gap: 10px; color: $ink; font-size: .8125rem; }
 .workspace > header, .connection, .publish { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace select { font: inherit; }
 .workspace button { cursor: pointer; }
@@ -20,10 +22,10 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .workspace input:disabled, .workspace select:disabled { opacity: .66; }
 .workspace input[type='checkbox'] { width: 15px; height: 15px; margin: 0; accent-color: $teal; }
 .primary, .stop { min-height: 36px; padding: 6px 12px; border: 1px solid $teal; border-radius: 6px; background: $teal; color: #fff; font-weight: 650 !important; }
-.stop { color: $deep; background: $paper; }
+.stop { color: palette.$danger; border-color: color-mix(in srgb, palette.$danger 24%, $line); background: palette.$danger-soft; }
 .primary:hover:not(:disabled) { background: $deep; }
 .connectionFooter { display: flex; min-width: 0; min-height: 40px; margin-top: 10px; align-items: center; gap: 12px; border-top: 1px solid $line; color: $muted; font-size: .75rem; }
-.connectionFooter strong { flex-shrink: 0; color: $muted; }.connectionFooter strong.connected { color: $teal; }
+.connectionFooter strong { flex-shrink: 0; color: $muted; }.connectionFooter strong.connected { color: palette.$success; }
 .connectionFooter > span { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .connectionFooter > button { min-height: 30px; padding: 3px 0; flex-shrink: 0; border: 0; color: $deep; background: none; }
 .advanced { display: grid; max-height: 180px; overflow: auto; padding: 9px 0 12px; border-top: 1px solid $line; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) 125px auto auto; align-items: end; gap: 9px 12px; }
@@ -54,12 +56,12 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .messageBody { display: grid; min-width: 0; min-height: 0; flex: 1; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .messageTable { display: flex; min-width: 0; min-height: 0; overflow: auto; flex-direction: column; border: 1px solid $line; border-radius: 6px; }
 .tableHead, .messageList > button { display: grid; min-width: 330px; grid-template-columns: 94px 36px minmax(100px, 1fr) 36px 38px; gap: 8px; align-items: center; text-align: left; }
-.tableHead { min-height: 29px; padding: 4px 9px; flex-shrink: 0; overflow-y: hidden; scrollbar-gutter: stable; color: $muted; background: $sand; font-size: .75rem; }
+.tableHead { min-height: 29px; padding: 4px 9px; flex-shrink: 0; overflow-y: hidden; scrollbar-gutter: stable; color: palette.$blue; background: palette.$blue-soft; font-size: .75rem; }
 .messageList { min-width: 330px; min-height: 0; flex: 1; overflow: auto; scrollbar-gutter: stable; overscroll-behavior: contain; }
 .messageList > button { width: 100%; min-height: 32px; padding: 5px 9px; border: 0; border-bottom: 1px solid $line; color: $ink; background: transparent; }
-.messageList > button:hover, .messageList > button[aria-selected='true'] { background: color-mix(in srgb, $teal 13%, $paper); }
+.messageList > button:hover, .messageList > button[aria-selected='true'] { background: palette.$teal-soft; }
 .messageList time { color: $muted; font: .75rem/1.5 Consolas, monospace; }
-.messageList b { font-size: .75rem; font-weight: 650; }.rx { color: $deep; }.tx { color: #b76d2e; }
+.messageList b { font-size: .75rem; font-weight: 650; }.rx { color: palette.$success; }.tx { color: palette.$amber; }
 .messageList span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; }
 .messageList small { color: $muted; font-size: .75rem; }
 .messageList p { margin: 15px 12px; color: $muted; font-size: .75rem; line-height: 1.6; }
@@ -68,10 +70,10 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .content > header > div:first-child { display: flex; min-width: 0; align-items: baseline; gap: 8px; }
 .content strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .8125rem; }
 .content header span { color: $muted; white-space: nowrap; font-size: .75rem; }
-.content pre { min-width: 0; min-height: 0; margin: 4px 0 0; padding: 10px; flex: 1; overflow: auto; overscroll-behavior: contain; border-radius: 6px; color: #e2eeea; background: #202b2a; font: .8125rem/1.65 Consolas, 'Cascadia Code', monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.content pre { min-width: 0; min-height: 0; margin: 4px 0 0; padding: 10px; flex: 1; overflow: auto; overscroll-behavior: contain; border-radius: 6px; color: palette.$console-text; background: palette.$console; font: .8125rem/1.65 Consolas, 'Cascadia Code', monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .segmented { display: flex; flex-shrink: 0; gap: 1px; padding: 2px; border-radius: 6px; background: $sand; }
 .segmented button { min-height: 28px; padding: 3px 10px; border: 0; border-radius: 4px; color: $muted; background: transparent; font-size: .75rem; }
-.segmented button[aria-pressed='true'] { color: $deep; background: $paper; font-weight: 650; }
+.segmented button[aria-pressed='true'] { color: $deep; background: palette.$teal-soft; font-weight: 650; }
 .publish { padding: 10px 12px 12px; }
 .publish > header > span { min-width: 0; margin-left: auto; color: $muted; font-size: .75rem; overflow-wrap: anywhere; }
 .publishControls { display: grid; min-width: 0; margin-top: 6px; grid-template-columns: minmax(0, 1fr) 115px auto; gap: 14px; align-items: center; }
@@ -82,9 +84,19 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .publish textarea { display: block; width: 100%; min-width: 0; height: 54px; margin-top: 3px; padding: 6px 9px; overflow: auto; resize: none; border: 0; border-radius: 4px; color: $ink; background: color-mix(in srgb, $sand 70%, $paper); font: .8125rem/1.65 Consolas, 'Cascadia Code', monospace; }
 .publishBody > button { align-self: stretch; }
 .publishBody kbd { display: block; margin-top: 7px; font-family: inherit; font-size: .75rem; line-height: 1.4; opacity: .8; }
-.invalid { color: #a44335 !important; }
+.invalid { color: palette.$danger !important; }
 .notice, .error { max-height: 42px; overflow: auto; margin: 7px 0 0; color: $deep; font-size: .75rem; line-height: 1.6; overflow-wrap: anywhere; }
-.error { color: #a44335; }
+.error { color: palette.$danger; }
+
+// Distinct, restrained panel tints communicate subscribe / inspect / publish.
+.connection { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.subscriptions { background: linear-gradient(180deg, palette.$violet-soft, $paper 64px); }
+.subscriptions h3 { color: palette.$violet; }
+.messages { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.publish { background: linear-gradient(180deg, palette.$teal-soft, $paper 64px); }
+.subscriptionList > div { background: color-mix(in srgb, $paper 76%, transparent); }
+.messageTable { background: $paper; }
+.content pre { scrollbar-color: palette.$console-muted palette.$console; }
 
 @media (max-width: 1100px) {
   .connection { padding: 10px 11px 0; }

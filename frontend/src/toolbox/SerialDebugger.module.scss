@@ -1,12 +1,15 @@
-$ink: var(--theme-ink, #3f342e);
-$muted: var(--theme-muted, #8d8077);
-$paper: var(--theme-paper, #fffdf9);
-$sand: var(--theme-sand, #f4ede4);
-$teal: var(--theme-primary, #168b85);
-$deep: var(--theme-primary-deep, #116d69);
-$line: color-mix(in srgb, $muted 19%, transparent);
+@use '../../../shared/tool-workspace/toolPalette' as palette;
+
+$ink: palette.$ink;
+$muted: palette.$muted;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$teal: palette.$primary;
+$deep: palette.$deep;
+$line: palette.$line;
 
 .workspace {
+  @include palette.workspace;
   display: flex;
   min-width: 0;
   height: calc(100dvh - 28px);
@@ -36,7 +39,7 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .fields .connect { grid-column: 1 / -1; min-height: 36px; background: $teal; color: #fff; border-color: $teal; padding: 6px 13px; }
 .connectionStatus { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; margin-top: 10px; padding: 8px 0; border-top: 1px solid $line; align-items: center; gap: 7px 10px; font-size: .75rem; }
 .connectionStatus > strong { color: $muted; overflow-wrap: anywhere; }
-.connectionStatus > strong.connected { color: $teal; }
+.connectionStatus > strong.connected { color: palette.$success; }
 .connectionStatus > span { color: $muted; overflow-wrap: anywhere; }
 .connectionStatus .counters { grid-column: 1; }
 .connectionStatus button { border: 0; min-height: 26px; padding: 2px 0; }
@@ -53,18 +56,18 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .segmented button { border-radius: 0; min-height: 31px; padding: 4px 12px; }
 .segmented button:first-child { border-radius: 6px 0 0 6px; }
 .segmented button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
-.segmented button[aria-pressed='true'] { background: #e0f0ed; border-color: #b7d9d3; color: $deep; }
+.segmented button[aria-pressed='true'] { background: palette.$teal-soft; border-color: color-mix(in srgb, $teal 32%, $line); color: $deep; }
 .encoding { color: $muted; font-size: .75rem; }
-.log { min-width: 0; min-height: 0; flex: 1; padding: 12px; overflow: auto; overscroll-behavior: contain; border-radius: 7px; background: #202b2a; color: #e9f0ed; font: 13px/1.7 Consolas, 'Cascadia Mono', monospace; }
+.log { min-width: 0; min-height: 0; flex: 1; padding: 12px; overflow: auto; overscroll-behavior: contain; border-radius: 7px; background: palette.$console; color: palette.$console-text; font: 13px/1.7 Consolas, 'Cascadia Mono', monospace; }
 .logRow { display: flex; align-items: baseline; gap: 13px; min-width: 0; padding: 3px 0; }
-.logRow time { color: #9daea9; flex-shrink: 0; font-size: 12px; }
+.logRow time { color: palette.$console-muted; flex-shrink: 0; font-size: 12px; }
 .logRow b { min-width: 43px; flex-shrink: 0; font-weight: 500; }
 .logRow code { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
-.tx { color: #ffc166; }
-.rx { color: #79d8a2; }
-.status { color: #a3bee8; }
-.logRow .error { color: #ff998d; padding: 0; margin: 0; background: none; }
-.empty { display: grid; height: 100%; place-items: center; color: #9fb7af; text-align: center; }
+.tx { color: palette.$tx; }
+.rx { color: palette.$rx; }
+.status { color: palette.$console-info; }
+.logRow .error { color: palette.$console-error; padding: 0; margin: 0; background: none; }
+.empty { display: grid; height: 100%; place-items: center; color: palette.$console-muted; text-align: center; }
 .sendPanel { display: flex; flex: 1 0 auto; min-height: 260px; flex-direction: column; padding: 12px 14px; }
 .sendMode > span { color: $muted; font-size: .75rem; }
 .sendPanel textarea { display: block; width: 100%; min-width: 0; min-height: 96px; flex: 1; resize: none; padding: 10px; overflow: auto; color: $ink; background: color-mix(in srgb, $sand 55%, $paper); border: 1px solid $line; border-radius: 6px; font: 14px/1.7 Consolas, monospace; }
@@ -78,8 +81,16 @@ $line: color-mix(in srgb, $muted 19%, transparent);
 .sendActions .sendButton { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 7px 13px; min-height: 36px; background: $teal; border-color: $teal; color: #fff; }
 .sendButton kbd { font-family: inherit; font-size: 10px; }
 .error, .notice { max-height: 56px; flex-shrink: 0; overflow: auto; margin: 8px 0 0; padding: 7px 10px; border-radius: 6px; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
-.error { color: #a44335; background: #fff0eb; }
-.notice { color: $deep; background: #edf6f3; }
+.error { color: palette.$danger; background: palette.$danger-soft; }
+.notice { color: $deep; background: palette.$teal-soft; }
+
+// Color-only emphasis leaves the established editing/receiving split unchanged.
+.connection { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.workspace select, .workspace input[type='number'] { background: $sand; }
+.sendPanel { background: linear-gradient(180deg, palette.$teal-soft, $paper 64px); }
+.logPanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
+.logTools > label, .ending > span, .repeatControl > span { color: $muted; }
+.log { scrollbar-color: palette.$console-muted palette.$console; }
 
 @media (max-width: 1100px) {
   .split { grid-template-columns: 304px minmax(0, 1fr); }

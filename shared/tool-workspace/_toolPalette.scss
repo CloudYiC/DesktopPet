@@ -1,0 +1,35 @@
+// Tool-only semantic colors. Theme accents remain user-selectable; pet and shell
+// surfaces deliberately do not import this palette.
+$ink: #24354a;
+$muted: #5f7386;
+$paper: #fffefb;
+$surface: #f4f7fa;
+$line: #dce6ec;
+// Retain each chosen accent hue while giving small white action labels >= 4.5:1.
+$primary: color-mix(in srgb, var(--theme-primary, #168b85) 80%, #24354a);
+$deep: var(--theme-primary-deep, #116d69);
+$blue: #326caa;
+$blue-soft: #eaf2fc;
+$teal: #127d7e;
+$teal-soft: #e6f4f1;
+$violet: #6b53aa;
+$violet-soft: #f0ebfa;
+$amber: #906014;
+$amber-soft: #fff3d8;
+$danger: #ac4540;
+$danger-soft: #fff0ed;
+$success: #21775a;
+$success-soft: #e4f4eb;
+$console: #202d38;
+$console-text: #e4edf5;
+$console-muted: #a5b7c7;
+$tx: #f1c171;
+$rx: #80d9b1;
+$console-info: #a8c8ff;
+$console-error: #ffb5ab;
+
+@mixin workspace {
+  --tool-ink: #{$ink};
+  --tool-muted: #{$muted};
+  color: $ink;
+}

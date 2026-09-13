@@ -1,4 +1,11 @@
+@use '../../../shared/tool-workspace/toolPalette' as palette;
+
 .workspace {
+  @include palette.workspace;
+  --theme-ink: #{palette.$ink};
+  --theme-muted: #{palette.$muted};
+  --theme-paper: #{palette.$paper};
+  --theme-sand: #{palette.$surface};
   display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px;
   height: calc(100vh - 28px); min-height: 410px; min-width: 0;
   color: var(--theme-ink); font-size: .8125rem;
@@ -7,7 +14,7 @@
   button:disabled { opacity: .45; cursor: default; }
   button:focus-visible, input:focus-visible, textarea:focus-visible, pre:focus-visible { outline: 2px solid var(--theme-primary); outline-offset: 2px; }
 }
-.expressionPanel, .editorPanel, .resultPanel { min-width: 0; border: 1px solid color-mix(in srgb, var(--theme-muted) 19%, transparent); border-radius: 12px; background: var(--theme-paper); }
+.expressionPanel, .editorPanel, .resultPanel { min-width: 0; border: 1px solid palette.$line; border-radius: 12px; background: var(--theme-paper); }
 .expressionPanel { padding: 12px 14px; }
 .expressionRow { display: flex; align-items: flex-end; gap: 10px; min-width: 0; }
 .patternLabel { flex: 1; min-width: 0; }
@@ -17,7 +24,7 @@
 .patternField input { min-width: 0; flex: 1; height: 36px; border: 0; background: transparent; color: var(--theme-ink); font-family: Consolas, monospace; }
 .flagsLabel { width: 85px; }
 .flagsLabel input { height: 38px; width: 100%; min-width: 0; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--theme-muted) 20%, transparent); background: var(--theme-sand); border-radius: 7px; color: var(--theme-primary-deep); font-family: Consolas, monospace; }
-.primary { height: 38px; padding: 0 20px; background: var(--theme-primary); color: #fff; border: 0; border-radius: 7px; font-weight: 600 !important; white-space: nowrap; }
+.primary { height: 38px; padding: 0 20px; background: palette.$primary; color: #fff; border: 0; border-radius: 7px; font-weight: 600 !important; white-space: nowrap; }
 .flagHints { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 9px; }
 .flagHints button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px; border: 1px solid transparent; border-radius: 5px; font-size: .6875rem; color: var(--theme-muted); background: transparent; }
 .flagHints button[aria-pressed='true'] { border-color: color-mix(in srgb, var(--theme-primary) 25%, transparent); background: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-paper)); color: var(--theme-primary-deep); }
@@ -27,7 +34,7 @@
 .editorPanel, .resultPanel { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
 .panelHeader { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; flex-wrap: wrap; gap: 6px; padding: 11px 14px; }
 .panelHeader h3 { margin: 0; font-size: .9375rem; display: flex; align-items: center; gap: 8px; }
-.count { color: var(--theme-primary-deep); background: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-paper)); border-radius: 5px; padding: 2px 6px; font-size: .75rem; }
+.count { color: palette.$teal; background: palette.$teal-soft; border-radius: 5px; padding: 2px 6px; font-size: .75rem; }
 .copy, .actions button { min-height: 28px; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--theme-primary) 20%, transparent); border-radius: 6px; color: var(--theme-primary-deep); background: transparent; }
 .actions { display: flex; gap: 4px; }
 .actions button { border-color: transparent; }
@@ -36,26 +43,30 @@
 .tabs button { padding: 4px 6px; border: 0; background: transparent; color: var(--theme-muted); border-radius: 4px; font-size: .75rem; }
 .tabs button[aria-pressed='true'] { background: var(--theme-paper); color: var(--theme-primary-deep); box-shadow: 0 1px 3px #0000000c; }
 .editorPanel textarea, .highlight { display: block; flex: 1; min-height: 0; min-width: 0; width: calc(100% - 28px); margin: 0 14px; padding: 12px; resize: none; overflow: auto; overscroll-behavior: contain; border: 1px solid color-mix(in srgb, var(--theme-muted) 16%, transparent); border-radius: 7px; color: var(--theme-ink); background: color-mix(in srgb, var(--theme-sand) 45%, var(--theme-paper)); font: .8125rem/1.7 Consolas, 'Cascadia Code', monospace; white-space: pre; tab-size: 4; }
-.highlight mark { background: #d8eee3; color: #255c43; border-radius: 2px; border-bottom: 2px solid #86c8a1; }
+.highlight mark { background: palette.$success-soft; color: palette.$success; border-radius: 2px; border-bottom: 2px solid #80bea3; }
 .highlight mark[data-active='true'] { background: #fbe4a3; color: #69480e; border-bottom-color: #c48c1c; }
-.emptyMark { display: inline-block; color: #985719; background: #ffedbe; }
+.emptyMark { display: inline-block; color: palette.$amber; background: palette.$amber-soft; }
 .panelFooter { flex-shrink: 0; padding: 9px 14px; color: var(--theme-muted); font-size: .6875rem; line-height: 1.5; overflow-wrap: anywhere; }
 .results { flex: 1; min-height: 0; min-width: 0; padding: 0 14px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .emptyState { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 100%; padding: 18px; gap: 10px; color: var(--theme-primary-deep); line-height: 1.5; }
 .emptyState small { color: var(--theme-muted); }
 .emptyState button { padding: 6px 12px; color: var(--theme-primary-deep); background: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-paper)); border: 0; border-radius: 5px; }
-.error { padding: 12px; border-radius: 7px; background: #fdeae7; color: #983c34; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
-.match { min-width: 0; margin-bottom: 9px; border: 1px solid color-mix(in srgb, var(--theme-muted) 19%, transparent); border-radius: 8px; overflow: hidden; }
-.match[data-selected='true'] { border-color: var(--theme-primary); box-shadow: inset 3px 0 0 var(--theme-primary); }
-.matchSelect { display: flex; width: 100%; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border: 0; background: color-mix(in srgb, var(--theme-primary) 10%, var(--theme-paper)); color: var(--theme-primary-deep); padding: 8px 10px; text-align: left; }
+.error { padding: 12px; border-radius: 7px; background: palette.$danger-soft; color: palette.$danger; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.match { min-width: 0; margin-bottom: 9px; border: 1px solid palette.$line; border-radius: 8px; overflow: hidden; }
+.match[data-selected='true'] { border-color: palette.$amber; box-shadow: inset 3px 0 0 palette.$amber; }
+.matchSelect { display: flex; width: 100%; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border: 0; background: palette.$teal-soft; color: palette.$teal; padding: 8px 10px; text-align: left; }
+.match[data-selected='true'] .matchSelect { color: palette.$amber; background: palette.$amber-soft; }
 .matchSelect span { font-size: .6875rem; color: var(--theme-muted); }
-.matchSelect i { color: var(--theme-primary); font-style: normal; }
+.matchSelect i { color: palette.$amber; font-style: normal; }
 .matchText { margin: 0; padding: 9px 10px; max-height: 160px; min-width: 0; overflow: auto; overscroll-behavior: contain; white-space: pre; font: .8125rem/1.5 Consolas, monospace; }
 .groups { padding: 0 10px 8px; }
 .groups > div { display: grid; grid-template-columns: minmax(0, 65px) minmax(0, 1fr); align-items: start; gap: 8px; padding-top: 6px; border-top: 1px dashed color-mix(in srgb, var(--theme-muted) 18%, transparent); margin-top: 5px; }
 .groups span { color: var(--theme-muted); font-size: .6875rem; overflow-wrap: anywhere; }
 .groups code { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 96px; overflow: auto; font-size: .75rem; }
 .groups small { color: var(--theme-muted); }
+.editorPanel .panelHeader { background: color-mix(in srgb, palette.$blue-soft 45%, palette.$paper); }
+.resultPanel .panelHeader { color: palette.$teal; background: palette.$teal-soft; }
+.groups code { color: palette.$violet; }
 @media (max-width: 1050px) {
   .flagHints > span { display: none; }
   .expressionPanel { padding: 10px; }

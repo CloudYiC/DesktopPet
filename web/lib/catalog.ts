@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.5-desktop',
+    date: '2026-09-13',
+    items: [
+      { kind: '~', text: 'Unified the remaining 17 tool workspaces with slate-blue text, warm neutral panels and distinct input/output surfaces inspired by the system tools' },
+      { kind: '~', text: 'Preserved protocol, diff and regex highlights; refreshed dark communication logs with consistent TX, RX, status and error colors' },
+      { kind: '~', text: 'Improved solid action contrast across all three themes without changing fonts, layout, scrolling, communication or confirmation behavior' },
+      { kind: '+', text: 'Added paint-only CSS comparison and a 20-tool, three-theme visual regression that checks title colors, action contrast and sidebar isolation' },
+    ],
+  },
+  {
     version: 'v0.13.4-desktop',
     date: '2026-09-13',
     items: [

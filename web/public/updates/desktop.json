@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.4",
+  "latestVersion": "0.13.5",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.4",
-  "releaseNotes": "Reorganizes Network, Serial and Modbus debuggers into left-hand connection and send/request controls with right-hand receive logs or data results at default and maximized sizes. Only viewports of 900px or narrower stack the panes. Keeps growing logs and tables internally scrollable; short windows and expanded settings can scroll the left controls independently without moving the results. Preserves readable controls, existing communication behavior, LAN consent and centered Modbus write confirmation. All 20 tools and the packaged pink Yiyi character are retained.",
-  "publishedAt": "2026-09-12T23:22:00Z",
+  "title": "云依助手 0.13.5",
+  "releaseNotes": "Unifies the remaining 17 tool workspaces with slate-blue headings, warm neutral panels and distinct input/output surfaces inspired by the system tools. Refreshes communication logs with consistent TX, RX, status and error colors while retaining diff, regex and protocol highlights. Improves solid action contrast across all three themes. Preserves layout, fonts, scrolling, sidebar, pet appearance, communication and confirmation behavior. All 20 tools and the packaged pink Yiyi character are retained.",
+  "publishedAt": "2026-09-13T00:58:15Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.4.exe",
-      "sha256": "52B259E54ADBD51182898405CE434D6E7DB74B1E6E43ADE3E5E95B2B43F2B01C",
-      "size": 23320510,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.5.exe",
+      "sha256": "486C211AC5D57044808B37E0452F8CBDA18704D0E6FBFA7BB6CB85117543750C",
+      "size": 23320522,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.4.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.5.exe"
   }
 }

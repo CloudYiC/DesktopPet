@@ -1,12 +1,14 @@
-$ink: var(--theme-ink);
-$muted: var(--theme-muted);
-$paper: var(--theme-paper);
-$sand: var(--theme-sand);
-$teal: var(--theme-primary);
-$teal-dark: var(--theme-primary-deep);
+@use '../../../shared/tool-workspace/toolPalette' as palette;
+$ink: palette.$ink;
+$muted: palette.$muted;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$teal: palette.$primary;
+$teal-dark: palette.$deep;
 $peach: var(--theme-accent);
 
 .toolbox {
+  @include palette.workspace;
   display: grid;
   gap: 16px;
   padding-bottom: 28px;
@@ -287,6 +289,13 @@ $peach: var(--theme-accent);
 }
 
 .emptyCatalog { grid-column: 1 / -1; margin: 0; padding: 34px; color: $muted; background: $paper; border-radius: 14px; font-size: 0.75rem; text-align: center; }
+
+.toolGrid article, .catalogToolbar label, .categoryStrip button { border-color: palette.$line; box-shadow: 0 3px 10px #24354a08; }
+.toolGrid article:hover, .categoryStrip button:hover { border-color: #a5ceca; box-shadow: 0 7px 18px #24354a10; }
+.toolGlyph, .categoryStrip button i { color: palette.$blue; background: palette.$blue-soft; }
+.catalogToolbar label kbd { background: $sand; }
+.toolActions > button { color: palette.$teal; background: #f3faf8; border-color: #c9e2dc; }
+.toolActions > button:hover:not(:disabled) { color: $teal-dark; background: palette.$teal-soft; border-color: #a5ceca; }
 
 
 @media (max-width: 840px) {

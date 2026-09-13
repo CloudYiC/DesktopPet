@@ -1,13 +1,15 @@
-$ink: var(--theme-ink, #25364b);
-$muted: var(--theme-muted, #697b90);
-$paper: var(--theme-paper, #fffefd);
-$sand: var(--theme-sand, #f4f6f7);
-$teal: var(--theme-primary, #008f98);
-$teal-dark: var(--theme-primary-deep, #007781);
-$line: color-mix(in srgb, $ink 13%, transparent);
+@use '../tool-workspace/toolPalette' as palette;
+$ink: palette.$ink;
+$muted: palette.$muted;
+$paper: palette.$paper;
+$sand: palette.$surface;
+$teal: palette.$primary;
+$teal-dark: palette.$deep;
+$line: palette.$line;
 $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 
 .workspace {
+  @include palette.workspace;
   --inspector-height: clamp(490px, calc(100dvh - 334px), 760px);
   container-type: inline-size;
   display: grid;
@@ -131,9 +133,9 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
   kbd { color: rgba(255, 255, 255, 0.84); font: inherit; font-size: 0.75rem; font-weight: 400; }
 }
 
-.pendingBadge { padding: 2px 7px; color: #93622c; background: #fff2dc; border-radius: 4px; font-size: 0.75rem; }
+.pendingBadge { padding: 2px 7px; color: palette.$amber; background: palette.$amber-soft; border-radius: 4px; font-size: 0.75rem; }
 .inputError, .actionMessage, .pasteFallback { padding: 7px 10px; border-radius: 6px; font-size: 0.75rem; line-height: 1.55; overflow-wrap: anywhere; }
-.inputError { color: #b34436; background: #fff0ec; }
+.inputError { color: palette.$danger; background: palette.$danger-soft; }
 .actionMessage, .pasteFallback { color: $teal-dark; background: color-mix(in srgb, $teal 8%, $paper); }
 
 .protocolSummary { display: flex; min-height: 37px; padding: 7px 14px; align-items: center; flex-wrap: wrap; gap: 6px 24px; }
@@ -189,7 +191,7 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 .definePayload { display: block; margin: 5px 0 2px auto; padding: 0; color: $teal-dark; background: transparent; border: 0; font-size: 0.75rem; font-weight: 650; }
 .warningList {
   flex: 0 0 auto;
-  color: #a77629;
+  color: palette.$amber;
   font-size: 0.75rem;
 
   details { margin-top: 6px; }
@@ -370,8 +372,15 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
   td:nth-child(3) { white-space: normal; overflow-wrap: anywhere; }
   td:last-child { overflow-wrap: anywhere; }
 }
-.invalidField { color: #b34436 !important; }
-.deleteField { width: auto !important; color: #b34436 !important; text-align: right !important; font-size: 0.75rem !important; }
+.invalidField { color: palette.$danger !important; }
+.deleteField { width: auto !important; color: palette.$danger !important; text-align: right !important; font-size: 0.75rem !important; }
+
+// Structural chrome only; per-layer and byte colors continue to encode protocols.
+.protocolSummary { background: #eff7f5; }
+.inputHeading h3, .layerTreeArea h3 { color: palette.$blue; }
+.fieldToolbar { background: $sand; }
+.fieldTabs button[aria-selected='true'] { background: palette.$teal-soft; }
+.fieldTable th { color: #48647c; background: #edf3f7; }
 .emptyState { display: grid; min-height: 80px; height: 100%; padding: 16px; align-content: center; justify-items: center; gap: 6px; color: $muted; text-align: center; font-size: 0.8125rem; line-height: 1.6; }
 
 @container (max-width: 1040px) {
