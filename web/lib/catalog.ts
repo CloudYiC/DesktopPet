@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.9-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Merged packet authoring, saved libraries, file loading, escaped bytes and multicast controls into one Network Debugger workspace with TCP client/server and UDP modes' },
+      { kind: '+', text: 'Preserved multi-client server sending and continuous sends; added bounded repeat batches, separate stop-sending/disconnect actions and line endings without changing saved payload bytes' },
+      { kind: '~', text: 'Kept a large readable traffic console beside connection and send controls, with collapsible packet library and user-controlled follow-to-latest behavior' },
+      { kind: '-', text: 'Removed the redundant Packet Sender entry and UI; all 20 built-in tools open directly and existing local packet libraries remain intact' },
+    ],
+  },
+  {
     version: 'v0.13.8-desktop',
     date: '2026-09-14',
     items: [

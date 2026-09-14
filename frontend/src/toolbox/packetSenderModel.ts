@@ -1,10 +1,15 @@
 /** Pure packet authoring/library model. It deliberately performs no I/O or sends. */
 export type PacketProtocol = 'udp' | 'tcp';
 export type PacketDataMode = 'text' | 'hex' | 'escaped';
+export type PacketNetworkMode = 'tcp-client' | 'tcp-server' | 'udp';
+export type PacketLineEnding = 'none' | 'lf' | 'crlf';
 
 export interface PacketSenderDraft {
   name: string;
   protocol: PacketProtocol;
+  /** Optional in schema-1 libraries written before the unified network workspace. */
+  networkMode?: PacketNetworkMode;
+  lineEnding?: PacketLineEnding;
   host: string;
   port: number;
   localAddress: string;
@@ -43,14 +48,30 @@ export const MAX_UDP_PACKET_BYTES = 65507;
 export const MAX_TCP_PACKET_BYTES = 65536;
 
 const DRAFT_KEYS = ['name', 'protocol', 'host', 'port', 'localAddress', 'localPort', 'dataMode', 'payload', 'intervalMs', 'repeatCount'];
+const OPTIONAL_DRAFT_KEYS = ['multicastTtl', 'networkMode', 'lineEnding'];
 const encoder = new TextEncoder();
 
 export function createDefaultPacketDraft(): PacketSenderDraft {
   return {
-    name: '', protocol: 'udp', host: '127.0.0.1', port: 9000,
+    name: '', protocol: 'udp', networkMode: 'udp', lineEnding: 'none', host: '127.0.0.1', port: 9000,
     localAddress: '0.0.0.0', localPort: 0,
     dataMode: 'text', payload: '你好，云依助手', intervalMs: 1000, repeatCount: 1, multicastTtl: 1,
   };
+}
+
+/** Infer old schema-1 modes without changing endpoints, bytes or stored library data. */
+export function packetNetworkMode(draft: Pick<PacketSenderDraft, 'protocol' | 'networkMode'>): PacketNetworkMode {
+  if (draft.protocol !== 'udp' && draft.protocol !== 'tcp') throw new Error('仅支持 UDP 和 TCP。');
+  const mode = draft.networkMode === undefined ? (draft.protocol === 'udp' ? 'udp' : 'tcp-client') : draft.networkMode;
+  if (mode !== 'udp' && mode !== 'tcp-client' && mode !== 'tcp-server') throw new Error('网络模式必须是 TCP 客户端、TCP 服务端或 UDP。');
+  if ((mode === 'udp') !== (draft.protocol === 'udp')) throw new Error('网络模式与报文协议不一致。');
+  return mode;
+}
+
+function packetLineEnding(value: unknown): PacketLineEnding {
+  if (value === undefined) return 'none';
+  if (value !== 'none' && value !== 'lf' && value !== 'crlf') throw new Error('行尾必须是不添加、LF 或 CRLF。');
+  return value;
 }
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -155,6 +176,19 @@ function asEscaped(bytes: Uint8Array): string {
   return parts.join('');
 }
 
+function encodedBytes(bytes: Uint8Array, protocol: PacketProtocol): EncodedPacketPayload {
+  const limit = protocol === 'udp' ? MAX_UDP_PACKET_BYTES : MAX_TCP_PACKET_BYTES;
+  if (bytes.length > limit) throw new Error(`${protocol.toUpperCase()} 单次报文不能超过 ${limit} 字节。`);
+  let text: string | null;
+  try {
+    // ignoreBOM=true preserves the initial UTF-8 BOM as a character, keeping mode switches lossless.
+    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    text = null;
+  }
+  return { bytes, hex: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''), escaped: asEscaped(bytes), byteCount: bytes.length, text };
+}
+
 export function encodePacketPayload(draft: Pick<PacketSenderDraft, 'protocol' | 'dataMode' | 'payload'>): EncodedPacketPayload {
   if (draft.protocol !== 'udp' && draft.protocol !== 'tcp') throw new Error('仅支持 UDP 和 TCP。');
   const payload = stringValue(draft.payload, '报文内容', MAX_PACKET_LIBRARY_BYTES);
@@ -173,16 +207,20 @@ export function encodePacketPayload(draft: Pick<PacketSenderDraft, 'protocol' | 
   } else {
     throw new Error('报文格式必须是文本、HEX 或转义字节。');
   }
-  const limit = draft.protocol === 'udp' ? MAX_UDP_PACKET_BYTES : MAX_TCP_PACKET_BYTES;
-  if (bytes.length > limit) throw new Error(`${draft.protocol.toUpperCase()} 单次报文不能超过 ${limit} 字节。`);
-  let text: string | null;
-  try {
-    // ignoreBOM=true preserves the initial UTF-8 BOM as a character, keeping mode switches lossless.
-    text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-  } catch {
-    text = null;
-  }
-  return { bytes, hex: Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''), escaped: asEscaped(bytes), byteCount: bytes.length, text };
+  return encodedBytes(bytes, draft.protocol);
+}
+
+/** Encode exactly the authored body, then append the selected line ending once per send. */
+export function encodeNetworkPayload(draft: Pick<PacketSenderDraft, 'protocol' | 'dataMode' | 'payload' | 'lineEnding'>): EncodedPacketPayload {
+  const ending = packetLineEnding(draft.lineEnding);
+  const body = encodePacketPayload(draft);
+  if (ending === 'none') return body;
+  const suffix = ending === 'lf' ? [10] : [13, 10];
+  const bytes = new Uint8Array(body.byteCount + suffix.length);
+  bytes.set(body.bytes);
+  bytes.set(suffix, body.byteCount);
+  // The native limit applies to transmitted bytes, including the selected terminator.
+  return encodedBytes(bytes, draft.protocol);
 }
 
 export function convertPacketPayloadMode(draft: Pick<PacketSenderDraft, 'protocol' | 'dataMode' | 'payload'>, targetMode: PacketDataMode): string {
@@ -199,24 +237,31 @@ function normalizedDraft(value: Record<string, unknown>): PacketSenderDraft {
   if (/[\u0000-\u001f\u007f]/.test(name)) throw new Error('报文名称不能包含控制字符。');
   assertUnicode(name);
   if (value.protocol !== 'udp' && value.protocol !== 'tcp') throw new Error('仅支持 UDP 和 TCP。');
+  const networkMode = packetNetworkMode({ protocol: value.protocol, networkMode: value.networkMode as PacketNetworkMode | undefined });
+  const lineEnding = packetLineEnding(value.lineEnding);
   if (value.dataMode !== 'text' && value.dataMode !== 'hex' && value.dataMode !== 'escaped') throw new Error('报文格式无效。');
   const localAddress = stringValue(value.localAddress, '本地地址', 15).trim();
   if (!validIPv4(localAddress)) throw new Error('本地地址必须是 IPv4 地址；自动选择使用 0.0.0.0。');
+  // Server mode does not use a remote endpoint. Keep its inactive editor values,
+  // including an empty address/port, without blocking listening or rewriting them.
+  // Switching back to a client/UDP template applies the usual endpoint validation.
+  const host = networkMode === 'tcp-server' ? stringValue(value.host, '目标地址', 253) : hostValue(value.host);
+  const port = integer(value.port, '目标端口', networkMode === 'tcp-server' ? 0 : 1, 65535);
   const draft: PacketSenderDraft = {
-    name, protocol: value.protocol, host: hostValue(value.host), port: integer(value.port, '目标端口', 1, 65535),
+    name, protocol: value.protocol, networkMode, lineEnding, host, port,
     localAddress, localPort: integer(value.localPort, '本地端口', 0, 65535), dataMode: value.dataMode,
     payload: stringValue(value.payload, '报文内容', MAX_PACKET_LIBRARY_BYTES),
-    intervalMs: integer(value.intervalMs, '发送间隔（毫秒）', 100, 86400000),
+    intervalMs: integer(value.intervalMs, '发送间隔（毫秒）', 50, 86400000),
     repeatCount: integer(value.repeatCount, '发送次数', 1, 1000),
     multicastTtl: value.multicastTtl === undefined ? 1 : integer(value.multicastTtl, '组播 TTL', 0, 255),
   };
-  encodePacketPayload(draft);
+  encodeNetworkPayload(draft);
   return draft;
 }
 
 export function validatePacketDraft(value: unknown): PacketSenderDraft {
   const draft = record(value, '报文');
-  exactKeys(draft, [...DRAFT_KEYS, ...(Object.prototype.hasOwnProperty.call(draft, 'multicastTtl') ? ['multicastTtl'] : [])], '报文');
+  exactKeys(draft, [...DRAFT_KEYS, ...OPTIONAL_DRAFT_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(draft, key))], '报文');
   return normalizedDraft(draft);
 }
 
@@ -228,7 +273,7 @@ function normalizedLibrary(value: unknown): PacketLibrary {
   const ids = new Set<string>();
   const packets = library.packets.map((item) => {
     const saved = record(item, '保存的报文');
-    exactKeys(saved, [...DRAFT_KEYS, 'id', 'updatedAt', ...(Object.prototype.hasOwnProperty.call(saved, 'multicastTtl') ? ['multicastTtl'] : [])], '保存的报文');
+    exactKeys(saved, [...DRAFT_KEYS, 'id', 'updatedAt', ...OPTIONAL_DRAFT_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(saved, key))], '保存的报文');
     const id = stringValue(saved.id, '报文 ID', 80);
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(id)) throw new Error('报文 ID 格式无效。');
     if (ids.has(id)) throw new Error('报文库包含重复 ID，已取消导入，不会覆盖已有报文。');

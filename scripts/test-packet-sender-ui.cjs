@@ -1,4 +1,4 @@
-/** Synthetic Packet Sender UI regression. All network.* messages are handled in
+/** Unified network workspace: retained packet-library/multicast regression. All network.* messages are handled in
  * this page fixture: no sockets, LAN/multicast packets, devices or real clipboard. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -43,7 +43,7 @@ const { chromium } = require('playwright');
             result = { snapshot: { ...state.snapshot } };
           } else if (request.type === 'network.send') {
             message = state.failNextSend; state.failNextSend = '';
-            if (!message && !['ready', 'connected'].includes(state.snapshot.state)) message = 'Synthetic: send before transport ready';
+            if (!message && !['ready', 'connected', 'listening'].includes(state.snapshot.state)) message = 'Synthetic: send before transport ready';
             if (!message) state.pending.push({ hex: payload.dataHex, polls: state.txDelayPolls });
             result = { snapshot: { ...state.snapshot } };
           } else {
@@ -52,7 +52,7 @@ const { chromium } = require('playwright');
                 if (state.snapshot.multicastGroup && state.failJoinOnReady) {
                   state.snapshot.state = 'error'; state.snapshot.lastError = state.failJoinOnReady; state.failJoinOnReady = '';
                 } else {
-                  state.snapshot.state = state.snapshot.mode === 'udp' ? 'ready' : 'connected';
+                  state.snapshot.state = state.snapshot.mode === 'udp' ? 'ready' : state.snapshot.mode === 'tcp-server' ? 'listening' : 'connected';
                   state.snapshot.multicastJoined = !!state.snapshot.multicastGroup;
                 }
               }
@@ -79,14 +79,14 @@ const { chromium } = require('playwright');
   const page = await context.newPage(); page.setDefaultTimeout(15000);
   const errors = []; page.on('pageerror', (error) => errors.push(error.message));
   const directory = path.resolve(__dirname, '../artifacts/packet-sender-ui'); fs.mkdirSync(directory, { recursive: true });
-  const workspace = () => page.getByTestId('packet-sender-workspace');
+  const workspace = () => page.getByTestId('network-workspace');
   const field = (name) => page.getByLabel(name, { exact: true });
   const button = (name) => workspace().getByRole('button', { name, exact: true });
-  const log = () => page.getByRole('log', { name: '发包收发记录', exact: true });
+  const log = () => page.getByRole('log', { name: '网络收发记录', exact: true });
   const count = (type) => page.evaluate((type) => window.__packetFixture.requests.filter((request) => request.type === type).length, type);
   const request = (type) => page.evaluate((type) => window.__packetFixture.requests.filter((entry) => entry.type === type).at(-1), type);
   const waitEnabled = () => button('发送一次').waitFor({ state: 'visible' }).then(() => page.waitForFunction(() => {
-    const button = [...document.querySelectorAll('[data-testid="packet-sender-workspace"] button')].find((element) => element.textContent === '发送一次');
+    const button = [...document.querySelectorAll('[data-testid="network-workspace"] button')].find((element) => element.textContent === '发送一次');
     return button && !button.disabled;
   }));
   const stop = async () => { if (await button('停止 / 断开').isEnabled()) { await button('停止 / 断开').click(); await waitEnabled(); } };
@@ -97,7 +97,8 @@ const { chromium } = require('playwright');
   }
   async function openTool() {
     await page.getByRole('button', { name: /^工具首页/ }).click();
-    const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: '发包工具', exact: true }) });
+    assert.equal(await page.getByRole('heading', { name: '发包工具', exact: true }).count(), 0, 'there is no duplicate standalone packet-sender card');
+    const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: '网络调试助手', exact: true }) });
     await card.getByRole('button', { name: '打开', exact: true }).click(); await workspace().waitFor();
   }
   async function box(locator) {
@@ -190,7 +191,7 @@ const { chromium } = require('playwright');
     assert.equal((await request('network.send')).stateAtRequest, 'ready');
     assert.equal((await request('network.send')).payload.dataHex, '00ff41');
     assert.ok((await log().innerText()).includes('TX →'), 'native completion appears in the receive log');
-    await button('TCP').click(); await field('目标端口').fill('9010');
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click(); await field('目标端口').fill('9010');
     await button('发送一次').click(); await waitEnabled();
     assert.equal((await request('network.send')).stateAtRequest, 'connected');
     assert.equal((await request('network.start')).payload.mode, 'tcp-client');
@@ -217,7 +218,7 @@ const { chromium } = require('playwright');
     assert.equal(await count('network.send'), stoppedAt, 'stop invalidates all future repeat sends');
 
     // Multicast and LAN operations are simulated; no Winsock socket is opened.
-    await button('UDP').click(); await field('目标地址').fill('224.20.20.20');
+    await page.getByRole('tab', { name: 'UDP', exact: true }).click(); await field('目标地址').fill('224.20.20.20');
     await field('目标端口').fill('24576');
     const lanBase = await count('network.start'), lanSendBase = await count('network.send'), stopBeforeConsent = await count('network.stop');
     await button('发送一次').click(); await consentDialog().waitFor();
@@ -270,7 +271,16 @@ const { chromium } = require('playwright');
     assert.equal(await count('network.start'), startsBeforeEphemeralResend, 'resending through joined ephemeral socket does not restart it');
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.localPort), assignedPort);
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true);
+    // Making an ephemeral port explicit and rejoining the same native socket must
+    // update the requested-port identity used by future send/reuse decisions.
+    await field('发包本地端口').fill(String(assignedPort));
+    await button('加入组播').click(); await confirmExternal('加入'); await waitEnabled();
+    const startsAfterExplicitJoin = await count('network.start');
+    await button('发送一次').click(); await waitEnabled();
+    assert.equal(await count('network.start'), startsAfterExplicitJoin, 'making the assigned port explicit does not cause the next send to restart or leave the group');
+    assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true, 'explicit assigned-port reuse preserves membership');
     await stop();
+    await field('发包本地端口').fill('0');
     await button('发送一次').click(); await confirmExternal(); await waitEnabled();
     assert.equal((await request('network.start')).payload.localPort, 0, 'manual stop clears the previous ephemeral-port pin');
     assert.ok(!(await request('network.start')).payload.multicastGroup, 'manual stop clears prior group membership intent');
@@ -301,7 +311,7 @@ const { chromium } = require('playwright');
       fixture.snapshot.rxPackets = 1; fixture.snapshot.rxBytes = 3;
       fixture.queue.push({ id: ++fixture.sequence, kind: 'received', timestamp: Date.now(), peerLabel: '192.0.2.8:24576', dataHex: '00ff41', byteLength: 3 });
     });
-    await page.waitForFunction(() => document.querySelector('[aria-label="发包收发记录"]').textContent.includes('RX ←'));
+    await page.waitForFunction(() => document.querySelector('[aria-label="网络收发记录"]').textContent.includes('RX ←'));
     const startsWhileJoined = await count('network.start');
     await field('报文内容').fill('00 ff 41'); await button('发送一次').click(); await waitEnabled();
     assert.equal(await count('network.start'), startsWhileJoined, 'an explicit send reuses the joined socket without dropping membership');
@@ -327,7 +337,7 @@ const { chromium } = require('playwright');
         assert.ok(sendDock.y >= 0 && sendDock.bottom <= height + 1,
           'normal-size active empty-library view keeps the full send/stop dock visible without page scrolling');
         const outer = await box(page.getByRole('main').last());
-        assert.ok(outer.scrollHeight <= outer.clientHeight + 1, 'ordinary active fixture does not require an outer scrollbar');
+        assert.ok(outer.scrollWidth <= outer.clientWidth + 1, 'extra unified controls allow vertical overflow, never horizontal clipping');
       }
       if (width === 1024) {
         const detailLines = await page.getByTestId('packet-multicast-state').locator('..').evaluate((element) => {
@@ -421,10 +431,10 @@ const { chromium } = require('playwright');
     const beforeLog = await box(log());
     await page.evaluate(() => {
       const fixture = window.__packetFixture;
-      fixture.queue.push(...Array.from({ length: 1200 }, (_, index) => ({ id: ++fixture.sequence, kind: 'received', timestamp: Date.now() + index,
+      fixture.queue.push(...Array.from({ length: 6000 }, (_, index) => ({ id: ++fixture.sequence, kind: 'received', timestamp: Date.now() + index,
         peerLabel: 'synthetic only', dataHex: '00'.repeat(200), byteLength: 200 })));
     });
-    await page.waitForFunction(() => document.querySelector('[aria-label="发包收发记录"]').querySelectorAll('[data-kind]').length === 1000);
+    await page.waitForFunction(() => document.querySelector('[aria-label="网络收发记录"]').querySelectorAll('[data-kind]').length === 5000);
     const afterLog = await box(log());
     assert.equal(afterLog.height, beforeLog.height, 'incoming log rows never stretch the console');
     assert.ok(afterLog.scrollHeight > afterLog.clientHeight, 'traffic scrolls inside its bounded console');
@@ -442,7 +452,7 @@ const { chromium } = require('playwright');
     await page.waitForTimeout(400);
     assert.equal(await count('network.send'), sendsBeforeUnmount + 1, 'leaving during pending TX cancels remaining repeat sends');
     assert.deepEqual(errors, [], 'no uncaught application exceptions');
-    console.log('PASS: read-only adapter list; no automatic network effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; exact frozen repeat/stop; legacy template import/load/delete; explicit external consent/cancel; selected multicast interface/TTL; receive-only join/native acknowledgment/RX/leave/error; separate local/destination ports; active wrapping-status, empty/populated/collapsed libraries; 320px usable bounded logs; natural vertical overflow with no horizontal scrollbar; default/1024/maximized split and narrow stack. All traffic is synthetic.');
+    console.log('PASS: read-only adapters; no automatic effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; frozen repeat/stop; legacy template import/load/delete; external consent/cancel; multicast interface/TTL; receive-only join/RX/leave/error; separate ports and ephemeral-to-explicit joined-port reuse; compact/collapsible libraries; 5000-row bounded logs with 320px usable height; natural vertical overflow, no horizontal clipping; default/1024/maximized split and narrow stack. All traffic is synthetic.');
   } catch (error) {
     await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error;
   } finally { await browser.close(); }

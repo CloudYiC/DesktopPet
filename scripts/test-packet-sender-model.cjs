@@ -12,13 +12,15 @@ const loaded = new Module(filename, module);
 loaded.require = () => { throw new Error('Packet sender model must have no I/O dependencies'); };
 loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, filename);
 const model = loaded.exports;
-const draft = (overrides = {}) => ({ ...model.createDefaultPacketDraft(), ...overrides });
+const draft = (overrides = {}) => ({ ...model.createDefaultPacketDraft(), ...(overrides.protocol ? { networkMode: overrides.protocol === 'tcp' ? 'tcp-client' : 'udp' } : {}), ...overrides });
 const saved = (id, overrides = {}) => ({ ...draft(overrides), id, updatedAt: '2026-09-14T08:00:00.000Z' });
 const library = (...packets) => ({ schemaVersion: 1, packets });
 
 test('default draft is editable with automatic adapter selection, local target and no running state', () => {
   const value = model.createDefaultPacketDraft();
   assert.equal(value.protocol, 'udp');
+  assert.equal(value.networkMode, 'udp');
+  assert.equal(value.lineEnding, 'none');
   assert.equal(value.host, '127.0.0.1');
   assert.equal(value.port, 9000);
   assert.equal(value.localAddress, '0.0.0.0');
@@ -32,11 +34,20 @@ test('default draft is editable with automatic adapter selection, local target a
   assert.notEqual(model.createDefaultPacketDraft(), value);
 });
 
-test('legacy schema-1 drafts retain endpoints and payload while adding only a default TTL', () => {
-  const old = saved('old-loopback', { localAddress: '127.0.0.1', host: '224.20.20.20', port: 24576 });
-  delete old.multicastTtl;
-  const restored = model.parsePacketLibrary(JSON.stringify(library(old))).packets[0];
-  assert.deepEqual(restored, { ...old, multicastTtl: 1 });
+test('legacy schema-1 drafts retain every original field and infer only optional defaults in memory', () => {
+  for (const protocol of ['tcp', 'udp']) {
+    const old = saved('old-loopback', { protocol, localAddress: '127.0.0.1', host: '224.20.20.20', port: 24576, dataMode: 'hex', payload: '00 FF 80 0D 0a' });
+    delete old.multicastTtl;
+    delete old.networkMode;
+    delete old.lineEnding;
+    const original = JSON.stringify(library(old));
+    const restored = model.parsePacketLibrary(original).packets[0];
+    assert.deepEqual(restored, { ...old, multicastTtl: 1, networkMode: protocol === 'tcp' ? 'tcp-client' : 'udp', lineEnding: 'none' });
+    assert.equal(model.packetNetworkMode(old), protocol === 'tcp' ? 'tcp-client' : 'udp');
+    assert.equal(model.encodeNetworkPayload(old).hex, '00ff800d0a');
+    assert.equal(JSON.stringify(library(old)), original, 'reading a legacy library never mutates the supplied data');
+    assert.equal(model.parsePacketLibrary(model.serializePacketLibrary(library(restored))).packets[0].payload, old.payload);
+  }
   for (const multicastTtl of [-1, 256, 1.5, '1', null]) assert.throws(() => model.validatePacketDraft(draft({ multicastTtl })));
   for (const multicastTtl of [0, 1, 255]) assert.equal(model.validatePacketDraft(draft({ multicastTtl })).multicastTtl, multicastTtl);
   assert.throws(() => model.validatePacketDraft(draft({ multicastJoined: true })), /字段/);
@@ -96,6 +107,80 @@ test('UDP and TCP payload byte boundaries are exact, including multibyte text', 
   }
 });
 
+test('network payload line endings are explicit transmitted bytes for text, HEX and escaped bodies', () => {
+  for (const [dataMode, payload] of [['text', '云'], ['hex', 'e4 ba 91'], ['escaped', String.raw`\e4\ba\91`]]) {
+    for (const [lineEnding, suffix] of [['none', ''], ['lf', '0a'], ['crlf', '0d0a']]) {
+      const value = draft({ dataMode, payload, lineEnding });
+      const result = model.encodeNetworkPayload(value);
+      assert.equal(result.hex, 'e4ba91' + suffix);
+      assert.equal(result.byteCount, 3 + suffix.length / 2);
+      assert.equal(model.encodePacketPayload(value).hex, 'e4ba91', 'raw encoder never appends terminators');
+    }
+  }
+  assert.equal(model.encodeNetworkPayload(draft({ payload: '', lineEnding: 'lf' })).hex, '0a');
+  assert.equal(model.encodeNetworkPayload(draft({ payload: 'A\r\n', lineEnding: 'crlf' })).hex, '410d0a0d0a', 'explicit body bytes are never deduplicated');
+});
+
+test('mode conversion does not bake or duplicate a selected line ending', () => {
+  let value = draft({ payload: '云依\0😀', lineEnding: 'crlf' });
+  const expected = Buffer.from(value.payload).toString('hex') + '0d0a';
+  for (const dataMode of ['hex', 'escaped', 'text', 'hex', 'text']) {
+    const payload = model.convertPacketPayloadMode(value, dataMode);
+    value = { ...value, payload, dataMode };
+    assert.equal(model.encodeNetworkPayload(value).hex, expected);
+    assert.equal(model.encodePacketPayload(value).byteCount + 2, model.encodeNetworkPayload(value).byteCount);
+  }
+  assert.equal(value.payload, '云依\0😀');
+});
+
+test('UDP and TCP final-byte capacity includes selected LF and CRLF during validation and import', () => {
+  for (const [protocol, limit] of [['udp', 65507], ['tcp', 65536]]) {
+    for (const [lineEnding, extra] of [['none', 0], ['lf', 1], ['crlf', 2]]) {
+      const exact = draft({ protocol, payload: 'a'.repeat(limit - extra), lineEnding });
+      assert.equal(model.encodeNetworkPayload(exact).byteCount, limit);
+      assert.equal(model.validatePacketDraft(exact).payload, exact.payload);
+      const tooLarge = { ...exact, payload: exact.payload + 'a' };
+      assert.throws(() => model.encodeNetworkPayload(tooLarge), /不能超过/);
+      assert.throws(() => model.validatePacketDraft(tooLarge), /不能超过/);
+      assert.throws(() => model.parsePacketLibrary(JSON.stringify(library(saved('too-large', tooLarge)))), /不能超过/);
+    }
+  }
+});
+
+test('TCP server templates round-trip as configuration without client or peer runtime state', () => {
+  const server = saved('tcp-server', { protocol: 'tcp', networkMode: 'tcp-server', lineEnding: 'lf', localAddress: '127.0.0.1', localPort: 9020, intervalMs: 50, payload: 'READY' });
+  const restored = model.parsePacketLibrary(model.serializePacketLibrary(library(server))).packets[0];
+  assert.deepEqual(restored, server);
+  assert.equal(model.packetNetworkMode(restored), 'tcp-server');
+  assert.equal(model.encodeNetworkPayload(restored).hex, '52454144590a');
+  for (const networkMode of ['tcp-client', 'tcp-server']) assert.equal(model.validatePacketDraft(draft({ protocol: 'tcp', networkMode })).networkMode, networkMode);
+  for (const fields of [{ networkMode: 'tcp-client' }, { networkMode: 'tcp-server' }, { protocol: 'tcp', networkMode: 'udp' }, { networkMode: 'server' }, { networkMode: null }, { networkMode: true }, { lineEnding: '\n' }, { lineEnding: 'LF' }, { lineEnding: '' }, { lineEnding: null }, { lineEnding: false }]) {
+    assert.throws(() => model.validatePacketDraft(draft(fields)));
+    assert.throws(() => model.parsePacketLibrary(JSON.stringify(library(saved('invalid-enum', fields)))));
+  }
+  for (const networkMode of ['server', '', null, 0]) assert.throws(() => model.packetNetworkMode({ protocol: 'tcp', networkMode }));
+  for (const lineEnding of ['invalid', '\n', null, 0]) assert.throws(() => model.encodeNetworkPayload(draft({ lineEnding })));
+  const { id, updatedAt, ...serverDraft } = server;
+  for (const field of ['running', 'joined', 'multicastJoined', 'peer', 'peerId', 'peers', 'sessionId', 'connected', 'autoSend']) {
+    assert.throws(() => model.validatePacketDraft({ ...serverDraft, [field]: true }), /字段/);
+    assert.throws(() => model.parsePacketLibrary(JSON.stringify(library({ ...server, [field]: true }))), /字段/);
+  }
+});
+
+test('server mode preserves inactive endpoint edits without blocking local listening templates', () => {
+  for (const [host, port] of [['', 0], ['unfinished target:', 0], ['https://not-used.invalid/path', 443], ['  draft target  ', 65535]]) {
+    const value = saved('server-inactive-target', { protocol: 'tcp', networkMode: 'tcp-server', host, port, localAddress: '127.0.0.1', localPort: 9000 });
+    const restored = model.parsePacketLibrary(model.serializePacketLibrary(library(value))).packets[0];
+    assert.deepEqual(restored, value, 'inactive values must not be replaced with guessed targets');
+    const { id, updatedAt, ...editable } = value;
+    assert.throws(() => model.validatePacketDraft({ ...editable, networkMode: 'tcp-client' }), /目标/);
+    assert.throws(() => model.validatePacketDraft({ ...editable, protocol: 'udp', networkMode: 'udp' }), /目标/);
+  }
+  for (const fields of [{ host: null }, { host: 123 }, { host: 'x'.repeat(254) }, { port: -1 }, { port: 65536 }, { port: 1.5 }, { port: '0' }]) {
+    assert.throws(() => model.validatePacketDraft(draft({ protocol: 'tcp', networkMode: 'tcp-server', ...fields })));
+  }
+});
+
 test('addresses allow IPv4/DNS only, identify multicast and reject unsafe or ambiguous strings', () => {
   for (const host of ['127.0.0.1', '224.20.20.20', '255.255.255.255', 'example.com', 'localhost', 'dev-1.local.', 'A.EXAMPLE']) assert.equal(model.validatePacketDraft(draft({ host })).host, host);
   assert.equal(model.isMulticastHost('224.0.0.0'), true);
@@ -107,8 +192,9 @@ test('addresses allow IPv4/DNS only, identify multicast and reject unsafe or amb
 });
 
 test('integer limits, draft enums, all fields and absence of running state are validated', () => {
-  for (const fields of [{ port: 0 }, { port: 65536 }, { port: '9000' }, { localPort: -1 }, { intervalMs: 99 }, { intervalMs: Infinity }, { intervalMs: 86400001 }, { repeatCount: 0 }, { repeatCount: 1001 }, { repeatCount: 1.5 }, { protocol: 'http' }, { dataMode: 'ascii' }, { name: 'bad\nname' }, { name: 'a'.repeat(81) }, { payload: 10 }, { running: true }]) assert.throws(() => model.validatePacketDraft(draft(fields)));
-  assert.equal(model.validatePacketDraft(draft({ repeatCount: 1000, intervalMs: 100 })).repeatCount, 1000);
+  for (const fields of [{ port: 0 }, { port: 65536 }, { port: '9000' }, { localPort: -1 }, { intervalMs: 49 }, { intervalMs: 50.5 }, { intervalMs: Infinity }, { intervalMs: 86400001 }, { repeatCount: 0 }, { repeatCount: 1001 }, { repeatCount: 1.5 }, { protocol: 'http' }, { dataMode: 'ascii' }, { name: 'bad\nname' }, { name: 'a'.repeat(81) }, { payload: 10 }, { running: true }]) assert.throws(() => model.validatePacketDraft(draft(fields)));
+  assert.equal(model.validatePacketDraft(draft({ repeatCount: 1000, intervalMs: 50 })).repeatCount, 1000);
+  for (const intervalMs of [50, 99, 100, 86400000]) assert.equal(model.validatePacketDraft(draft({ intervalMs })).intervalMs, intervalMs);
   const missing = draft(); delete missing.host;
   assert.throws(() => model.validatePacketDraft(missing));
 });

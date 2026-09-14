@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.8",
+  "latestVersion": "0.13.9",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.8",
-  "releaseNotes": "Makes packet traffic logs taller with at least 320px of readable content and the remaining workspace height. Empty saved-packet libraries use compact spacing; the library can be collapsed without changing data or active sessions. Short windows and wrapped status details may scroll vertically instead of squeezing logs. Default-size send controls remain visible, and new traffic stays within the bounded console. Packet sending, replies, multicast and network debugger functionality are unchanged. Includes layout and synthetic transport regression coverage.",
-  "publishedAt": "2026-09-14T15:32:55Z",
+  "title": "云依助手 0.13.9",
+  "releaseNotes": "Combines packet authoring and saved libraries into the Network Debugger with one TCP client/server/UDP workspace. Preserves existing local packet data, multi-client server controls, line endings, continuous sending and multicast. Adds finite repeat batches, binary file loading and escaped bytes without a duplicate tool entry. Keeps a large side-by-side traffic console and separate stop-sending/disconnect actions. Validated old library compatibility, late traffic history, disconnected-client protection, multicast port reuse and responsive layouts with synthetic tests.",
+  "publishedAt": "2026-09-14T16:31:57Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.8.exe",
-      "sha256": "CB83E0F4B7548E74729AF4AE31FF82B8E4B03B9B08D0E000B3831BECB84EDE5C",
-      "size": 23336102,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.9.exe",
+      "sha256": "1FC0FC1133420B50CA5678DB3AE4F7FF7EF7476256E44A45FF425DA62D9CD334",
+      "size": 23331913,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.8.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.9.exe"
   }
 }

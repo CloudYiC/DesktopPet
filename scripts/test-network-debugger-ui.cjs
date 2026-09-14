@@ -1,5 +1,5 @@
-/** Network layout regression with a synthetic WebView2 bridge. Never opens a socket,
- * starts a real listener, sends traffic, or touches the operating-system clipboard. */
+/** Unified TCP/UDP workbench regression. All bridge responses are synthetic.
+ * No sockets are opened and no real LAN, multicast or device traffic is sent. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -7,269 +7,366 @@ const { chromium } = require('playwright');
 
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PACKET_TEST_BROWSER || undefined });
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 762 } });
   await context.addInitScript(() => {
     const listeners = new Set();
     const stopped = { mode: 'tcp-client', state: 'stopped', localHost: '127.0.0.1', localPort: 0,
-      remoteHost: '127.0.0.1', remotePort: 9000, peers: [], rxPackets: 0, rxBytes: 0, txPackets: 0, txBytes: 0 };
-    const state = window.__networkFixture = { requests: [], clipboard: [], snapshot: { ...stopped }, queue: [], failNextStart: '', failNextSend: '', sequence: 0 };
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
-      writeText: async (text) => state.clipboard.push(String(text)),
-    } });
+      remoteHost: '127.0.0.1', remotePort: 9000, peers: [], rxPackets: 0, rxBytes: 0, txPackets: 0, txBytes: 0, multicastJoined: false };
+    const state = window.__networkFixture = { requests: [], clipboard: [], snapshot: { ...stopped }, queue: [], pending: [],
+      failNextStart: '', failNextSend: '', sequence: 0, holdReady: false, holdTx: false, readyRemaining: 0,
+      holdNextPollResponse: false, deferredPolls: [],
+      peers: [{ id: 'synthetic-peer-a', address: '192.0.2.20', port: 52345 }, { id: 'synthetic-peer-b', address: '192.0.2.21', port: 52346 }] };
+    state.releasePollResponses = () => state.deferredPolls.splice(0).forEach((event) => listeners.forEach((callback) => callback(event)));
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => state.clipboard.push(String(text)) } });
     if (!window.chrome) window.chrome = {};
     window.chrome.webview = {
-      addEventListener: (_type, listener) => listeners.add(listener),
-      removeEventListener: (_type, listener) => listeners.delete(listener),
-      postMessage: (request) => {
-        state.requests.push(request);
+      addEventListener: (_type, callback) => listeners.add(callback),
+      removeEventListener: (_type, callback) => listeners.delete(callback),
+      postMessage(request) {
+        state.requests.push({ ...request, time: Date.now(), stateAtRequest: state.snapshot.state, pendingAtRequest: state.pending.length });
         if (!request.type.startsWith('network.')) return;
         const payload = request.payload || {};
         setTimeout(() => {
-          let message = '';
-          let response;
-          if (request.type === 'network.start') {
+          let message = '', result;
+          if (request.type === 'network.interfaces') result = { interfaces: [
+            { name: 'Synthetic WLAN', address: '192.0.2.6', index: 42, loopback: false },
+            { name: 'Loopback', address: '127.0.0.1', index: 1, loopback: true },
+          ] };
+          else if (request.type === 'network.start') {
             message = state.failNextStart; state.failNextStart = '';
-            if (!message) state.snapshot = { ...stopped, ...payload,
-              state: payload.mode === 'tcp-server' ? 'listening' : payload.mode === 'udp' ? 'ready' : 'connected',
-              peers: payload.mode === 'tcp-server' ? [{ id: 'synthetic-peer', address: '192.0.2.20', port: 52345 }] : [] };
-            response = { snapshot: state.snapshot };
+            if (!message) {
+              state.snapshot = { ...stopped, ...payload, localPort: payload.localPort || 52123, state: 'starting' };
+              state.readyRemaining = 2; state.pending = []; state.queue = []; state.sequence = 0;
+            }
+            result = { snapshot: { ...state.snapshot } };
           } else if (request.type === 'network.stop') {
-            state.snapshot = { ...state.snapshot, state: 'stopped', peers: [], lastError: '' };
-            response = { snapshot: state.snapshot };
+            state.snapshot = { ...state.snapshot, state: 'stopped', peers: [], lastError: '', multicastJoined: false };
+            state.pending = []; result = { snapshot: { ...state.snapshot } };
           } else if (request.type === 'network.send') {
             message = state.failNextSend; state.failNextSend = '';
-            if (!message) {
-              state.snapshot.txPackets += 1; state.snapshot.txBytes += payload.dataHex.length / 2;
-              state.queue.push({ id: ++state.sequence, kind: 'sent', timestamp: Date.now(), dataHex: payload.dataHex,
-                peerLabel: 'synthetic only', byteLength: payload.dataHex.length / 2 });
+            if (!message && !['connected', 'listening', 'ready'].includes(state.snapshot.state)) message = 'Synthetic: transport is not ready';
+            const server = state.snapshot.mode === 'tcp-server';
+            const targets = server ? (payload.targetPeerId && payload.targetPeerId !== 'all'
+              ? state.snapshot.peers.filter((peer) => peer.id === payload.targetPeerId) : state.snapshot.peers) : [{ id: '', address: state.snapshot.remoteHost, port: state.snapshot.remotePort }];
+            if (!message && server && !targets.length) message = 'Synthetic: selected peer is no longer connected';
+            if (!message) state.pending.push({ hex: payload.dataHex, targets: [...targets], polls: 3 });
+            result = { snapshot: { ...state.snapshot } };
+          } else {
+            if (!state.holdReady && ['starting', 'connecting'].includes(state.snapshot.state) && --state.readyRemaining <= 0) {
+              state.snapshot.state = state.snapshot.mode === 'tcp-server' ? 'listening' : state.snapshot.mode === 'udp' ? 'ready' : 'connected';
+              state.snapshot.multicastJoined = !!state.snapshot.multicastGroup;
             }
-            response = { snapshot: state.snapshot };
-          } else response = { snapshot: state.snapshot, events: state.queue.splice(0) };
+            if (state.snapshot.state === 'listening') state.snapshot.peers = [...state.peers];
+            if (!state.holdTx && state.pending.length && --state.pending[0].polls <= 0) {
+              const entry = state.pending[0], peer = entry.targets.shift();
+              state.snapshot.txPackets += 1; state.snapshot.txBytes += entry.hex.length / 2;
+              state.queue.push({ id: ++state.sequence, kind: 'sent', timestamp: Date.now(), dataHex: entry.hex,
+                peerId: peer.id, peerLabel: `${peer.address}:${peer.port}`, byteLength: entry.hex.length / 2 });
+              if (entry.targets.length) entry.polls = 2;
+              else state.pending.shift();
+            }
+            result = { snapshot: { ...state.snapshot }, events: state.queue.splice(0) };
+          }
           const event = { data: { type: `${request.type}.${message ? 'error' : 'result'}`,
-            payload: { requestId: payload.requestId, ...(message ? { message } : response) } } };
-          listeners.forEach((listener) => listener(event));
-        }, 30);
+            payload: { requestId: payload.requestId, ...(message ? { message } : result) } } };
+          if (request.type === 'network.poll' && state.holdNextPollResponse) {
+            state.holdNextPollResponse = false; state.deferredPolls.push(event); return;
+          }
+          listeners.forEach((callback) => callback(event));
+        }, 15);
       },
     };
   });
-  const page = await context.newPage();
-  page.setDefaultTimeout(15000);
-  const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  const directory = path.resolve(__dirname, '../artifacts/network-debugger');
-  fs.mkdirSync(directory, { recursive: true });
-  const header = () => page.locator('header[aria-label="工具详情导航"]');
+  const page = await context.newPage(); page.setDefaultTimeout(15000);
+  const errors = []; page.on('pageerror', (error) => errors.push(error.message));
+  const directory = path.resolve(__dirname, '../artifacts/network-debugger'); fs.mkdirSync(directory, { recursive: true });
   const workspace = () => page.getByTestId('network-workspace');
-  const operation = () => page.getByTestId('network-operations');
-  const sendPanel = () => workspace().locator('section[class*="sendPanel"]');
-  const receivePanel = () => workspace().locator('section[class*="receivePanel"]');
   const log = () => page.getByRole('log', { name: '网络收发记录', exact: true });
-  const main = () => page.getByRole('main').last();
-  const field = (name) => ['本地地址', '行尾', '发送目标'].includes(name)
-    ? workspace().locator('label').filter({ has: page.locator('span').filter({ hasText: new RegExp(`^${name}$`) }) }).locator('select')
-    : page.getByLabel(name, { exact: true });
-  const button = (name) => name === '发送' ? sendPanel().getByRole('button', { name: /^发送\s/ }) : page.getByRole('button', { name, exact: true });
-  const modes = [
-    { name: 'TCP 客户端', id: 'tcp-client', start: '连接服务', stop: '断开连接' },
-    { name: 'TCP 服务端', id: 'tcp-server', start: '开始监听', stop: '停止监听' },
-    { name: 'UDP', id: 'udp', start: '绑定端口', stop: '解除绑定' },
-  ];
+  const field = (name) => page.getByLabel(name, { exact: true });
+  const button = (name) => workspace().getByRole('button', { name, exact: true });
+  const count = (type) => page.evaluate((type) => window.__networkFixture.requests.filter((request) => request.type === type).length, type);
+  const latest = (type) => page.evaluate((type) => window.__networkFixture.requests.filter((request) => request.type === type).at(-1), type);
+  const waitIdle = () => page.waitForFunction(() => {
+    const action = [...document.querySelectorAll('[data-testid="network-workspace"] button')].find((element) => element.textContent === '发送一次');
+    return action && !action.disabled;
+  });
+  async function confirmExternal() {
+    const dialog = page.getByRole('dialog', { name: '确认网络操作', exact: true });
+    await dialog.waitFor(); await dialog.getByRole('button', { name: /^确认并/ }).click();
+  }
+  async function stop() {
+    if (await button('停止 / 断开').isEnabled()) {
+      await button('停止 / 断开').click();
+      await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'stopped');
+    }
+  }
   async function openNetwork() {
-    if (await header().count()) await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
+    if (await workspace().count()) await workspace().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
     await page.getByRole('button', { name: /^工具首页/ }).click();
+    assert.equal(await page.getByRole('heading', { name: '发包工具', exact: true }).count(), 0, 'standalone packet-sender entry is removed');
     const card = page.getByRole('article').filter({ has: page.getByRole('heading', { name: '网络调试助手', exact: true }) });
-    await card.getByRole('button', { name: '打开', exact: true }).click();
-    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).waitFor();
+    await card.getByRole('button', { name: '打开', exact: true }).click(); await workspace().waitFor();
+    await field('发送网卡').selectOption('127.0.0.1');
   }
-  async function metrics(locator) {
-    return locator.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height, width: rect.width,
-        clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
-        display: style.display, overflowY: style.overflowY, overflowX: style.overflowX, fontSize: parseFloat(style.fontSize) };
-    });
+  async function box(locator) {
+    return locator.evaluate((element) => { const rect = element.getBoundingClientRect(), style = getComputedStyle(element); return {
+      x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height,
+      clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+      contentHeight: element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+    }; });
   }
-  async function verifyDesktopLayout(mode, size) {
-    const viewport = page.viewportSize();
-    const outer = await metrics(main()), column = await metrics(operation()), frame = await metrics(workspace());
-    const receive = await metrics(receivePanel()), sendPanelBox = await metrics(sendPanel());
-    const connection = await metrics(workspace().getByRole('complementary', { name: '连接参数', exact: true }));
-    assert.ok(outer.scrollHeight <= outer.clientHeight + 1, `${mode.name} ${size}: no outer page vertical scroll ${JSON.stringify(outer)}`);
-    assert.ok(outer.scrollWidth <= outer.clientWidth + 1 && column.scrollWidth <= column.clientWidth + 1, 'no horizontal page or operation overflow');
-    assert.ok(frame.bottom <= viewport.height + 1, 'workspace fits the client height');
-    assert.ok(receive.x >= column.right + 8, 'receive console is to the right of editing, not below it');
-    assert.ok(Math.abs(receive.y - column.y) < 2 && Math.abs(receive.bottom - column.bottom) < 2, 'left and right columns align vertically');
-    assert.ok(connection.bottom <= sendPanelBox.y, 'connection and sending are grouped in the left column');
-    if (viewport.height >= 762) assert.ok(column.scrollHeight <= column.clientHeight + 1, `${mode.name} ${size}: default left controls fit without scrolling ${JSON.stringify(column)}`);
-    assert.ok((await metrics(log())).height >= 300, 'right console remains tall and useful');
-    const connectionLabels = ['本地地址', '本地端口', ...(mode.id !== 'tcp-server' ? ['远端主机', '远端端口'] : [])];
-    assertSameRow(await Promise.all(['本地地址', '本地端口'].map((label) => metrics(field(label)))), 'local address and port stay together');
-    if (mode.id !== 'tcp-server') assertSameRow(await Promise.all(['远端主机', '远端端口'].map((label) => metrics(field(label)))), 'remote address and port stay together');
-    const line = await metrics(field('行尾')), cycle = await metrics(field('循环发送间隔毫秒')), send = await metrics(button('发送'));
-    assertSameRow([line, cycle], 'line ending and repeat interval share one row');
-    assert.ok(line.right <= cycle.x + 1 && send.y >= line.bottom, 'send options and button do not overlap');
-    if (mode.id === 'tcp-server') {
-      const target = await metrics(field('发送目标'));
-      assert.ok(target.y >= line.bottom && send.y >= target.bottom, 'server target stays above send action');
-    }
-    assert.ok((await metrics(field('发送内容'))).height >= 120, 'editor is not compressed to hide scrolling');
-    const fontFactor = size === 'large' ? 17 : 16;
-    for (const label of connectionLabels) {
-      const control = await metrics(field(label));
-      assert.ok(control.height >= 38 && control.fontSize >= fontFactor * .75 - .02, `${label} preserves control and text size`);
-    }
-    for (const label of [mode.start, '发送']) {
-      const control = await metrics(button(label));
-      assert.ok(control.height >= 40 && control.right <= column.right + 1, `${label} fits the left column`);
-      if (viewport.height >= 762) assert.ok(control.bottom <= viewport.height + 1, `${label} is visible while reading logs`);
-    }
-    assert.equal(await workspace().getByRole('heading', { name: '连接设置', exact: true }).count(), 0);
-    const text = await workspace().innerText();
-    for (const removed of ['所有连接和数据都只在当前电脑中处理。', '所有连接和数据都只在本机处理。', '连接远端 TCP 服务并双向收发数据。', '监听本地端口并管理多个客户端。', '绑定本地端口并向指定目标发送数据报。']) assert.equal(text.includes(removed), false);
-  }
-  function assertSameRow(boxes, label) {
-    const centers = boxes.map((box) => box.y + box.height / 2);
-    assert.ok(Math.max(...centers) - Math.min(...centers) <= 4, `${label}: ${JSON.stringify(boxes)}`);
-  }
-  async function verifyReachableCompactLayout(mode, label) {
-    const viewport = page.viewportSize();
-    const frame = await metrics(main());
-    assert.ok(frame.scrollWidth <= frame.clientWidth + 1, `${label} avoids horizontal page clipping`);
-    assert.ok(['auto', 'scroll'].includes(frame.overflowY), `${label} permits natural overflow instead of hiding it`);
-    const beforeReceive = await metrics(receivePanel());
-    if (viewport.width > 900) {
-      const column = await metrics(operation());
-      assert.ok(beforeReceive.x >= column.right + 8, 'scaled effective window still uses left/right layout');
-      assert.ok(frame.scrollHeight <= frame.clientHeight + 1, 'scaled layout scrolls operations only, not whole page');
-      assert.ok(column.scrollWidth <= column.clientWidth + 1, 'scaled controls never clip horizontally');
-    } else {
-      assert.ok(beforeReceive.y >= (await metrics(sendPanel())).bottom, 'genuinely narrow view stacks the result below input');
-    }
-    const controls = [field('本地地址'), field('本地端口'),
-      ...(mode.id !== 'tcp-server' ? [field('远端主机'), field('远端端口')] : [field('发送目标')]),
-      button(mode.start), field('发送内容'), field('行尾'), field('循环发送间隔毫秒'), button('发送')];
-    for (const control of controls) {
-      // Browser "if needed" scrolling can treat a 1–2px partial intersection
-      // as visible. Explicit centering checks real reachability without hiding
-      // overflow or forcing a click through another element.
-      await control.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
-      const box = await metrics(control);
-      assert.ok(box.x >= 0 && box.right <= viewport.width + 1, `${label} control fits effective viewport width: ${JSON.stringify(box)}`);
-      assert.ok(box.y >= -1 && box.bottom <= viewport.height + 1, `${label} control remains vertically reachable: ${JSON.stringify(box)}`);
-    }
-    await field('行尾').selectOption('lf');
-    assert.equal(await field('行尾').inputValue(), 'lf', `${label} settings remain operable after natural wrapping`);
-    if (viewport.width > 900) {
-      const afterReceive = await metrics(receivePanel());
-      assert.equal(afterReceive.y, beforeReceive.y, 'scrolling left parameters does not move right results');
-      assert.equal(afterReceive.height, beforeReceive.height, 'scrolling left parameters does not resize right results');
-    }
-  }
-  async function screen(label) {
+  async function screenshot(label) {
     const { width, height } = page.viewportSize();
-    await page.screenshot({ path: path.join(directory, `${label}-${width}x${height}.png`), fullPage: true, animations: 'disabled' });
+    await page.screenshot({ path: path.join(directory, `${label}-${width}x${height}.png`), fullPage: true });
   }
-  const requestCount = (type) => page.evaluate((type) => window.__networkFixture.requests.filter((request) => request.type === type).length, type);
-  async function alertMatches(pattern) {
-    await page.getByRole('alert').filter({ hasText: pattern }).waitFor();
-    assert.ok(await page.getByRole('alert').filter({ hasText: pattern }).isVisible());
+  async function injectRows(count, prefix) {
+    await page.evaluate(({ count, prefix }) => {
+      const fixture = window.__networkFixture;
+      for (let index = 0; index < count; index++) {
+        const bytes = new TextEncoder().encode(`${prefix} ${index}`);
+        fixture.queue.push({ id: ++fixture.sequence, kind: 'received', timestamp: Date.now(), peerLabel: '192.0.2.20:9000',
+          dataHex: [...bytes].map((value) => value.toString(16).padStart(2, '0')).join(''), byteLength: bytes.length });
+        fixture.snapshot.rxBytes += bytes.length;
+      }
+      fixture.snapshot.rxPackets += count;
+    }, { count, prefix });
+    await page.waitForFunction((label) => document.querySelector('[aria-label="网络收发记录"]')?.textContent.includes(label), `${prefix} ${count - 1}`);
   }
+  const modes = [
+    { name: 'TCP 客户端', id: 'tcp-client', start: '连接服务', ready: 'connected' },
+    { name: 'TCP 服务端', id: 'tcp-server', start: '开始监听', ready: 'listening' },
+    { name: 'UDP', id: 'udp', start: '绑定端口', ready: 'ready' },
+  ];
   try {
-    await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
-    for (const [width, height] of [[1280, 762], [1280, 800], [1280, 720], [1920, 1040]]) {
+    await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:18779/?mode=dashboard'); await openNetwork();
+    assert.equal(await count('network.start'), 0, 'opening unified workbench is read-only');
+
+    // Connecting/listening is independent from packet editing and sending.
+    for (const mode of modes) {
+      await page.getByRole('tab', { name: mode.name, exact: true }).click();
+      await field('报文内容').fill('');
+      const sendBase = await count('network.send');
+      await page.evaluate(() => { window.__networkFixture.holdReady = true; });
+      await button(mode.start).click();
+      await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'starting');
+      assert.equal(await count('network.send'), sendBase, `${mode.name} starts with empty payload without sending`);
+      await page.evaluate(() => { window.__networkFixture.holdReady = false; });
+      await page.waitForFunction((ready) => window.__networkFixture.snapshot.state === ready, mode.ready);
+      await page.waitForTimeout(200);
+      assert.equal((await latest('network.start')).payload.mode, mode.id);
+      assert.equal(await count('network.send'), sendBase, `${mode.name} ready state does not auto-send`);
+      await field('报文内容').fill('云依\nfixture'); await field('行尾').selectOption('crlf');
+      if (mode.id === 'tcp-server') await page.evaluate(() => { window.__networkFixture.holdTx = true; });
+      await button('发送一次').click();
+      if (mode.id === 'tcp-server') {
+        await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, sendBase);
+        await page.evaluate(() => {
+          window.__networkFixture.peers.push({ id: 'synthetic-peer-late', address: '192.0.2.99', port: 52999 });
+          window.__networkFixture.holdTx = false;
+        });
+      }
+      await waitIdle();
+      assert.equal((await latest('network.send')).payload.dataHex, Buffer.from('云依\nfixture\r\n').toString('hex'), `${mode.name}: UTF-8 and explicit CRLF are preserved`);
+      if (mode.id === 'tcp-server') {
+        const serverAll = await page.evaluate((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').slice(base), sendBase);
+        assert.deepEqual(serverAll.map((request) => request.payload.targetPeerId), ['synthetic-peer-a', 'synthetic-peer-b'], 'server-all freezes existing peer IDs and sends individually');
+        assert.equal(serverAll.some((request) => request.payload.targetPeerId === 'synthetic-peer-late'), false, 'a client joining mid-run is excluded from the frozen recipients');
+        assert.ok(serverAll.every((request) => request.pendingAtRequest === 0), 'each peer waits for the previous actual TX before enqueueing');
+        assert.equal(await page.evaluate(() => window.__networkFixture.snapshot.txPackets), 2, 'one server-all action waits for separate real TX acknowledgments from both fixture peers');
+        await field('发送目标').selectOption('synthetic-peer-b');
+        await button('发送一次').click(); await waitIdle();
+        assert.equal((await latest('network.send')).payload.targetPeerId, 'synthetic-peer-b', 'chosen peer ID is submitted unchanged');
+        assert.equal(await page.evaluate(() => window.__networkFixture.snapshot.txPackets), 3);
+        await page.evaluate(() => { window.__networkFixture.peers = window.__networkFixture.peers.filter((peer) => peer.id !== 'synthetic-peer-late'); });
+      }
+      await stop(); await field('行尾').selectOption('none');
+    }
+
+    // Irrelevant remote fields left in a client draft must not block server
+    // listening once those inputs are intentionally hidden by the mode switch.
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click();
+    await field('目标地址').fill(''); await field('目标端口').fill('0');
+    await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).click();
+    const hiddenTargetSendBase = await count('network.send');
+    await button('开始监听').click();
+    await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'listening');
+    assert.equal(await count('network.send'), hiddenTargetSendBase, 'hidden invalid target does not block receive-only server startup');
+    await stop();
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click();
+    await field('目标地址').fill('127.0.0.1'); await field('目标端口').fill('9000');
+
+    // The merged library also preserves server mode and line endings, while
+    // loading saved settings remains entirely free of socket operations.
+    await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).click();
+    await field('报文名称').fill('Saved server fixture'); await field('报文内容').fill('saved server content');
+    await field('行尾').selectOption('crlf'); await field('发包本地端口').fill('6655');
+    const savesStartBase = await count('network.start'), savesSendBase = await count('network.send');
+    await button('保存报文').click(); await button('新建').click();
+    await page.getByTestId('packet-library').getByRole('button', { name: '载入', exact: true }).click();
+    assert.equal(await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).getAttribute('aria-selected'), 'true');
+    assert.equal(await field('行尾').inputValue(), 'crlf'); assert.equal(await field('发包本地端口').inputValue(), '6655');
+    assert.equal(await field('报文内容').inputValue(), 'saved server content');
+    assert.equal(await count('network.start'), savesStartBase); assert.equal(await count('network.send'), savesSendBase);
+    await field('行尾').selectOption('none');
+
+    // The same centered permission flow applies to explicit listening; cancelling
+    // it never changes the current session, and confirmation sends no payload.
+    await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).click();
+    await field('发送网卡').selectOption('0.0.0.0');
+    const broadStartBase = await count('network.start'), broadSendBase = await count('network.send');
+    await button('开始监听').click();
+    const consent = page.getByRole('dialog', { name: '确认网络操作', exact: true }); await consent.waitFor();
+    const modal = await box(consent), viewport = page.viewportSize();
+    assert.ok(Math.abs((modal.x + modal.right) / 2 - viewport.width / 2) < 2, 'network consent is centered across the entire client');
+    await consent.getByRole('button', { name: '取消', exact: true }).click();
+    assert.equal(await count('network.start'), broadStartBase); assert.equal(await count('network.send'), broadSendBase);
+    await button('开始监听').click(); await confirmExternal();
+    await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'listening');
+    assert.equal((await latest('network.start')).payload.allowLan, true);
+    assert.equal(await count('network.send'), broadSendBase);
+    await stop(); await field('发送网卡').selectOption('127.0.0.1');
+
+    // TCP server retains targeted and all-peer sends, and rejects stale peers.
+    await button('开始监听').click();
+    await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'listening');
+    await field('报文内容').fill('server fixture'); await field('发送目标').selectOption('synthetic-peer-a');
+    const peerRunSendBase = await count('network.send'), peerRunStopBase = await count('network.stop');
+    await field('重发次数').fill('3');
+    await page.evaluate(() => { window.__networkFixture.holdTx = true; }); await button('重复发送').click();
+    await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, peerRunSendBase);
+    await page.evaluate(() => { window.__networkFixture.peers = window.__networkFixture.peers.filter((peer) => peer.id !== 'synthetic-peer-a'); });
+    await page.evaluate(() => { window.__networkFixture.holdTx = false; }); await waitIdle();
+    await page.waitForFunction(() => window.__networkFixture.snapshot.peers.length === 1);
+    await page.waitForTimeout(200);
+    assert.equal(await count('network.send'), peerRunSendBase + 1, 'a selected peer disconnect stops the rest of its batch');
+    assert.equal(await count('network.stop'), peerRunStopBase, 'one disconnected peer does not stop the entire server');
+    assert.equal(await page.evaluate(() => window.__networkFixture.snapshot.state), 'listening');
+    assert.equal(await page.evaluate(() => window.__networkFixture.snapshot.peers[0].id), 'synthetic-peer-b', 'other client stays connected');
+    const absentPeerBase = await count('network.send');
+    assert.equal(await field('发送目标').inputValue(), 'synthetic-peer-a', 'a disconnected selected peer is not silently replaced by all remaining clients');
+    assert.ok((await field('发送目标').innerText()).includes('断开'), 'disconnected selected peer remains visibly marked');
+    if (await button('发送一次').isEnabled()) await button('发送一次').click();
+    await page.waitForTimeout(200);
+    assert.equal(await count('network.send'), absentPeerBase, 'disconnected selected peer cannot enqueue a send to other clients');
+    await page.evaluate(() => { window.__networkFixture.peers = []; });
+    await page.waitForFunction(() => window.__networkFixture.snapshot.peers.length === 0);
+    if (await button('发送一次').isEnabled()) await button('发送一次').click();
+    assert.equal(await count('network.send'), absentPeerBase, 'empty peer list cannot enqueue an ambiguous server send');
+    await stop();
+    await page.evaluate(() => { window.__networkFixture.peers = [{ id: 'synthetic-peer-a', address: '192.0.2.20', port: 52345 }, { id: 'synthetic-peer-b', address: '192.0.2.21', port: 52346 }]; });
+
+    // Native startup failure never becomes a successful receive-only connection.
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click();
+    await page.evaluate(() => { window.__networkFixture.failNextStart = 'Synthetic connection denied'; });
+    const sendsBeforeStartFailure = await count('network.send');
+    await button('连接服务').click();
+    await page.getByRole('alert').filter({ hasText: 'Synthetic connection denied' }).waitFor();
+    assert.equal(await count('network.send'), sendsBeforeStartFailure);
+    assert.notEqual(await page.evaluate(() => window.__networkFixture.snapshot.state), 'connected');
+
+    // Finite and continuous repeat modes never queue ahead of actual TX. Stopping
+    // just a run keeps its socket alive for ongoing receives and another send.
+    await page.getByRole('tab', { name: 'UDP', exact: true }).click();
+    await field('目标地址').fill('127.0.0.1'); await field('目标端口').fill('9000');
+    await field('报文内容').fill('serial fixture'); await field('重发间隔').fill('100'); await field('重发次数').fill('3');
+    await button('绑定端口').click(); await page.waitForFunction(() => window.__networkFixture.snapshot.state === 'ready');
+    const finiteBase = await count('network.send');
+    await page.evaluate(() => { window.__networkFixture.holdTx = true; }); await button('重复发送').click();
+    await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, finiteBase);
+    await page.waitForTimeout(350); assert.equal(await count('network.send'), finiteBase + 1, 'finite repeats wait for real TX');
+    await page.evaluate(() => { window.__networkFixture.holdTx = false; }); await waitIdle();
+    assert.equal(await count('network.send'), finiteBase + 3);
+    const finiteStopBase = await count('network.send'), finiteStopCalls = await count('network.stop');
+    await page.evaluate(() => { window.__networkFixture.holdTx = true; }); await button('重复发送').click();
+    await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, finiteStopBase);
+    await button('停止发送').click();
+    await page.evaluate(() => { window.__networkFixture.holdTx = false; }); await waitIdle(); await page.waitForTimeout(400);
+    assert.equal(await count('network.send'), finiteStopBase + 1, 'stop-run cancels the remaining finite count');
+    assert.equal(await count('network.stop'), finiteStopCalls, 'finite stop-run also preserves the socket');
+    const startsBeforeContinuous = await count('network.start'), stopsBeforeContinuous = await count('network.stop'), continuousBase = await count('network.send');
+    await page.evaluate(() => { window.__networkFixture.holdTx = true; }); await button('持续发送').click();
+    await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, continuousBase);
+    assert.ok(await field('报文内容').isDisabled(), 'continuous-run content is frozen');
+    await page.waitForTimeout(350); assert.equal(await count('network.send'), continuousBase + 1, 'continuous mode also waits for TX');
+    await button('停止发送').click();
+    await page.evaluate(() => { window.__networkFixture.holdTx = false; }); await waitIdle();
+    await page.waitForTimeout(800);
+    assert.equal(await count('network.send'), continuousBase + 1, 'stop-run invalidates all future continuous sends');
+    assert.equal(await count('network.stop'), stopsBeforeContinuous, 'stop-run does not disconnect');
+    assert.equal(await page.evaluate(() => window.__networkFixture.snapshot.state), 'ready');
+    await button('发送一次').click(); await waitIdle();
+    assert.equal(await count('network.start'), startsBeforeContinuous, 'subsequent manual send reuses preserved socket');
+    const recent = await page.evaluate((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').slice(base), finiteBase);
+    assert.ok(recent.every((request) => request.pendingAtRequest === 0), 'no finite/continuous/manual send overtakes previous queued TX');
+
+    // A background poll may already have drained real traffic when a new send
+    // generation starts. Its late reply must retain events, not stale snapshots.
+    const beforeLatePollSend = await count('network.send');
+    await page.evaluate(() => {
+      const fixture = window.__networkFixture;
+      fixture.holdNextPollResponse = true;
+      fixture.queue.push({ id: ++fixture.sequence, kind: 'received', timestamp: Date.now(),
+        peerLabel: 'synthetic-late-poll', message: 'retained drained event during new run', byteLength: 0 });
+    });
+    await page.waitForFunction(() => window.__networkFixture.deferredPolls.length === 1);
+    await button('发送一次').click();
+    await page.waitForFunction((base) => window.__networkFixture.requests.filter((request) => request.type === 'network.send').length > base, beforeLatePollSend);
+    await page.evaluate(() => { window.__networkFixture.releasePollResponses(); }); await waitIdle();
+    assert.ok((await log().innerText()).includes('retained drained event during new run'), 'late drained traffic survives generation changes');
+
+    // Console styling must not steal focus or scroll history out from under a reader.
+    const beforeLog = await box(log()); await injectRows(500, 'synthetic-history');
+    assert.equal((await box(log())).height, beforeLog.height, '500 events never grow the console');
+    assert.ok((await box(log())).scrollHeight > (await box(log())).clientHeight, 'history scrolls internally');
+    const timestamps = field('显示时间'); assert.equal(await timestamps.isChecked(), true);
+    assert.ok(await log().locator('time').count() > 0, 'timestamps are displayed as semantic time elements');
+    await timestamps.uncheck(); assert.equal(await log().locator('time').count(), 0, 'time toggle hides all row times');
+    await timestamps.check();
+    await log().evaluate((element) => { element.scrollTop = 0; element.dispatchEvent(new Event('scroll', { bubbles: true })); });
+    await field('报文内容').focus();
+    const scrollBefore = await log().evaluate((element) => element.scrollTop); await injectRows(1, 'synthetic-new-tail');
+    assert.equal(await log().evaluate((element) => element.scrollTop), scrollBefore, 'incoming data preserves reader position away from bottom');
+    assert.equal(await field('报文内容').evaluate((element) => element === document.activeElement), true, 'new rows do not steal editing focus');
+    await button('查看最新数据').click();
+    assert.ok(await log().evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight < 5), 'new-data action explicitly returns to the tail');
+    await page.getByTestId('packet-sender-results').getByRole('button', { name: '复制', exact: true }).click();
+    assert.match(await page.evaluate(() => window.__networkFixture.clipboard.at(-1)), /synthetic-new-tail/);
+    await screenshot('unified-history-reader'); await stop();
+
+    // All modes share one responsive workbench. Compact windows may scroll
+    // vertically; hiding or shrinking controls to fit is deliberately not a goal.
+    for (const [width, height] of [[1280, 762], [1920, 1040], [1024, 640], [760, 560]]) {
       await page.setViewportSize({ width, height });
       for (const size of ['comfortable', 'large']) {
-        await openNetwork();
         await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
         for (const mode of modes) {
           await page.getByRole('tab', { name: mode.name, exact: true }).click();
-          await verifyDesktopLayout(mode, size); await screen(`${mode.id}-${size}`);
+          const main = page.getByRole('main').last(); await main.evaluate((element) => { element.scrollTop = 0; });
+          await page.getByTestId('network-operations').evaluate((element) => { element.scrollTop = 0; });
+          const outer = await box(main), left = await box(page.getByTestId('packet-sender-editor')), right = await box(page.getByTestId('packet-sender-results'));
+          assert.ok(outer.scrollWidth <= outer.clientWidth + 1, `${mode.name}/${width}/${size}: no horizontal page overflow`);
+          assert.ok((await box(log())).contentHeight >= 319, `${mode.name}/${width}/${size}: log retains 320 usable pixels`);
+          if (width > 900) assert.ok(right.x >= left.right + 8 && Math.abs(right.y - left.y) < 2, 'desktop aligns editing and results side by side');
+          else assert.ok(right.y >= left.bottom, 'only narrow views stack');
+          if (width === 1280 && height === 762 && size === 'comfortable' && mode.id !== 'tcp-server') {
+            const editor = await box(field('报文内容')), parameters = await box(page.getByTestId('network-operations'));
+            const visibleEditorHeight = Math.min(editor.bottom, parameters.bottom, height) - Math.max(editor.y, parameters.y, 0);
+            assert.ok(visibleEditorHeight >= 100, `${mode.name}: default non-multicast view exposes at least 100px of payload without scrolling, got ${visibleEditorHeight}`);
+          }
+          for (const control of [button(mode.start), field('报文内容'), field('行尾'), button('持续发送')]) {
+            await control.evaluate((element) => element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+            const rect = await box(control);
+            assert.ok(rect.x >= 0 && rect.right <= width + 1 && rect.y >= -1 && rect.bottom <= height + 1, 'all normal-size controls remain reachable through natural scroll');
+          }
+          await page.getByTestId('network-operations').evaluate((element) => { element.scrollTop = 0; });
+          await main.evaluate((element) => { element.scrollTop = 0; });
+          if (size === 'comfortable') await screenshot(`unified-${mode.id}-${size}`);
         }
       }
     }
-
-    // 1024×640 is the CSS-space equivalent of a 1280×800 window at 125% scale.
-    // It checks responsive layout only; this does not claim a native Windows DPI smoke test.
-    for (const [width, height, label] of [[1024, 640, 'scaled-125-effective'], [920, 640, 'compact-split'], [760, 560, 'narrow-natural-scroll']]) {
-      await page.setViewportSize({ width, height }); await openNetwork();
-      await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'large'; });
-      for (const mode of modes) {
-        await page.getByRole('tab', { name: mode.name, exact: true }).click();
-        await verifyReachableCompactLayout(mode, `${mode.name}/${label}`); await screen(`${mode.id}-${label}`);
-      }
-    }
-
-    await page.setViewportSize({ width: 1280, height: 800 }); await openNetwork();
-    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
-    for (const mode of modes) {
-      await page.getByRole('tab', { name: mode.name, exact: true }).click();
-      await field('本地地址').selectOption('0.0.0.0');
-      const allow = page.getByRole('checkbox', { name: mode.id === 'tcp-client' ? /允许外部网络连接/ : /允许局域网访问/ });
-      await allow.waitFor(); assert.equal(await allow.isChecked(), false);
-      assert.ok(await button(mode.start).isDisabled(), `${mode.name} requires explicit broad-interface consent`);
-      const before = await requestCount('network.start');
-      await allow.check(); await button(mode.start).click(); await button(mode.stop).waitFor();
-      assert.equal(await requestCount('network.start'), before + 1);
-      const request = await page.evaluate(() => window.__networkFixture.requests.filter((entry) => entry.type === 'network.start').at(-1));
-      assert.equal(request.payload.allowLan, true); assert.equal(request.payload.mode, mode.id);
-      await field('发送内容').fill('云依\nfixture'); await field('行尾').selectOption('crlf');
-      await button('发送').click();
-      await page.waitForFunction(() => window.__networkFixture.snapshot.txPackets > 0);
-      const sent = await page.evaluate(() => window.__networkFixture.requests.filter((entry) => entry.type === 'network.send').at(-1));
-      assert.equal(sent.payload.dataHex, Buffer.from('云依\nfixture\r\n').toString('hex'));
-      if (mode.id === 'tcp-server') {
-        await field('发送目标').selectOption('synthetic-peer'); await button('发送').click();
-        await page.waitForFunction(() => window.__networkFixture.requests.filter((entry) => entry.type === 'network.send').at(-1)?.payload.targetPeerId === 'synthetic-peer');
-      }
-      await button(mode.stop).click(); await button(mode.start).waitFor();
-    }
-
-    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click();
-    await field('本地地址').selectOption('');
-    await field('远端端口').fill('70000'); await button('连接服务').click(); await alertMatches(/端口/);
-    await field('远端端口').fill('9000');
-    await page.evaluate(() => { window.__networkFixture.failNextStart = '模拟连接失败（仅合成测试）'; });
-    await button('连接服务').click(); await alertMatches(/模拟连接失败/);
-    await button('连接服务').click(); await button('断开连接').waitFor();
-    await page.evaluate(() => { window.__networkFixture.failNextSend = '模拟发送失败（仅合成测试）'; });
-    await button('发送').click(); await alertMatches(/模拟发送失败/);
-    const beforeLog = await metrics(log());
-    const beforeReceive = await metrics(receivePanel());
-    await page.evaluate(() => {
-      const state = window.__networkFixture;
-      for (let index = 0; index < 500; index += 1) state.queue.push({ id: ++state.sequence, kind: 'received', timestamp: Date.now(),
-        byteLength: 32, peerLabel: '192.0.2.20:9000', message: `合成记录 ${index} — 此测试没有网络连接。` });
-      state.snapshot.rxPackets += 500; state.snapshot.rxBytes += 16000;
-    });
-    await page.waitForFunction(() => document.querySelector('[role="log"]')?.textContent.includes('合成记录 499'));
-    const afterLog = await metrics(log()); const afterReceive = await metrics(receivePanel());
-    assert.equal(afterLog.height, beforeLog.height, '500 log events do not increase the log viewport height');
-    assert.equal(afterReceive.height, beforeReceive.height, 'log growth does not resize the receive panel');
-    assert.ok(afterLog.scrollHeight > afterLog.clientHeight, 'received data scrolls inside the log');
-    assert.equal(afterLog.overflowY, 'auto');
-    await log().evaluate((element) => { element.scrollTop = 0; });
-    await receivePanel().getByRole('button', { name: '复制', exact: true }).click();
-    assert.match(await page.evaluate(() => window.__networkFixture.clipboard.at(-1)), /合成记录 499/);
-    await screen('received-500-records');
-    await button('断开连接').click();
-
-    assert.deepEqual(errors, [], 'no uncaught browser errors');
-    console.log('PASS: all 3 modes at default/maximized sizes and both text preferences use left editing/right receiving; only narrow windows stack. Scaled-effective left scroll keeps right console fixed; readable controls, LAN consent, errors, UTF-8/CRLF, peer targets and 500 internally scrolling log rows remain covered.');
-    console.log(`Screenshots: ${directory}`);
+    assert.deepEqual(errors, [], 'no uncaught application exceptions');
+    console.log('PASS: unified entry; TCP client/server/UDP receive-only startup; hidden server target fields; centered consent/cancel; UTF-8/CRLF and server template restore; frozen all/single/stale peers; disconnected-peer batch stops while other clients stay connected; late drained poll events retained; serial finite/continuous sends with stop-run preserving session; readable logs/time/manual scroll/focus/new-data jump; responsive split/stack layouts. All network bridge traffic is synthetic.');
   } catch (error) {
-    await screen('failure');
-    console.error('FAILURE_GEOMETRY', JSON.stringify(await workspace().evaluate((element) => {
-      const box = (node) => {
-        const rect = node.getBoundingClientRect();
-        return { text: node.textContent, x: rect.x, y: rect.y, width: rect.width, height: rect.height, bottom: rect.bottom };
-      };
-      const send = element.querySelector('button[class*="sendButton"]');
-      const rect = send?.getBoundingClientRect();
-      return { feedback: Array.from(element.querySelectorAll('[role="status"], [role="alert"]')).map(box),
-        send: send && box(send),
-        overSend: rect && document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.outerHTML };
-    })));
-    throw error;
+    await screenshot('failure').catch(() => {}); throw error;
   } finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

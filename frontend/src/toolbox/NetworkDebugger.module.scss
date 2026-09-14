@@ -1,689 +1,126 @@
-@use '../../../shared/tool-workspace/toolPalette' as palette;
-
-$ink: palette.$ink;
-$muted: palette.$muted;
-$paper: palette.$paper;
-$sand: palette.$surface;
-$teal: palette.$primary;
-$teal-dark: palette.$deep;
-
-.workspace {
-  @include palette.workspace;
-  display: flex;
-  min-width: 0;
-  height: calc(100dvh - 28px);
-  min-height: 0;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.workspace > header,
-.modeBar,
-.feedbackBar { flex-shrink: 0; }
-
-.modeBar {
-  display: flex;
-  min-width: 0;
-  padding: 8px 10px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: linear-gradient(110deg, palette.$teal-soft, $paper 65%);
-  border: 1px solid palette.$line;
-  border-radius: 16px;
-}
-
-.modeTabs,
-.smallTabs {
-  display: flex;
-  flex: 0 0 auto;
-  padding: 3px;
-  gap: 2px;
-  background: $sand;
-  border-radius: 10px;
-
-  button {
-    min-height: 34px;
-    padding: 0 12px;
-    color: $muted;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 750;
-    white-space: nowrap;
-
-    &:disabled { cursor: default; opacity: 0.58; }
-  }
-}
-
-.activeMode,
-.activeSmallTab {
-  color: $teal-dark !important;
-  background: palette.$teal-soft !important;
-  box-shadow: 0 3px 10px rgba(36, 53, 74, 0.08);
-}
-
-.sessionStatus {
-  display: grid;
-  min-width: 0;
-  align-items: center;
-  grid-template-columns: 10px repeat(4, minmax(0, 1fr));
-  gap: 7px 15px;
-
-  > div { min-width: 0; }
-  small,
-  strong { display: block; }
-  small { color: $muted; font-size: 0.625rem; line-height: 1.25; }
-  strong {
-    margin-top: 2px;
-    overflow: hidden;
-    color: $ink;
-    font-size: 0.6875rem;
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-}
-
-.endpoint { max-width: 150px; }
-
-.stateDot {
-  width: 9px;
-  height: 9px;
-  background: $muted;
-  border: 2px solid color-mix(in srgb, $muted 22%, transparent);
-  border-radius: 50%;
-  background-clip: padding-box;
-}
-.state_connecting,
-.state_starting,
-.state_stopping { background-color: palette.$amber; animation: statePulse 1.2s ease infinite; }
-.state_connected,
-.state_listening,
-.state_ready { background-color: palette.$success; }
-.state_error { background-color: palette.$danger; }
-
-.debuggerLayout {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  flex: 1;
-  align-items: stretch;
-  grid-template-columns: clamp(280px, 28vw, 380px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: 'operations receive';
-  gap: 14px;
-}
-
-// Keep editing and receiving visible together. Overflow from optional peer/LAN
-// controls stays in the left column and cannot move the receive console.
-.operationColumn {
-  display: grid;
-  grid-area: operations;
-  min-width: 0;
-  min-height: 0;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(min-content, 1fr);
-  gap: 14px;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-
-.connectionPanel,
-.receivePanel,
-.sendPanel {
-  min-width: 0;
-  background: $paper;
-  border: 1px solid palette.$line;
-  border-radius: 18px;
-  box-shadow: 0 10px 25px rgba(36, 53, 74, 0.045);
-}
-
-.connectionPanel {
-  display: flex;
-  padding: 15px;
-  flex-direction: column;
-  gap: 13px;
-}
-
-.receiveToolbar,
-.sendPanel > header {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-
-  span {
-    display: block;
-    color: $teal;
-    font-size: 0.625rem;
-    font-weight: 850;
-    letter-spacing: 0.16em;
-  }
-  h3 {
-    margin: 0;
-    color: $ink;
-    font-family: Georgia, "Noto Serif SC", serif;
-    font-size: 0.9375rem;
-    font-weight: 600;
-  }
-}
-
-.formGrid {
-  display: grid;
-  min-width: 0;
-  align-items: end;
-  grid-template-columns: minmax(0, 1fr) 82px;
-  gap: 10px 8px;
-
-  label { display: grid; min-width: 0; gap: 5px; }
-  label > span { color: $muted; font-size: 0.6875rem; font-weight: 700; }
-  input,
-  select {
-    width: 100%;
-    min-width: 0;
-    min-height: 38px;
-    padding: 0 9px;
-    color: $ink;
-    background: $sand;
-    border: 1px solid palette.$line;
-    border-radius: 9px;
-    outline: none;
-    font-size: 0.75rem;
-
-    &:focus { border-color: color-mix(in srgb, $teal 46%, transparent); }
-    &:disabled { color: $muted; opacity: 0.82; }
-  }
-}
-
-.addressField,
-.portField { grid-column: auto; }
-.formGrid > button { grid-column: 1 / -1; }
-.serverForm { grid-template-columns: minmax(0, 1fr) 82px; }
-
-.exposureNotice {
-  display: flex;
-  margin: 0;
-  padding: 9px 10px;
-  align-items: flex-start;
-  gap: 7px;
-  color: palette.$amber;
-  background: palette.$amber-soft;
-  border-radius: 9px;
-  font-size: 0.6875rem;
-  line-height: 1.5;
-
-  input { width: 14px; height: 14px; margin: 1px 0 0; flex: 0 0 auto; accent-color: $teal; }
-  span { min-width: 0; }
-  strong { display: block; color: palette.$amber; font-size: 0.6875rem; }
-}
-
-.startButton,
-.stopButton,
-.sendButton {
-  min-height: 40px;
-  padding: 0 14px;
-  color: #fff;
-  cursor: pointer;
-  background: $teal;
-  border: 0;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 800;
-
-  &:disabled { cursor: not-allowed; opacity: 0.55; }
-}
-
-.stopButton { color: palette.$danger; background: palette.$danger-soft; }
-
-.peerPanel {
-  display: grid;
-  min-height: 0;
-  padding-top: 12px;
-  gap: 8px;
-  border-top: 1px solid palette.$line;
-
-  > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  > div strong { color: $ink; font-size: 0.75rem; }
-  > div > span {
-    display: grid;
-    min-width: 24px;
-    height: 24px;
-    padding: 0 7px;
-    place-items: center;
-    color: $teal-dark;
-    background: palette.$teal-soft;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 800;
-  }
-  > p { margin: 0; color: $muted; font-size: 0.6875rem; line-height: 1.55; }
-}
-
-.peerList {
-  display: grid;
-  max-height: 96px;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  overflow: auto;
-  gap: 5px;
-
-  button {
-    display: grid;
-    min-width: 0;
-    padding: 8px 9px;
-    gap: 2px;
-    color: inherit;
-    cursor: pointer;
-    background: $sand;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    text-align: left;
-  }
-  span,
-  small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  span { color: $ink; font-size: 0.6875rem; font-weight: 750; }
-  small { color: $muted; font-size: 0.625rem; }
-}
-
-.selectedPeer { color: $teal-dark !important; background: palette.$teal-soft !important; border-color: color-mix(in srgb, $teal 32%, palette.$line) !important; }
-
-.receivePanel {
-  grid-area: receive;
-  // The parent assigns the log's height. Packet content must not contribute an
-  // intrinsic minimum that expands the workspace as more data arrives.
-  contain: size;
-  position: relative;
-  display: grid;
-  min-height: 0;
-  height: 100%;
-  padding: 14px;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 11px;
-}
-
-.receiveToolbar {
-  align-items: center;
-  flex-wrap: wrap;
-
-  > div:first-child {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-}
-
-.toolbarActions {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.smallTabs {
-  button { min-height: 28px; padding: 0 9px; font-size: 0.6875rem; }
-}
-
-.checkControl {
-  display: inline-flex;
-  min-height: 30px;
-  padding: 0 6px;
-  align-items: center;
-  gap: 5px;
-  color: $muted;
-  cursor: pointer;
-  font-size: 0.6875rem;
-
-  input { width: 13px; height: 13px; accent-color: $teal; }
-  span { color: inherit; font-size: inherit; font-weight: 650; letter-spacing: 0; }
-}
-
-.textButton {
-  min-height: 30px;
-  padding: 0 8px;
-  color: $teal-dark;
-  cursor: pointer;
-  background: transparent;
-  border: 1px solid rgba(22, 139, 133, 0.15);
-  border-radius: 7px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-
-  &:hover { background: palette.$teal-soft; }
-}
-
-.logConsole {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow: auto;
-  overflow-anchor: none;
-  overscroll-behavior: contain;
-  color: palette.$console-text;
-  background: palette.$console;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
-  scrollbar-gutter: stable;
-  scrollbar-color: palette.$console-muted palette.$console;
-}
-
-.emptyLog {
-  display: grid;
-  min-height: 100%;
-  padding: 28px;
-  align-content: center;
-  justify-items: center;
-  gap: 6px;
-  text-align: center;
-
-  strong { color: palette.$console-text; font-size: 0.8125rem; }
-  span { max-width: 360px; color: palette.$console-muted; font-size: 0.6875rem; line-height: 1.55; }
-}
-
-.logEntry {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  padding: 8px 10px;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-
-  &:last-child { border-bottom: 0; }
-  pre {
-    min-width: 0;
-    margin: 0;
-    color: palette.$console-text;
-    font-family: Consolas, "Cascadia Code", monospace;
-    font-size: 0.75rem;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
-}
-
-.logMeta {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-family: Consolas, "Cascadia Code", monospace;
-  font-size: 0.6875rem;
-
-  time { color: palette.$console-muted; }
-  b { color: palette.$rx; }
-  span { max-width: 92px; overflow: hidden; color: palette.$console-muted; text-overflow: ellipsis; white-space: nowrap; }
-  em { color: palette.$console-muted; font-style: normal; }
-}
-
-.log_sent .logMeta b { color: palette.$tx; }
-.log_system .logMeta b { color: palette.$console-info; }
-.log_error .logMeta b,
-.log_error pre { color: palette.$console-error; }
-
-.newDataButton {
-  position: absolute;
-  right: 25px;
-  bottom: 25px;
-  min-height: 32px;
-  padding: 0 11px;
-  color: #fff;
-  cursor: pointer;
-  background: $teal;
-  border: 0;
-  border-radius: 999px;
-  box-shadow: 0 8px 20px rgba(9, 79, 76, 0.28);
-  font-size: 0.6875rem;
-  font-weight: 750;
-}
-
-.sendPanel {
-  display: grid;
-  padding: 14px;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(120px, 1fr) auto;
-  gap: 9px 12px;
-
-  > header { grid-column: 1 / -1; align-items: center; flex-wrap: wrap; }
-  > textarea {
-    width: 100%;
-    min-width: 0;
-    min-height: 96px;
-    height: 100%;
-    padding: 11px;
-    color: $ink;
-    background: $sand;
-    border: 1px solid palette.$line;
-    border-radius: 10px;
-    font-family: Consolas, "Cascadia Code", monospace;
-    font-size: 0.75rem;
-    line-height: 1.55;
-    outline: none;
-    resize: none;
-
-    &:focus { border-color: color-mix(in srgb, $teal 45%, transparent); }
-  }
-}
-
-.sendHeaderMeta {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-
-  > strong {
-    color: $muted;
-    font-size: 0.6875rem;
-    font-weight: 650;
-    overflow-wrap: anywhere;
-  }
-}
-
-.invalidSize { color: palette.$danger !important; }
-
-.sendControls {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  align-items: end;
-  grid-template-columns: minmax(80px, .85fr) minmax(124px, 1.15fr);
-  gap: 8px;
-
-  > label { display: grid; min-width: 0; gap: 4px; }
-  > label > span { color: $muted; font-size: 0.625rem; font-weight: 700; }
-  select,
-  input[type='text'],
-  input:not([type]) {
-    width: 100%;
-    min-width: 0;
-    min-height: 40px;
-    padding: 0 8px;
-    color: $ink;
-    background: $sand;
-    border: 1px solid palette.$line;
-    border-radius: 8px;
-    font-size: 0.6875rem;
-    outline: none;
-  }
-}
-
-.targetControl { grid-column: 1 / -1; }
-
-// The two options share a row; the full-width send button stays below the editor.
-.autoSendControl { grid-column: 2; grid-row: 1; }
-.targetControl { grid-row: 2; }
-
-.autoSendControl > div {
-  display: grid;
-  align-items: center;
-  grid-template-columns: 18px 1fr 20px;
-  gap: 5px;
-
-  input[type='checkbox'] { width: 14px; height: 14px; accent-color: $teal; }
-  input:not([type='checkbox']) {
-    width: 100%;
-    min-width: 0;
-    height: 40px;
-    padding: 0 7px;
-    color: $ink;
-    background: $sand;
-    border: 1px solid palette.$line;
-    border-radius: 8px;
-    font-size: 0.6875rem;
-  }
-  small { color: $muted; font-size: 0.625rem; }
-}
-
-.sendButton {
-  display: flex;
-  width: 100%;
-  grid-column: 1 / -1;
-  grid-row: 2;
-  justify-self: end;
-  align-items: center;
-  justify-content: space-between;
-
-  kbd {
-    color: rgba(255, 255, 255, 0.72);
-    font-family: inherit;
-    font-size: 0.5625rem;
-    font-weight: 600;
-  }
-}
-
-.serverSendControls {
-  .targetControl { grid-column: 1 / -1; grid-row: 2; }
-  .sendButton { grid-column: 1 / -1; grid-row: 3; }
-}
-
-.feedbackBar {
-  display: flex;
-  min-width: 0;
-  min-height: 42px;
-  max-height: 64px;
-  overflow: auto;
-  padding: 9px 12px;
-  align-items: center;
-  gap: 9px;
-  color: $teal-dark;
-  background: palette.$teal-soft;
-  border-radius: 11px;
-
-  > span {
-    display: grid;
-    width: 22px;
-    height: 22px;
-    flex: 0 0 auto;
-    place-items: center;
-    color: #fff;
-    background: $teal;
-    border-radius: 50%;
-    font-size: 0.6875rem;
-    font-weight: 800;
-  }
-  p { min-width: 0; margin: 0; font-size: 0.6875rem; line-height: 1.5; }
-}
-
-.errorFeedback {
-  color: palette.$danger;
-  background: palette.$danger-soft;
-  > span { background: palette.$danger; }
-}
-
-// Subtle title-area tints distinguish settings, sending and receiving without
-// adding a header row or changing the established split workspace geometry.
-.connectionPanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
-.sendPanel { background: linear-gradient(180deg, palette.$teal-soft, $paper 64px); }
-.receivePanel { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }
-
-@keyframes statePulse {
-  50% { box-shadow: 0 0 0 5px rgba(232, 162, 67, 0.14); }
-}
-
-@media (max-width: 1100px) {
-  .modeBar { align-items: stretch; flex-direction: column; }
-  .sessionStatus { grid-template-columns: 10px repeat(4, minmax(0, 1fr)); }
-  .logEntry { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-}
-
-// Stack only when the whole client is genuinely narrow, not on the default
-// desktop or maximized window. Preserve readable controls and a bounded log.
-@media (max-width: 900px) {
-  .workspace { height: auto; min-height: 0; }
-  .formGrid { grid-template-columns: minmax(0, 1fr) 100px; }
-  .formGrid > button { grid-column: 1 / -1; }
-  .connectionPanel { grid-area: connection; }
-  .sendPanel { grid-area: send; grid-template-rows: auto 140px auto; }
-  .operationColumn { display: contents; }
-  .debuggerLayout {
-    min-height: 0;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-    grid-template-areas: 'connection' 'send' 'receive';
-  }
-  .receivePanel {
-    contain: none;
-    height: auto;
-    grid-area: receive;
-    grid-template-rows: auto clamp(300px, 42vh, 390px);
-  }
-  .sendControls { grid-template-columns: 130px minmax(150px, 1fr) 120px; }
-  .sendButton { width: 120px; gap: 8px; grid-column: 3; grid-row: 1; }
-  .serverSendControls {
-    .targetControl { grid-column: 1 / -1; grid-row: 2; }
-    .sendButton { grid-column: 3; }
-  }
-}
-
-@media (max-height: 480px) and (min-width: 901px) {
-  .workspace { height: auto; }
-  .debuggerLayout { min-height: 520px; }
-}
-
-@media (max-width: 720px) {
-  .modeTabs { width: 100%; overflow-x: auto; button { flex: 1 0 auto; } }
-  .sessionStatus { grid-template-columns: 10px repeat(2, minmax(0, 1fr)); }
-  .sessionStatus > div:nth-of-type(3),
-  .sessionStatus > div:nth-of-type(4) { display: none; }
-  .receiveToolbar { align-items: flex-start; flex-direction: column; }
-  .toolbarActions { justify-content: flex-start; }
-  .sendPanel { grid-template-columns: 1fr; }
-  .sendPanel > header { grid-column: auto; }
-  .sendControls { width: auto; }
-  .sendControls { grid-template-columns: minmax(100px, 1fr) minmax(146px, 1fr); }
-  .sendButton,
-  .serverSendControls .sendButton { grid-column: 1 / -1; grid-row: auto; }
-  .logEntry { grid-template-columns: 1fr; gap: 4px; }
-  .logMeta { position: sticky; left: 0; }
-}
-
-@media (max-width: 520px) {
-  .sessionStatus { grid-template-columns: 10px repeat(2, minmax(0, 1fr)); gap: 7px 9px; }
-  .endpoint { display: none; }
-  .formGrid { grid-template-columns: 1fr; }
-  .addressField,
-  .portField { grid-column: 1; }
-  .peerList { grid-template-columns: 1fr; }
-  .receivePanel { padding: 11px; grid-template-rows: auto 260px; }
-  .toolbarActions { display: grid; width: 100%; grid-template-columns: auto repeat(4, max-content); justify-content: start; }
-  .checkControl { padding: 0 3px; }
-  .sendPanel { padding: 11px; }
-}
-
-// At genuinely narrow widths use two readable rows instead of squeezing fields.
-@media (max-width: 460px) {
-  .sendControls { grid-template-columns: minmax(0, 1fr); }
-  .autoSendControl,
-  .targetControl { grid-column: 1; grid-row: auto; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .stateDot { animation: none; }
-}
+@use '../../../shared/tool-workspace/toolPalette' as p;
+.workspace { @include p.workspace; display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 28px); min-height: min-content; min-width: 0; font-size: .8125rem; }
+.workspace > header, .modeBar { flex-shrink: 0; }
+.workspace button, .workspace input, .workspace textarea, .workspace select { font: inherit; box-sizing: border-box; }
+.workspace button { min-height: 32px; padding: 5px 9px; color: p.$deep; background: p.$paper; border: 1px solid p.$line; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.workspace button:disabled { opacity: .5; cursor: default; }
+.workspace button:hover:not(:disabled) { border-color: #9dc8c4; background: p.$teal-soft; }
+.workspace :is(button,input,textarea,select):focus-visible { outline: 2px solid p.$primary; outline-offset: 1px; }
+.workspace input:not([type=checkbox]), .workspace textarea, .workspace select { width: 100%; min-width: 0; color: p.$ink; border: 1px solid p.$line; background: p.$surface; border-radius: 7px; padding: 7px 9px; }
+.workspace input:not([type=checkbox]), .workspace select { height: 36px; }
+.workspace input[type=checkbox] { accent-color: p.$primary; margin: 0; width: 14px; height: 14px; flex-shrink: 0; }
+.workspace h3 { margin: 0; font-size: .9375rem; }
+.workspace small { color: p.$muted; font-size: .75rem; line-height: 1.5; }
+.workbench { display: grid; grid-template-columns: clamp(320px, 32vw, 390px) minmax(0,1fr); gap: 12px; min-height: min-content; min-width: 0; flex: 1; }
+// Only the results determine the wide grid's minimum height. Settings keep
+// their own scrollbar instead of forcing the entire workspace to their size.
+.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; contain: size; }
+.editScroll { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.editScroll > .card { flex-shrink: 0; }
+.right { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: min-content; }
+.card { min-width: 0; padding: 12px; border: 1px solid p.$line; border-radius: 11px; background: p.$paper; }
+.editor > .card { flex-shrink: 0; }
+.card > header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap; }
+.card header h3 { margin-right: auto; }
+.editScroll > .card:first-child { background: linear-gradient(180deg,p.$blue-soft,p.$paper 65px); }
+.card > label, .targetRow > label, .sendOptions > label { display: grid; gap: 5px; min-width: 0; color: p.$muted; font-size: .75rem; }
+.targetRow { display: grid; grid-template-columns: minmax(0,1fr) 83px; gap: 9px; margin-top: 10px; }
+.protocolRow { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.transportBadge { font-size: .75rem; color: p.$violet; background: p.$violet-soft; padding: 4px 8px; border-radius: 6px; }
+.interfaceRow { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px; margin-top: 8px; }
+.interfaceRow label, .localRow label { display: grid; gap: 4px; min-width: 0; color: p.$muted; font-size: .75rem; }
+.interfaceRow button { min-height: 36px; }
+.localRow { display: grid; grid-template-columns: minmax(0,1fr) auto 74px; align-items: end; gap: 7px; margin-top: 8px; }
+.localRow button { padding: 6px; min-height: 36px; }
+.multicastControls { margin-top: 10px; }
+.multicastControls > div { display: flex; gap: 7px; }
+.multicastControls small { display: block; margin-top: 5px; }
+.sendDock { flex-shrink: 0; background: p.$teal-soft; }
+.sendDock .sendOptions { margin-top: 0; }
+.endpoints { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 4px 12px; margin: -2px 0 8px; color: p.$muted; font-size: .75rem; overflow-wrap: anywhere; }
+.endpoints [data-testid=packet-multicast-state] { color: p.$violet; }
+.reviewContent { color: p.$ink; line-height: 1.6; overflow-wrap: anywhere; }
+.reviewContent dl { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: 8px; padding: 12px; background: p.$blue-soft; border-radius: 8px; }
+.reviewContent dt { color: p.$muted; }
+.reviewContent dd { margin: 0; font-weight: 600; }
+.tabs { display: flex; flex-shrink: 0; border-radius: 7px; background: p.$surface; }
+.tabs button { border-color: transparent; background: transparent; }
+.tabs button[aria-pressed=true] { color: p.$teal; background: p.$teal-soft; }
+.binding { margin-top: 2px; }
+.binding small { display: block; margin-top: 7px; }
+.card > .consent { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: p.$amber; line-height: 1.5; }
+.payloadCard { flex: 1; display: flex; flex-direction: column; background: linear-gradient(180deg,p.$teal-soft,p.$paper 65px); }
+.payloadToolbar { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.payloadToolbar span { color: p.$muted; font-size: .75rem; }
+.payloadCard textarea { flex: 1; min-height: 110px; resize: none; font: 13px/1.7 Consolas,monospace; }
+.payloadCard > small { margin-top: 5px; }
+.sendOptions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.sendActions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+.sendActions button { min-height: 38px; padding: 5px 6px; }
+.workspace .primary { color: #fff; background: p.$primary; border-color: p.$primary; }
+.workspace .primary:hover:not(:disabled) { background: p.$deep; color: #fff; }
+.workspace .stop, .workspace .delete { color: p.$danger; }
+.notice, .error, .warning { margin: 0; padding: 8px 10px; border-radius: 7px; line-height: 1.5; overflow-wrap: anywhere; font-size: .75rem; }
+.notice, .error { flex-shrink: 0; max-height: 80px; overflow: auto; }
+.notice { color: p.$teal; background: p.$teal-soft; }
+.error { color: p.$danger; background: p.$danger-soft; }
+.warning { margin-top: 8px; color: p.$amber; background: p.$amber-soft; }
+.library { display: flex; flex-direction: column; min-height: 0; height: 180px; flex-shrink: 0; background: linear-gradient(180deg,p.$violet-soft,p.$paper 60px); }
+.library[data-empty=true], .library[data-collapsed=true] { height: auto; }
+.library[data-collapsed=true] > header { margin-bottom: 0; }
+.library header h3 span { color: p.$violet; font-size: .75rem; }
+.libraryBody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.libraryBody[hidden] { display: none; }
+.libraryBody > input { flex-shrink: 0; }
+.packetList { min-height: 0; flex: 1; overflow: auto; margin-top: 6px; }
+.packetList article { display: flex; align-items: center; gap: 5px; padding: 5px; border-bottom: 1px solid p.$line; }
+.packetList article[data-selected=true] { background: p.$teal-soft; }
+.packetList .packetName { display: grid; flex: 1; min-width: 0; text-align: left; border: 0; padding: 2px; background: transparent; gap: 4px; }
+.packetName strong, .packetName small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.empty { color: p.$muted; text-align: center; margin: 4px 0; padding: 8px; line-height: 1.6; }
+.logPanel { display: flex; flex-direction: column; flex: 1; min-height: min-content; background: linear-gradient(180deg,p.$blue-soft,p.$paper 60px); }
+.logPanel .follow { display: flex; align-items: center; gap: 5px; color: p.$muted; white-space: nowrap; font-size: .75rem; }
+.session { display: flex; gap: 6px 16px; flex-wrap: wrap; flex-shrink: 0; color: p.$muted; margin-bottom: 8px; font-size: .75rem; }
+.session > span:first-child { margin-right: auto; color: p.$teal; }
+// The console has a reading floor; short windows scroll the page instead of
+// sacrificing message space. A zero basis keeps incoming rows out of sizing.
+.log { flex: 1 1 0; height: 0; min-height: 340px; overflow: auto; overscroll-behavior: contain; background: p.$console; color: p.$console-text; border-radius: 8px; padding: 10px 12px; font: 12px/1.6 Consolas,monospace; }
+.logRow { border-bottom: 1px solid #ffffff12; padding: 5px 0; }
+.logRow > div { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.logRow time, .logRow span { color: p.$console-muted; }
+.logRow b { color: p.$console-info; }
+.logRow[data-kind=sent] b { color: p.$tx; }
+.logRow[data-kind=received] b { color: p.$rx; }
+.logRow[data-kind=error] :is(b,pre) { color: p.$console-error; }
+.logRow pre { font: inherit; margin: 3px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.logEmpty { display: grid; height: 100%; place-items: center; text-align: center; color: p.$console-muted; }
+.logPanel footer { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; flex-shrink: 0; color: p.$muted; padding-top: 8px; font-size: .6875rem; }
+@media (max-width:1100px) { .workbench { grid-template-columns: 310px minmax(0,1fr); gap: 10px; } .card { padding: 10px; } .sendActions { grid-template-columns: 1fr 1fr; } .sendActions .stop { grid-column: 1/-1; } .logPanel footer span:last-child { display: none; } }
+@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor { contain: none; } .editor, .editScroll { overflow: visible; } .payloadCard textarea { min-height: 140px; } .logPanel { min-height: min-content; height: 490px; flex: none; } }
+
+
+.modeBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid p.$line; border-radius: 10px; background: linear-gradient(110deg,p.$teal-soft,p.$paper 65%); }
+.modeBar > span { color: p.$muted; font-size: .75rem; }
+.connectionActions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.connectionActions > button:first-child { flex: 1; min-height: 38px; }
+.multicastHint { display: block; margin-top: 7px; }
+.peerPanel { border-top: 1px solid p.$line; margin-top: 10px; padding-top: 10px; }
+.peerPanel > strong { font-size: .75rem; }
+.peerPanel > div { display: flex; gap: 5px; flex-wrap: wrap; max-height: 90px; overflow: auto; margin-top: 5px; }
+.peerPanel button[aria-pressed=true] { background: p.$teal-soft; border-color: p.$primary; }
+.peerTarget { display: grid; gap: 4px; color: p.$muted; font-size: .75rem; margin-bottom: 8px; }
+.payloadToolbar { margin-top: 10px; }
+.payloadInput { display: block; height: 150px; min-height: 130px; resize: none; font: 13px/1.7 Consolas,monospace !important; }
+.sendOptions { grid-template-columns: minmax(0,1.15fr) minmax(0,1fr) minmax(0,.75fr); gap: 7px; }
+.sendActions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.sendActions button { padding: 5px 3px; }
+.stopActions { display: flex; gap: 6px; margin-top: 7px; }
+.stopActions > button { flex: 1; }
+.runProgress { display: block; padding-top: 6px; overflow-wrap: anywhere; }
+.logPanel { position: relative; }
+.newData { position: absolute; right: 25px; bottom: 42px; box-shadow: 0 3px 12px #172c4033; }
+@media (max-width:900px) { .modeBar { flex-wrap: wrap; } }
+.connectionRow, .multicastRow { display: grid; grid-template-columns: 120px minmax(0,1fr); align-items: end; gap: 9px; margin-top: 8px; }
+.connectionRow label, .multicastRow label { display: grid; gap: 4px; min-width: 0; color: p.$muted; font-size: .75rem; }
+.connectionRow button, .multicastRow button { min-height: 36px; }
+.packetTitle { margin-top: 8px; }

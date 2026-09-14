@@ -20,6 +20,7 @@ export interface ToolDefinition {
   name: string;
   shortName: string;
   description: string;
+  keywords?: string[];
   category: ToolCategoryId;
   glyph: string;
   runtime: ToolRuntime;
@@ -45,8 +46,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   { id: 'password', name: '密码生成器', shortName: 'Password', description: '使用系统安全随机源按规则生成本地密码。', category: 'data', glyph: '***', runtime: 'c-core' },
   { id: 'url-encode', name: 'URL 编解码', shortName: 'URL', description: '使用 RFC 3986 C 核心处理 URL 或组件。', category: 'network', glyph: '%', runtime: 'c-core' },
   { id: 'packet-inspector', name: '十六进制报文分析器', shortName: 'Packet', description: '粘贴抓包 Hex，查看字节偏移、协议层与自定义字段。', category: 'network', glyph: 'HEX', runtime: 'c-core' },
-  { id: 'network-debugger', name: '网络调试助手', shortName: 'Net Assist', description: '建立 TCP/UDP 连接，按文本或 Hex 收发并统计网络数据。', category: 'network', glyph: 'NET', runtime: 'native-system' },
-  { id: 'packet-sender', name: '发包工具', shortName: 'Packet Sender', description: '保存 TCP/UDP 报文，按文本、HEX 或转义字节发送并查看响应。', category: 'network', glyph: 'TX', runtime: 'native-system' },
+  { id: 'network-debugger', name: '网络调试助手', shortName: 'Net Assist', description: 'TCP/UDP 收发调试，管理常用报文库、组播与定时或批次发包。', keywords: ['发包工具', 'Packet Sender', 'HEX', '转义字节', '载入文件'], category: 'network', glyph: 'NET', runtime: 'native-system' },
   { id: 'serial-debugger', name: '串口调试助手', shortName: 'Serial COM', description: '配置串口参数，按文本或 HEX 收发数据并循环发送。', category: 'network', glyph: 'COM', runtime: 'native-system' },
   { id: 'mqtt-debugger', name: 'MQTT 调试助手', shortName: 'MQTT', description: '连接 MQTT Broker，订阅主题、查看消息并发布数据。', category: 'network', glyph: 'MQ', runtime: 'native-system' },
   { id: 'modbus-debugger', name: 'Modbus 调试助手', shortName: 'Modbus RTU TCP', description: '通过 RTU 或 TCP 读取线圈和寄存器，经确认后写入数据。', category: 'network', glyph: 'MB', runtime: 'native-system' },
@@ -58,6 +58,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
 ];
 
 export const READY_TOOL_COUNT = TOOL_DEFINITIONS.length;
+
+/** Keep old tool references usable without advertising a second workspace. */
+export function resolveToolId(toolId: string | null | undefined): string | null {
+  const canonical = toolId === 'packet-sender' ? 'network-debugger' : toolId;
+  return TOOL_DEFINITIONS.some((tool) => tool.id === canonical) ? canonical! : null;
+}
 
 export function toolsForCategory(category: ToolCategoryId | null) {
   return category

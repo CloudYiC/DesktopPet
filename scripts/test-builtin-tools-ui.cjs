@@ -4,14 +4,24 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const Module = require('node:module');
 const { chromium } = require('playwright');
 
 const storageKey = 'yiyi.plugins.installed.v2';
 const catalog = fs.readFileSync(path.resolve(__dirname, '../frontend/src/toolbox/catalog.ts'), 'utf8');
 const tools = Array.from(catalog.matchAll(/\{ id: '([^']+)', name: '([^']+)'[^\n]*?category: '([^']+)'/g),
   ([, id, name, category]) => ({ id, name, category }));
-assert.equal(tools.length, 21, 'the desktop contains 21 working built-in tools, including Packet Sender');
-assert.equal(new Set(tools.map((tool) => tool.id)).size, 21);
+assert.equal(tools.length, 20, 'the desktop contains 20 working built-in tools after merging Packet Sender');
+assert.equal(new Set(tools.map((tool) => tool.id)).size, 20);
+assert.equal(tools.some((tool) => tool.id === 'packet-sender'), false, 'Packet Sender has no separate card');
+assert.equal(tools.filter((tool) => tool.id === 'network-debugger').length, 1, 'network tools have one shared entry');
+const ts = require(path.resolve(__dirname, '../frontend/node_modules/typescript'));
+const catalogModule = new Module('tool-catalog', module);
+catalogModule._compile(ts.transpileModule(catalog, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, 'tool-catalog');
+assert.equal(catalogModule.exports.resolveToolId('packet-sender'), 'network-debugger', 'legacy IDs resolve to the unified workspace');
+assert.equal(catalogModule.exports.resolveToolId('network-debugger'), 'network-debugger');
+assert.equal(catalogModule.exports.resolveToolId('removed-unknown-tool'), null, 'unknown IDs cannot open a tool');
+assert.equal(catalogModule.exports.resolveToolId(null), null);
 
 // This is a source-contract check, not a native installation or database test.
 // The UI scenarios below separately exercise restoration from an older host.
@@ -118,6 +128,11 @@ const scenarios = [
         const search = main().getByPlaceholder('搜索工具…', { exact: true });
         await page.keyboard.press('Control+k'); assert.equal(await search.evaluate((element) => document.activeElement === element), true);
         await search.fill('JSON'); assert.equal(await cards().count(), 1);
+        for (const query of ['发包', 'Packet Sender', '报文库', '组播']) {
+          await search.fill(query);
+          assert.equal(await cards().count(), 1, `${query}: a single unified network result`);
+          assert.equal(await cards().getByRole('heading').innerText(), '网络调试助手');
+        }
         await search.fill(''); assert.equal(await cards().count(), tools.length, 'search clearing restores all built-ins');
         const unexpected = await page.evaluate(() => window.__builtinFixture.requests.filter((request) => {
           if (['app.ready', 'workspace.navigation.update', 'system.snapshot', 'ports.list', 'software.list', 'network.poll', 'network.stop', 'network.interfaces'].includes(request.type)) return false;

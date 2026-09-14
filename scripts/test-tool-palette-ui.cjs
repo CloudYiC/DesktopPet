@@ -9,7 +9,9 @@ const root = path.resolve(__dirname, '..');
 const sass = require(path.join(root, 'frontend/node_modules/sass'));
 const postcss = require(path.join(root, 'frontend/node_modules/postcss'));
 const styleFiles = [
-  ...['DatabaseStudio', 'ImageToolbox', 'Toolbox', 'NetworkDebugger', 'SerialDebugger',
+  // The unified network workbench intentionally changes layout; its responsive
+  // geometry is covered by the network workspace tests rather than this guard.
+  ...['DatabaseStudio', 'ImageToolbox', 'Toolbox', 'SerialDebugger',
     'MqttDebugger', 'ModbusDebugger', 'UtilityCodecWorkspace', 'UtilitySpecializedWorkspace',
     'TextDiffWorkspace', 'RegexWorkspace'].map((name) => `frontend/src/toolbox/${name}.module.scss`),
   'shared/packet-inspector/PacketWorkbench.module.scss',
@@ -67,7 +69,9 @@ function geometry(source, file) {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:18779/?mode=dashboard');
     await page.getByRole('button', { name: /^工具首页/ }).click();
     const names = await page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) }).locator('h3').allTextContents();
-    assert.equal(names.length, 21);
+    assert.equal(names.length, 20);
+    assert.equal(names.filter((name) => name === '网络调试助手').length, 1);
+    assert.equal(names.includes('发包工具'), false);
     for (const theme of ['apricot', 'cloud', 'rose']) {
       await page.evaluate((theme) => { document.documentElement.dataset.workspaceTheme = theme; }, theme);
       const sidebarBefore = await snapshotSidebar();
@@ -112,6 +116,6 @@ function geometry(source, file) {
       }
     }
     assert.deepEqual(errors, []);
-    console.log('PASS palette UI: all 21 tools / 3 themes open; 18 palette-aligned titles, readable solid actions, distinct input/output and unchanged sidebar. Synthetic preview only.');
+    console.log('PASS palette UI: all 20 tools / 3 themes open; 17 palette-aligned titles, readable solid actions, distinct input/output and unchanged sidebar. Synthetic preview only.');
   } finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

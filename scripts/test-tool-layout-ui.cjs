@@ -29,7 +29,9 @@ const { chromium } = require('playwright');
     fs.mkdirSync(output, { recursive: true });
     const cards = await page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) }).evaluateAll((elements) =>
       elements.map((element) => ({ name: element.querySelector('h3').textContent, description: element.querySelector('p').textContent })));
-    assert.equal(cards.length, 21);
+    assert.equal(cards.length, 20);
+    assert.equal(cards.filter((card) => card.name === '网络调试助手').length, 1);
+    assert.equal(cards.some((card) => card.name === '发包工具'), false);
     assert.equal(Math.round((await sidebar().boundingBox()).width), 192);
     for (const name of ['home', 'data', 'network', 'system', 'file-conversion', 'today', 'all', 'status', 'settings']) {
       const icon = sidebar().locator(`svg[data-nav-icon="${name}"]`).first();
@@ -65,6 +67,33 @@ const { chromium } = require('playwright');
         await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
       }
     }
+    for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1024, height: 640 }, { width: 760, height: 560 }]) {
+      await page.setViewportSize(viewport);
+      for (const textSize of ['comfortable', 'large']) {
+        await page.evaluate((value) => { document.documentElement.dataset.workspaceTextSize = value; }, textSize);
+        await openTool('网络调试助手');
+        const geometry = await page.getByTestId('network-workspace').evaluate((area) => {
+          const rect = (element) => { const box = element.getBoundingClientRect(); return { x: box.x, y: box.y, right: box.right, bottom: box.bottom, width: box.width, height: box.height }; };
+          const main = area.closest('main');
+          return { mainWidth: main.clientWidth, mainScrollWidth: main.scrollWidth,
+            editor: rect(area.querySelector('[data-testid="packet-sender-editor"]')),
+            results: rect(area.querySelector('[data-testid="packet-sender-results"]')),
+            log: rect(area.querySelector('[role="log"]')) };
+        });
+        const label = `${viewport.width}x${viewport.height}/${textSize}`;
+        assert.ok(geometry.mainScrollWidth <= geometry.mainWidth + 1, `${label}: network details have no horizontal scrollbar`);
+        assert.ok(geometry.log.height >= 340, `${label}: log retains at least 340px reading height`);
+        assert.ok(geometry.results.right <= viewport.width, `${label}: result controls remain within client width`);
+        if (viewport.width > 900) {
+          assert.ok(geometry.results.x >= geometry.editor.right, `${label}: edit and results remain side by side`);
+          assert.ok(Math.abs(geometry.editor.y - geometry.results.y) < 2, `${label}: the two columns share their top edge`);
+        }
+        await page.screenshot({ path: path.join(output, `network-unified-${label.replace('/', '-')}.png`), fullPage: true });
+        console.log(`PASS unified network ${label}: log ${Math.round(geometry.log.height)}px; no horizontal overflow.`);
+        await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
+      }
+    }
+    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.getByRole('button', { name: /^今天/ }).click();
     assert.equal(await header().count(), 0, 'Pet pages keep their existing heading');
