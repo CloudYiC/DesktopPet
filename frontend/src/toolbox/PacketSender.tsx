@@ -47,6 +47,7 @@ export function PacketSender({ tool, onBack }: { tool: ToolDefinition; onBack():
   const [draft, setDraft] = useState<PacketSenderDraft>(createDefaultPacketDraft);
   const [selectedId, setSelectedId] = useState('');
   const [search, setSearch] = useState('');
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [adapters, setAdapters] = useState<NetworkInterface[]>([]);
   const [adaptersLoading, setAdaptersLoading] = useState(false);
   const [review, setReview] = useState<NetworkReview | null>(null);
@@ -284,10 +285,12 @@ export function PacketSender({ tool, onBack }: { tool: ToolDefinition; onBack():
         </section>
       </div>
       <div className={styles.right} data-testid="packet-sender-results">
-        <section className={`${styles.card} ${styles.library}`}>
-          <header><h3>已保存报文 <span>{library.packets.length}</span></h3><button disabled={busy} onClick={() => importInput.current?.click()}>导入</button><button onClick={exportLibrary}>导出</button></header>
-          <input aria-label="搜索报文" placeholder="搜索名称、地址或端口…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <section className={`${styles.card} ${styles.library}`} data-testid="packet-library-panel" data-empty={!library.packets.length} data-collapsed={libraryCollapsed}>
+          <header><h3>已保存报文 <span>{library.packets.length}</span></h3><button disabled={busy} onClick={() => importInput.current?.click()}>导入</button><button onClick={exportLibrary}>导出</button><button aria-label={libraryCollapsed ? '展开报文库' : '收起报文库'} aria-expanded={!libraryCollapsed} aria-controls="packet-library-content" onClick={() => setLibraryCollapsed((value) => !value)}>{libraryCollapsed ? '展开' : '收起'}</button></header>
+          <div className={styles.libraryBody} id="packet-library-content" hidden={libraryCollapsed}>
+          {!!library.packets.length && <input aria-label="搜索报文" placeholder="搜索名称、地址或端口…" value={search} onChange={(e) => setSearch(e.target.value)} />}
           <div className={styles.packetList} data-testid="packet-library">{filtered.length ? filtered.map((packet) => <article key={packet.id} data-selected={packet.id === selectedId}><button className={styles.packetName} disabled={busy} onClick={() => load(packet)} title="载入编辑，不会自动发送"><strong>{packet.name}</strong><small>{packet.protocol.toUpperCase()} · {packet.host}:{packet.port}</small></button><button disabled={busy} onClick={() => load(packet)}>载入</button><button className={styles.delete} disabled={busy} aria-label={`删除报文 ${packet.name}`} onClick={() => setDeleteTarget(packet)}>删除</button></article>) : <p className={styles.empty}>{library.packets.length ? '没有匹配的报文。' : '保存常用报文后，可在这里再次载入。'}</p>}</div>
+          </div>
         </section>
         <section className={`${styles.card} ${styles.logPanel}`}>
           <header><h3>收发记录</h3><div className={styles.tabs}><button aria-pressed={logMode === 'hex'} onClick={() => setLogMode('hex')}>HEX</button><button aria-pressed={logMode === 'escaped'} onClick={() => setLogMode('escaped')}>转义</button></div><label className={styles.follow}><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />自动滚动</label><button disabled={!events.length} onClick={() => void copyLogs()}>复制</button><button onClick={() => setEvents([])}>清空</button></header>

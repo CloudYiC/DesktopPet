@@ -101,10 +101,31 @@ const { chromium } = require('playwright');
     await card.getByRole('button', { name: '打开', exact: true }).click(); await workspace().waitFor();
   }
   async function box(locator) {
-    return locator.evaluate((element) => { const rect = element.getBoundingClientRect(); return {
+    return locator.evaluate((element) => { const rect = element.getBoundingClientRect(), style = getComputedStyle(element); return {
       x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, height: rect.height,
       clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
+      contentHeight: element.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
     }; });
+  }
+  async function verifyReadableLayout(width, height, scenario) {
+    const main = page.getByRole('main').last();
+    await main.evaluate((element) => { element.scrollTop = 0; });
+    const outer = await box(main), left = await box(page.getByTestId('packet-sender-editor')),
+      right = await box(page.getByTestId('packet-sender-results')), consoleBounds = await box(log());
+    assert.ok(outer.scrollWidth <= outer.clientWidth + 1, `${scenario}: no horizontal page scrollbar`);
+    assert.ok(consoleBounds.contentHeight >= 319, `${scenario}: log text has at least 320px of usable height, excluding padding`);
+    if (width > 900) {
+      assert.ok(right.x >= left.right + 8 && Math.abs(right.y - left.y) <= 2, `${scenario}: editing and results remain aligned side by side`);
+      if (right.bottom > height + 1) {
+        assert.ok(outer.scrollHeight > outer.clientHeight, `${scenario}: an outer scrollbar permits taller results instead of clipping them`);
+      }
+    } else assert.ok(right.y >= left.bottom, `${scenario}: only narrow windows use a natural stack`);
+    assert.ok((await box(field('报文内容'))).height >= 110, `${scenario}: payload editor is not squeezed`);
+    const footer = page.getByTestId('packet-sender-results').locator('footer');
+    await footer.scrollIntoViewIfNeeded();
+    assert.ok((await box(footer)).bottom <= height + 1, `${scenario}: log footer is reachable through normal vertical scrolling`);
+    assert.ok((await box(log())).contentHeight >= 319, `${scenario}: scrolling does not collapse the log`);
+    await main.evaluate((element) => { element.scrollTop = 0; });
   }
   const saved = (name, id) => ({ id, updatedAt: '2026-09-14T00:00:00.000Z', name, protocol: 'udp', host: '127.0.0.1', port: 9000,
     localAddress: '127.0.0.1', localPort: 0, dataMode: 'hex', payload: '00 ff 41', intervalMs: 150, repeatCount: 3 });
@@ -286,6 +307,66 @@ const { chromium } = require('playwright');
     assert.equal(await count('network.start'), startsWhileJoined, 'an explicit send reuses the joined socket without dropping membership');
     assert.equal(await count('network.send'), sendsBeforeJoin + 1);
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true);
+
+    // A real-looking active status, including wrapping multicast details, must not
+    // steal the console's minimum readable height. All state is fixture-only.
+    const layoutStartBase = await count('network.start'), layoutSendBase = await count('network.send');
+    const libraryPanel = page.getByTestId('packet-library-panel');
+    await button('删除报文 Imported fixture').click();
+    await dialog.getByRole('button', { name: '删除报文', exact: true }).click();
+    assert.equal(await libraryPanel.getAttribute('data-empty'), 'true');
+    assert.equal(await libraryPanel.locator('input:not([type=file]):visible').count(), 0, 'empty library does not reserve space for a pointless search box');
+    for (const [width, height, size] of [[1280, 762, 'comfortable'], [1024, 640, 'large']]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
+      await verifyReadableLayout(width, height, `active-empty-library-${width}-${size}`);
+      assert.ok((await box(libraryPanel)).height < 180, 'empty library stays compact rather than occupying half the results');
+      assert.ok((await page.getByTestId('packet-multicast-state').innerText()).includes('已加入 224.20.20.20'));
+      if (width === 1280) {
+        const sendDock = await box(button('停止 / 断开'));
+        assert.ok(sendDock.y >= 0 && sendDock.bottom <= height + 1,
+          'normal-size active empty-library view keeps the full send/stop dock visible without page scrolling');
+        const outer = await box(page.getByRole('main').last());
+        assert.ok(outer.scrollHeight <= outer.clientHeight + 1, 'ordinary active fixture does not require an outer scrollbar');
+      }
+      if (width === 1024) {
+        const detailLines = await page.getByTestId('packet-multicast-state').locator('..').evaluate((element) => {
+          const children = [...element.children].map((child) => child.getBoundingClientRect());
+          return Math.max(...children.map((rect) => rect.bottom)) - Math.min(...children.map((rect) => rect.top));
+        });
+        assert.ok(detailLines > 25, 'large-text active endpoint details really wrap in this regression scenario');
+      }
+      await page.screenshot({ path: path.join(directory, `active-empty-library-${width}-${size}.png`), fullPage: true });
+    }
+    await workspace().locator('input[type=file]').nth(0).setInputFiles({ name: 'layout-packets.json', mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: Array.from({ length: 12 }, (_, index) => saved(`Layout fixture ${index + 1}`, `layout-${index}`)) })) });
+    await page.waitForFunction(() => document.querySelector('[data-testid="packet-library"]').querySelectorAll('article').length === 12);
+    assert.equal(await libraryPanel.getAttribute('data-empty'), 'false');
+    assert.equal(await libraryPanel.locator('input:not([type=file]):visible').count(), 1, 'saved packets retain search');
+    for (const [width, height, size] of [[1280, 762, 'comfortable'], [1024, 640, 'large']]) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
+      await verifyReadableLayout(width, height, `active-populated-library-${width}-${size}`);
+      const expandedLibrary = await box(libraryPanel), packetList = await box(page.getByTestId('packet-library'));
+      assert.ok(expandedLibrary.height <= 220, 'many saved packets stay inside a compact capped library');
+      assert.ok(packetList.scrollHeight > packetList.clientHeight && packetList.clientHeight > 0, 'saved entries scroll within their library');
+      await button('收起报文库').click();
+      assert.equal(await libraryPanel.getAttribute('data-collapsed'), 'true');
+      assert.equal(await button('展开报文库').getAttribute('aria-expanded'), 'false');
+      assert.ok(await page.locator('#packet-library-content').isHidden(), 'collapse hides library controls and list');
+      assert.ok((await box(libraryPanel)).height < expandedLibrary.height - 40, 'collapsing actually gives space back to the log');
+      await verifyReadableLayout(width, height, `active-collapsed-library-${width}-${size}`);
+      assert.ok((await box(log())).contentHeight >= 319, 'collapsing never trades away the minimum log height');
+      await page.screenshot({ path: path.join(directory, `active-collapsed-library-${width}-${size}.png`), fullPage: true });
+      await button('展开报文库').click();
+      assert.equal(await button('收起报文库').getAttribute('aria-expanded'), 'true');
+      assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 12, 'collapse and expand preserve every saved packet');
+    }
+    assert.equal(await count('network.start'), layoutStartBase, 'layout and library controls never restart the active session');
+    assert.equal(await count('network.send'), layoutSendBase, 'layout and library controls never send');
+    assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true, 'library changes do not leave the multicast group');
+    await page.setViewportSize({ width: 1280, height: 762 });
+    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
     await button('退出组播').click();
     await page.waitForFunction(() => window.__packetFixture.snapshot.state === 'stopped');
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), false, 'stop releases membership');
@@ -299,9 +380,10 @@ const { chromium } = require('playwright');
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), false);
     assert.equal(await count('network.send'), sendsBeforeJoin + 1);
     assert.equal(await page.getByTestId('packet-multicast-state').count(), 0, 'failed membership is never shown as joined');
-    const errorBounds = await box(page.getByRole('alert')), resultBounds = await box(page.getByTestId('packet-sender-results'));
+    await page.getByRole('main').last().evaluate((element) => { element.scrollTop = 0; });
+    const errorBounds = await box(page.getByRole('alert'));
     assert.ok(errorBounds.bottom <= page.viewportSize().height, 'native error is visible without scrolling the editor');
-    assert.ok(resultBounds.bottom <= page.viewportSize().height + 1, 'membership errors do not push results below the client');
+    await verifyReadableLayout(1280, 762, 'native membership error');
     await page.screenshot({ path: path.join(directory, 'multicast-synthetic-error.png'), fullPage: true });
     // A saved adapter that disappeared is never silently replaced by another route.
     await page.evaluate(() => { window.__packetFixture.interfaces = window.__packetFixture.interfaces.filter((adapter) => adapter.address !== '192.0.2.6'); });
@@ -323,21 +405,13 @@ const { chromium } = require('playwright');
     await page.waitForTimeout(300); assert.equal(await count('network.send'), failureBase + 1);
     assert.ok((await page.getByRole('alert').innerText()).includes('Synthetic send failure'));
 
-    // Stable split workspace at the normal and maximized sizes, natural narrow stack.
+    // Prioritize legible logs; short/large-text windows may scroll the whole page.
     await button('新建').click(); await field('发送网卡').selectOption('127.0.0.1');
     for (const [width, height] of [[1280, 762], [1024, 640], [1920, 1040], [760, 560]]) {
       await page.setViewportSize({ width, height });
       for (const size of ['comfortable', 'large']) {
         await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
-        const outer = await box(page.getByRole('main').last()), left = await box(page.getByTestId('packet-sender-editor')), right = await box(page.getByTestId('packet-sender-results'));
-        assert.ok(outer.scrollWidth <= outer.clientWidth + 1, 'no horizontal page scrollbar');
-        if (width > 900) {
-          assert.ok(right.x >= left.right + 8 && Math.abs(right.y - left.y) <= 2, 'default/maximized use aligned left editing and right results');
-          assert.ok(outer.scrollHeight <= outer.clientHeight + 1, 'large layouts do not require whole-page scrolling');
-          assert.ok(right.bottom <= height + 1, 'results remain within the client viewport');
-          assert.ok((await box(log())).height >= (height < 700 ? 160 : 210), 'receive log keeps useful height');
-        } else assert.ok(right.y >= left.bottom, 'only narrow windows use a natural stack');
-        assert.ok((await box(field('报文内容'))).height >= 110, 'payload editor is not squeezed');
+        await verifyReadableLayout(width, height, `${width}x${height}-${size}`);
         await page.screenshot({ path: path.join(directory, `${width}x${height}-${size}.png`), fullPage: true });
       }
     }
@@ -368,7 +442,7 @@ const { chromium } = require('playwright');
     await page.waitForTimeout(400);
     assert.equal(await count('network.send'), sendsBeforeUnmount + 1, 'leaving during pending TX cancels remaining repeat sends');
     assert.deepEqual(errors, [], 'no uncaught application exceptions');
-    console.log('PASS: read-only adapter list; no automatic network effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; exact frozen repeat/stop; legacy template import/load/delete; explicit external consent/cancel; selected multicast interface/TTL; receive-only join/native acknowledgment/RX/leave/error; separate local/destination ports; bounded logs; default/1024/maximized split and narrow stack. All traffic is synthetic.');
+    console.log('PASS: read-only adapter list; no automatic network effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; exact frozen repeat/stop; legacy template import/load/delete; explicit external consent/cancel; selected multicast interface/TTL; receive-only join/native acknowledgment/RX/leave/error; separate local/destination ports; active wrapping-status, empty/populated/collapsed libraries; 320px usable bounded logs; natural vertical overflow with no horizontal scrollbar; default/1024/maximized split and narrow stack. All traffic is synthetic.');
   } catch (error) {
     await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error;
   } finally { await browser.close(); }

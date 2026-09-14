@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.8-desktop',
+    date: '2026-09-14',
+    items: [
+      { kind: '~', text: 'Gave packet traffic logs a 320px content-height floor and the remaining workspace space; short windows and wrapped session details may scroll vertically instead of squeezing logs' },
+      { kind: '+', text: 'Added collapsible saved packets and compact empty-library spacing without changing packet data or active network sessions' },
+      { kind: '~', text: 'Documented the distinction between packet-template workflows and connection/server debugging; send and reply functionality remain intact' },
+    ],
+  },
+  {
     version: 'v0.13.7-desktop',
     date: '2026-09-14',
     items: [

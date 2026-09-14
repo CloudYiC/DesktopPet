@@ -1,5 +1,5 @@
 @use '../../../shared/tool-workspace/toolPalette' as p;
-.workspace { @include p.workspace; display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 28px); min-height: 0; min-width: 0; font-size: .8125rem; }
+.workspace { @include p.workspace; display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 28px); min-height: min-content; min-width: 0; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace textarea, .workspace select { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 32px; padding: 5px 9px; color: p.$deep; background: p.$paper; border: 1px solid p.$line; border-radius: 7px; cursor: pointer; white-space: nowrap; }
@@ -11,11 +11,13 @@
 .workspace input[type=checkbox] { accent-color: p.$primary; margin: 0; width: 14px; height: 14px; flex-shrink: 0; }
 .workspace h3 { margin: 0; font-size: .9375rem; }
 .workspace small { color: p.$muted; font-size: .75rem; line-height: 1.5; }
-.workbench { display: grid; grid-template-columns: clamp(320px, 32vw, 390px) minmax(0,1fr); gap: 12px; min-height: 0; min-width: 0; flex: 1; }
-.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; }
+.workbench { display: grid; grid-template-columns: clamp(320px, 32vw, 390px) minmax(0,1fr); gap: 12px; min-height: min-content; min-width: 0; flex: 1; }
+// Only the results determine the wide grid's minimum height. Settings keep
+// their own scrollbar instead of forcing the entire workspace to their size.
+.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; contain: size; }
 .editScroll { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .editScroll > .card { flex-shrink: 0; }
-.right { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.right { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: min-content; }
 .card { min-width: 0; padding: 12px; border: 1px solid p.$line; border-radius: 11px; background: p.$paper; }
 .editor > .card { flex-shrink: 0; }
 .card > header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap; }
@@ -35,7 +37,7 @@
 .multicastControls small { display: block; margin-top: 5px; }
 .sendDock { flex-shrink: 0; background: p.$teal-soft; }
 .sendDock .sendOptions { margin-top: 0; }
-.endpoints { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -2px 0 8px; color: p.$muted; font-size: .75rem; overflow-wrap: anywhere; }
+.endpoints { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 4px 12px; margin: -2px 0 8px; color: p.$muted; font-size: .75rem; overflow-wrap: anywhere; }
 .endpoints [data-testid=packet-multicast-state] { color: p.$violet; }
 .reviewContent { color: p.$ink; line-height: 1.6; overflow-wrap: anywhere; }
 .reviewContent dl { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: 8px; padding: 12px; background: p.$blue-soft; border-radius: 8px; }
@@ -63,20 +65,26 @@
 .notice { color: p.$teal; background: p.$teal-soft; }
 .error { color: p.$danger; background: p.$danger-soft; }
 .warning { margin-top: 8px; color: p.$amber; background: p.$amber-soft; }
-.library { display: flex; flex-direction: column; min-height: 0; height: 220px; flex-shrink: 0; background: linear-gradient(180deg,p.$violet-soft,p.$paper 60px); }
+.library { display: flex; flex-direction: column; min-height: 0; height: 180px; flex-shrink: 0; background: linear-gradient(180deg,p.$violet-soft,p.$paper 60px); }
+.library[data-empty=true], .library[data-collapsed=true] { height: auto; }
+.library[data-collapsed=true] > header { margin-bottom: 0; }
 .library header h3 span { color: p.$violet; font-size: .75rem; }
-.library > input { flex-shrink: 0; }
+.libraryBody { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.libraryBody[hidden] { display: none; }
+.libraryBody > input { flex-shrink: 0; }
 .packetList { min-height: 0; flex: 1; overflow: auto; margin-top: 6px; }
 .packetList article { display: flex; align-items: center; gap: 5px; padding: 5px; border-bottom: 1px solid p.$line; }
 .packetList article[data-selected=true] { background: p.$teal-soft; }
 .packetList .packetName { display: grid; flex: 1; min-width: 0; text-align: left; border: 0; padding: 2px; background: transparent; gap: 4px; }
 .packetName strong, .packetName small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.empty { color: p.$muted; text-align: center; padding: 10px; line-height: 1.6; }
-.logPanel { display: flex; flex-direction: column; flex: 1; min-height: 0; background: linear-gradient(180deg,p.$blue-soft,p.$paper 60px); }
+.empty { color: p.$muted; text-align: center; margin: 4px 0; padding: 8px; line-height: 1.6; }
+.logPanel { display: flex; flex-direction: column; flex: 1; min-height: min-content; background: linear-gradient(180deg,p.$blue-soft,p.$paper 60px); }
 .logPanel .follow { display: flex; align-items: center; gap: 5px; color: p.$muted; white-space: nowrap; font-size: .75rem; }
-.session { display: flex; gap: 6px 16px; flex-wrap: wrap; color: p.$muted; margin-bottom: 8px; font-size: .75rem; }
+.session { display: flex; gap: 6px 16px; flex-wrap: wrap; flex-shrink: 0; color: p.$muted; margin-bottom: 8px; font-size: .75rem; }
 .session > span:first-child { margin-right: auto; color: p.$teal; }
-.log { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; background: p.$console; color: p.$console-text; border-radius: 8px; padding: 10px 12px; font: 12px/1.6 Consolas,monospace; }
+// The console has a reading floor; short windows scroll the page instead of
+// sacrificing message space. A zero basis keeps incoming rows out of sizing.
+.log { flex: 1 1 0; height: 0; min-height: 340px; overflow: auto; overscroll-behavior: contain; background: p.$console; color: p.$console-text; border-radius: 8px; padding: 10px 12px; font: 12px/1.6 Consolas,monospace; }
 .logRow { border-bottom: 1px solid #ffffff12; padding: 5px 0; }
 .logRow > div { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
 .logRow time, .logRow span { color: p.$console-muted; }
@@ -86,7 +94,6 @@
 .logRow[data-kind=error] :is(b,pre) { color: p.$console-error; }
 .logRow pre { font: inherit; margin: 3px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .logEmpty { display: grid; height: 100%; place-items: center; text-align: center; color: p.$console-muted; }
-.logPanel footer { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; color: p.$muted; padding-top: 8px; font-size: .6875rem; }
+.logPanel footer { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; flex-shrink: 0; color: p.$muted; padding-top: 8px; font-size: .6875rem; }
 @media (max-width:1100px) { .workbench { grid-template-columns: 310px minmax(0,1fr); gap: 10px; } .card { padding: 10px; } .sendActions { grid-template-columns: 1fr 1fr; } .sendActions .stop { grid-column: 1/-1; } .logPanel footer span:last-child { display: none; } }
-@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor, .editScroll { overflow: visible; } .payloadCard textarea { min-height: 140px; } .library { height: 230px; } .logPanel { height: 430px; flex: none; } }
-@media (max-height:540px) and (min-width:901px) { .workspace { height: 540px; } }
+@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor { contain: none; } .editor, .editScroll { overflow: visible; } .payloadCard textarea { min-height: 140px; } .logPanel { min-height: min-content; height: 490px; flex: none; } }
