@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isNativeHost } from '../bridge/hostBridge';
 import { isModbusWrite, modbusCall, modbusFunctions, modbusProtocolAddress, modbusQuantityLimit, modbusReference,
   type ModbusConnection, type ModbusLog, type ModbusPoll, type ModbusRequest, type ModbusResult, type ModbusSnapshot } from '../bridge/modbusBridge';
@@ -12,6 +12,8 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : S
 const time = (value: number) => new Date(value).toLocaleTimeString('zh-CN', { hour12: false }) + '.' + String(value % 1000).padStart(3, '0');
 const hex = (value: number) => '0x' + value.toString(16).toUpperCase().padStart(4, '0');
 interface WriteConfirmation extends ModbusRequest { endpoint: string; unitId: number; transport: 'tcp' | 'rtu' }
+interface ResultContext { key: string; endpoint: string; unitId: number; request: ModbusRequest }
+const contextKey = (snapshot: ModbusSnapshot, request: ModbusRequest) => JSON.stringify([snapshot.transport, snapshot.endpoint, snapshot.unitId, request.functionCode, request.address, request.quantity]);
 
 /** Device requests stay single-flight. Polling never repeats writes, and a write
  * confirmation captures an immutable complete request rather than live inputs. */
@@ -24,14 +26,37 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
   const [allowWrite, setAllowWrite] = useState(false), [auto, setAuto] = useState(false), [interval, setIntervalMs] = useState('1000');
   const [signed, setSigned] = useState(false), [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('');
   const [confirmation, setConfirmation] = useState<WriteConfirmation | null>(null);
+  const [resultContext, setResultContext] = useState<ResultContext | null>(null), [previousValues, setPreviousValues] = useState<number[] | null>(null);
+  const [search, setSearch] = useState(''), [changesOnly, setChangesOnly] = useState(false);
+  const [logOpen, setLogOpen] = useState(false), [followLogs, setFollowLogs] = useState(true), [newLogs, setNewLogs] = useState(0);
+  const expected = useRef<ResultContext | null>(null), baseline = useRef<{ key: string; result: ModbusResult } | null>(null);
+  const logAtEnd = useRef(true), logFollowing = useRef(true);
   const alive = useRef(true), commandBusy = useRef(false), revision = useRef(0), lastResult = useRef(0), logRegion = useRef<HTMLDivElement>(null);
   const connected = snapshot.state === 'connected', locked = busy || snapshot.pending || auto || Boolean(confirmation);
   const connectionLocked = !['stopped', 'error'].includes(snapshot.state) || busy;
   const write = isModbusWrite(code);
+  const appendLogs = useCallback((incoming: ModbusLog[] | undefined) => {
+    if (!incoming?.length) return;
+    // Poll drains the native queue. A late poll may be stale for connection/data
+    // state but its already-drained frames must not disappear during a new request.
+    setLogs((previous) => [...new Map([...previous, ...incoming].map((line) => [line.id, line])).values()].sort((a, b) => a.id - b.id).slice(-256));
+    if (!logFollowing.current || !logAtEnd.current) setNewLogs((count) => count + incoming.length);
+  }, []);
   const apply = useCallback((response: ModbusPoll) => {
     setSnapshot(response.snapshot);
-    if (response.snapshot.result && response.snapshot.result.id !== lastResult.current) { lastResult.current = response.snapshot.result.id; setResult(response.snapshot.result); }
-    if (response.logs?.length) setLogs((previous) => [...previous, ...response.logs!].slice(-256));
+    const incoming = response.snapshot.result;
+    if (incoming && incoming.id !== lastResult.current) {
+      lastResult.current = incoming.id;
+      const context = expected.current;
+      // Ignore stale snapshots after editing/connecting; only a user-issued request
+      // can establish a result. Comparisons never cross device/range/function or write.
+      if (context && context.key === contextKey(response.snapshot, incoming)) {
+        const previous = baseline.current;
+        setPreviousValues(!incoming.written && previous?.key === context.key && !previous.result.written ? previous.result.values : null);
+        baseline.current = { key: context.key, result: incoming };
+        setResult(incoming); setResultContext(context);
+      }
+    }
     if (response.snapshot.error) { setAuto(false); setFeedback(''); }
   }, []);
   useEffect(() => {
@@ -42,21 +67,21 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       const current = revision.current;
       if (!commandBusy.current) try {
         const response = await modbusCall<ModbusPoll>('poll');
-        if (!cancelled && current === revision.current) apply(response);
-      } catch (error) { if (!cancelled) { setFeedback(errorText(error)); setAuto(false); } }
+        if (!cancelled) { appendLogs(response.logs); if (current === revision.current) apply(response); }
+      } catch (error) { if (!cancelled && current === revision.current) { setFeedback(errorText(error)); setAuto(false); } }
       if (!cancelled) timer = setTimeout(poll, 150);
     };
     void poll();
     return () => { cancelled = true; alive.current = false; ++revision.current; clearTimeout(timer); void modbusCall('stop').catch(() => {}); };
-  }, [apply]);
-  useEffect(() => { if (logRegion.current) logRegion.current.scrollTop = logRegion.current.scrollHeight; }, [logs]);
+  }, [apply, appendLogs]);
+  useLayoutEffect(() => { if (logRegion.current && logFollowing.current && logAtEnd.current) logRegion.current.scrollTop = logRegion.current.scrollHeight; }, [logs, logOpen]);
   const runCommand = useCallback(async (action: string, payload: object = {}) => {
     if (commandBusy.current) return;
     commandBusy.current = true; setBusy(true); setFeedback(''); const current = ++revision.current;
-    try { const response = await modbusCall<ModbusPoll>(action, payload); if (alive.current && current === revision.current) apply(response); }
+    try { const response = await modbusCall<ModbusPoll>(action, payload); if (alive.current) { appendLogs(response.logs); if (current === revision.current) apply(response); } }
     catch (error) { if (alive.current && current === revision.current) { setFeedback(errorText(error)); setAuto(false); } }
     finally { commandBusy.current = false; if (alive.current) setBusy(false); }
-  }, [apply]);
+  }, [apply, appendLogs]);
   const readRequest = (): ModbusRequest => {
     const offset = referenceMode ? modbusProtocolAddress(code, address) : Number(address);
     const count = Number(quantity);
@@ -72,12 +97,19 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     }
     return request;
   };
+  const prepareRequest = (request: ModbusRequest) => {
+    expected.current = { key: contextKey(snapshot, request), endpoint: snapshot.endpoint || '', unitId: snapshot.unitId ?? connection.unitId, request };
+    // Keep the last successful same-request result visible while refreshing.
+    if (baseline.current?.key !== expected.current.key || isModbusWrite(request.functionCode)) {
+      setResult(null); setResultContext(null); setPreviousValues(null); baseline.current = null;
+    }
+  };
   const execute = () => {
     if (!connected || commandBusy.current || snapshot.pending) return;
     try {
       const request = readRequest();
       if (write) { if (!allowWrite) throw new Error('请先开启“允许写入”，每次写入仍需确认。'); setAuto(false); setConfirmation({ ...request, endpoint: snapshot.endpoint || '', unitId: snapshot.unitId ?? connection.unitId, transport: connection.transport }); }
-      else { setResult(null); void runCommand('request', request); }
+      else { prepareRequest(request); void runCommand('request', request); }
     } catch (error) { setAuto(false); setFeedback(errorText(error)); }
   };
   const executeRef = useRef(execute); executeRef.current = execute;
@@ -87,7 +119,7 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     if (!Number.isInteger(delay) || delay < 100 || delay > 60000) { setAuto(false); setFeedback('轮询间隔必须为 100–60000 毫秒。'); return; }
     const timer = setTimeout(() => executeRef.current(), delay); return () => clearTimeout(timer);
   }, [auto, connected, busy, snapshot.pending, snapshot.result?.id, interval, write]);
-  const edit = () => { setResult(null); setFeedback(''); };
+  const edit = () => { expected.current = null; baseline.current = null; setResult(null); setResultContext(null); setPreviousValues(null); setFeedback(''); setSearch(''); setChangesOnly(false); };
   const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); if (alive.current) setFeedback('已复制。'); } catch { if (alive.current) setFeedback('复制失败，请检查剪贴板权限。'); } };
   let reference = '—'; try {
     const offset = referenceMode ? modbusProtocolAddress(code, address) : Number(address), count = Number(quantity);
@@ -95,6 +127,17 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       reference = `${modbusReference(code, offset)}–${modbusReference(code, offset + count - 1)}`;
   } catch { /* Invalid fields are reported on execution. */ }
   const refreshPorts = async () => { try { const response = await modbusCall<{ ports: string[] }>('ports'); if (alive.current) { setPorts(response.ports); if (!response.ports.length) setFeedback('未检测到串口，可手动填写 COM 名称。'); } } catch (error) { if (alive.current) setFeedback(errorText(error)); } };
+  const bits = Boolean(result && [1, 2, 5, 15].includes(result.functionCode));
+  const displayValue = (value: number) => bits ? value ? 'ON / 1' : 'OFF / 0' : String(signed && value >= 32768 ? value - 65536 : value);
+  const changedCount = result?.values.reduce((count, value, index) => count + Number(previousValues !== null && previousValues[index] !== value), 0) || 0;
+  const rows = useMemo(() => {
+    if (!result) return [];
+    const needle = search.trim().toLowerCase();
+    return result.values.map((value, index) => ({ value, index, address: result.address + index, changed: previousValues !== null && previousValues[index] !== value }))
+      .filter((row) => (!changesOnly || row.changed) && (!needle || [String(row.address), modbusReference(result.functionCode, row.address), hex(row.address), hex(row.value), String(row.value), String(signed && row.value >= 32768 ? row.value - 65536 : row.value), bits ? row.value ? 'on' : 'off' : ''].some((text) => text.toLowerCase().includes(needle))));
+  }, [result, previousValues, search, changesOnly, signed, bits]);
+  const followLatest = () => { logAtEnd.current = true; logFollowing.current = true; setFollowLogs(true); setNewLogs(0); if (logRegion.current) logRegion.current.scrollTop = logRegion.current.scrollHeight; };
+  const latestFrame = [...logs].reverse().find((line) => line.direction === 'TX' || line.direction === 'RX');
   return <section className={styles.workspace} data-testid="modbus-workspace">
     <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
     <div className={styles.workbench}>
@@ -106,7 +149,7 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       <div className={`${styles.connectionFields} ${connection.transport === 'rtu' ? styles.rtuFields : ''}`}>
         {connection.transport === 'tcp' ? <><label>主机地址<input aria-label="Modbus 主机地址" value={connection.host} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, host: e.target.value })} placeholder="IPv4 / IPv6 地址" /></label><label>端口<input aria-label="Modbus TCP 端口" type="number" min="1" max="65535" value={connection.port} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, port: Number(e.target.value) })} /></label></> : <><label>串口<div className={styles.portPicker}><input aria-label="Modbus 串口" list="modbus-ports" value={connection.serialPort} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, serialPort: e.target.value.toUpperCase() })} /><datalist id="modbus-ports">{ports.map((port) => <option key={port} value={port} />)}</datalist><button aria-label="刷新 Modbus 串口" disabled={connectionLocked || !isNativeHost} onClick={() => void refreshPorts()}>↻</button></div></label><label>波特率<select aria-label="Modbus 波特率" value={connection.baudRate} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, baudRate: Number(e.target.value) })}>{[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400].map((n) => <option key={n}>{n}</option>)}</select></label><label>校验 / 数据位<select aria-label="Modbus 校验位" value={connection.parity} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, parity: e.target.value as ModbusConnection['parity'] })}><option value="even">Even / 8</option><option value="odd">Odd / 8</option><option value="none">None / 8</option></select></label><label>停止位<select aria-label="Modbus 停止位" value={connection.stopBits} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, stopBits: Number(e.target.value) as 1 | 2 })}><option value="1">1</option><option value="2">2</option></select></label></>}
         <label>设备 ID<input aria-label="Modbus 设备 ID" type="number" min="1" max="247" value={connection.unitId} disabled={connectionLocked} onChange={(e) => setConnection({ ...connection, unitId: Number(e.target.value) })} /></label>
-        <button className={styles.primary} disabled={busy || snapshot.state === 'stopping' || !isNativeHost} onClick={() => { setAuto(false); setConfirmation(null); setAllowWrite(false); setResult(null); void runCommand(connectionLocked ? 'stop' : 'start', connectionLocked ? {} : connection); }}>{connectionLocked ? '断开连接' : '连接设备'}</button>
+        <button className={styles.primary} disabled={busy || snapshot.state === 'stopping' || !isNativeHost} onClick={() => { setAuto(false); setConfirmation(null); setAllowWrite(false); edit(); void runCommand(connectionLocked ? 'stop' : 'start', connectionLocked ? {} : connection); }}>{connectionLocked ? '断开连接' : '连接设备'}</button>
       </div>
     </section>
     <section className={styles.requestPanel} aria-label="Modbus 请求参数"><div className={styles.requestFields}>
@@ -120,11 +163,13 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
     </section>
     </div>
     <div className={styles.results} data-testid="modbus-results">
-    <section className={styles.dataPanel}><header><h3>{result && [1, 2, 5, 15].includes(result.functionCode) ? '线圈 / 离散量数据' : '寄存器数据'}</h3><span>{result ? `${result.values.length} 项` : '尚无数据'}</span><select aria-label="寄存器数据显示" value={signed ? 'signed' : 'unsigned'} onChange={(e) => setSigned(e.target.value === 'signed')}><option value="unsigned">无符号 16 位</option><option value="signed">有符号 16 位</option></select><button disabled={!result} onClick={() => result && void copy(['协议地址\t参考编号\tHEX\t十进制', ...result.values.map((v, i) => `${result.address + i}\t${modbusReference(result.functionCode, result.address + i)}\t${hex(v)}\t${signed && v >= 32768 ? v - 65536 : v}`)].join('\n'))}>复制结果</button></header>
-      <div className={styles.tableScroll} data-testid="modbus-data"><table><thead><tr><th>协议地址</th><th>参考编号</th><th>HEX</th><th>十进制</th><th>更新时间</th></tr></thead><tbody>{result?.values.map((value, index) => <tr key={index}><td>{result.address + index}</td><td>{modbusReference(result.functionCode, result.address + index)}</td><td><code>{hex(value)}</code></td><td>{signed && value >= 32768 ? value - 65536 : value}</td><td>{time(result.timestamp)}</td></tr>)}</tbody></table>{!result && <p className={styles.empty}>{!isNativeHost ? '设备通信仅限 Windows 客户端；浏览器不会模拟成功结果。' : snapshot.pending ? '等待设备响应…' : '连接设备后读取数据；协议地址从 0 开始。'}</p>}</div>
-      <footer role={snapshot.error ? 'alert' : 'status'}>{snapshot.error || feedback || (result ? `${result.written ? '设备已确认写入' : '读取成功'} · ${result.elapsedMs} ms` : '01 / 02 / 03 / 04 读取 · 05 / 06 / 15 / 16 写入')}</footer>
+    <section className={styles.dataPanel}><header><h3>{bits ? '线圈 / 离散量数据' : '寄存器数据'}</h3><span className={snapshot.pending ? styles.refreshing : styles.resultCount}>{snapshot.pending ? result ? '刷新中 · 保留上次结果' : '等待响应…' : auto ? '轮询中' : result ? `${result.values.length} 项` : '尚无数据'}</span><select aria-label="寄存器数据显示" value={signed ? 'signed' : 'unsigned'} disabled={bits} onChange={(e) => setSigned(e.target.value === 'signed')}><option value="unsigned">无符号 16 位</option><option value="signed">有符号 16 位</option></select><button disabled={!rows.length} onClick={() => result && void copy(['协议地址\t参考编号\tHEX\t' + (bits ? '状态' : '十进制'), ...rows.map(({ value, address: rowAddress }) => `${rowAddress}\t${modbusReference(result.functionCode, rowAddress)}\t${hex(value)}\t${displayValue(value)}`)].join('\n'))}>复制当前结果</button></header>
+      <div className={styles.dataTools}><input aria-label="筛选 Modbus 数据" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索地址、参考编号、HEX 或数值…" /><label><input aria-label="只看变化数据" type="checkbox" checked={changesOnly} disabled={!result} onChange={(event) => setChangesOnly(event.target.checked)} />只看变化 <b>{changedCount}</b></label></div>
+      <div className={styles.resultMeta} data-testid="modbus-result-context">{result && resultContext ? <><span title={resultContext.endpoint}>{resultContext.endpoint} · ID {resultContext.unitId}</span><span>FC {String(result.functionCode).padStart(2, '0')} · 地址 {result.address}–{result.address + result.values.length - 1}</span><span>{rows.length} / {result.values.length} 项{previousValues ? ` · 本次变化 ${changedCount}` : result.written ? ' · 写入确认值' : ' · 首次读取'}</span></> : <span>读取后可按地址、值快速定位；再次读取会标出变化。</span>}</div>
+      <div className={styles.tableScroll} data-testid="modbus-data"><table><thead><tr><th>协议地址</th><th>参考编号</th><th>HEX</th><th>{bits ? '状态' : '数值'}</th><th>更新时间</th></tr></thead><tbody>{result && rows.map(({ value, index, address: rowAddress, changed }) => <tr key={rowAddress} data-changed={changed || undefined} className={changed ? styles.changed : undefined}><td>{rowAddress}</td><td>{modbusReference(result.functionCode, rowAddress)}</td><td><code>{hex(value)}</code></td><td><span className={bits ? value ? styles.on : styles.off : styles.value}>{displayValue(value)}</span>{changed && <small className={styles.changeNote}>原 {displayValue(previousValues![index])} → 当前</small>}</td><td><time>{time(result.timestamp)}</time>{changed && <small className={styles.changeBadge}>已变化</small>}</td></tr>)}</tbody></table>{!result && <p className={styles.empty}>{!isNativeHost ? '设备通信仅限 Windows 客户端；浏览器不会模拟成功结果。' : snapshot.pending ? '等待设备响应…' : '连接设备后读取数据；协议地址从 0 开始。'}</p>}{result && !rows.length && <p className={styles.empty}>{changesOnly && !changedCount ? '本次读取没有变化的数据。' : '没有符合筛选条件的数据。'}<button onClick={() => { setSearch(''); setChangesOnly(false); }}>清除筛选</button></p>}</div>
+      <footer role={snapshot.error ? 'alert' : 'status'}>{snapshot.error || feedback || (result ? `${result.written ? '设备已确认写入' : snapshot.pending ? '正在读取；表中仍为上次成功结果' : auto ? '自动读取中' : '读取已完成'} · ${result.elapsedMs} ms${!snapshot.pending && !auto && previousValues ? ' · 黄色标记与上次同设备、同地址读取的差异' : ''}` : '01 / 02 / 03 / 04 读取 · 05 / 06 / 15 / 16 写入')}</footer>
     </section>
-    <section className={styles.logPanel}><header><h3>原始报文</h3><button disabled={!logs.length} onClick={() => void copy(logs.map((line) => `${time(line.timestamp)} ${line.direction} ${line.hex} ${line.message}`).join('\n'))}>复制</button><button disabled={!logs.length} onClick={() => setLogs([])}>清空</button></header><div className={styles.log} role="log" aria-label="Modbus 原始报文" ref={logRegion}>{logs.length ? logs.map((line) => <div key={line.id}><b className={line.direction === 'TX' ? styles.tx : styles.rx}>{line.direction}</b><time>{time(line.timestamp)}</time><code>{line.hex || line.message}</code>{line.hex && line.message && <small>{line.message}</small>}</div>) : <p>连接后的收发字节显示在这里。</p>}</div></section>
+    <section className={`${styles.logPanel} ${logOpen ? styles.logOpen : ''}`} data-testid="modbus-log-panel"><header><h3>原始报文 <small>{logs.length}</small></h3><button aria-expanded={logOpen} aria-controls="modbus-raw-log" onClick={() => setLogOpen(!logOpen)}>{logOpen ? '收起报文' : '展开报文'}</button></header>{!logOpen && <div className={styles.logSummary}>{latestFrame ? <><b className={latestFrame.direction === 'TX' ? styles.sent : styles.received}>{latestFrame.direction === 'TX' ? '发送 TX' : '接收 RX'}</b><time>{time(latestFrame.timestamp)}</time><code>{latestFrame.hex || latestFrame.message}</code></> : <span>暂无收发报文</span>}</div>}{logOpen && <><div className={styles.logTools}><label><input type="checkbox" aria-label="跟随 Modbus 最新报文" checked={followLogs} onChange={(event) => { logFollowing.current = event.target.checked; setFollowLogs(event.target.checked); if (event.target.checked) followLatest(); }} />跟随最新</label><span>最多保留 256 条</span><button disabled={!logs.length} onClick={() => void copy(logs.map((line) => `${time(line.timestamp)} ${line.direction} ${line.hex} ${line.message}`).join('\n'))}>复制报文</button><button disabled={!logs.length} onClick={() => { setLogs([]); setNewLogs(0); }}>清空报文</button></div><div id="modbus-raw-log" className={styles.log} role="log" aria-label="Modbus 原始报文" ref={logRegion} onScroll={() => { const region = logRegion.current; if (!region) return; logAtEnd.current = region.scrollHeight - region.scrollTop - region.clientHeight < 24; if (logAtEnd.current) setNewLogs(0); }}>{logs.length ? logs.map((line) => <div key={line.id}><b className={line.direction === 'TX' ? styles.tx : line.direction === 'RX' ? styles.rx : styles.info}>{line.direction}</b><time>{time(line.timestamp)}</time><code>{line.hex || line.message}</code>{line.hex && line.message && <small>{line.message}</small>}</div>) : <p>连接后的收发字节显示在这里。</p>}</div>{newLogs > 0 && <button className={styles.newLogs} onClick={followLatest}>{newLogs} 条新报文 · 查看最新</button>}</>}</section>
     </div>
     </div>
     <ConfirmDialog open={Boolean(confirmation)} title="确认写入设备？" confirmLabel="确认写入" size="wide"
@@ -132,7 +177,7 @@ export function ModbusDebugger({ tool, onBack }: { tool: ToolDefinition; onBack(
       onCancel={() => setConfirmation(null)} onConfirm={() => {
       if (!confirmation || commandBusy.current || snapshot.pending || !connected || !allowWrite) return;
       const request: ModbusRequest = { functionCode: confirmation.functionCode, address: confirmation.address, quantity: confirmation.quantity, values: confirmation.values, confirmed: true };
-      setConfirmation(null); setResult(null); void runCommand('request', request);
+      setConfirmation(null); prepareRequest(request); void runCommand('request', request);
     }}>
       <p>写入会修改实际设备。请核对目标、功能、地址和全部值；写入超时后不会自动重试。</p>
       {confirmation && <dl><dt>目标</dt><dd>Modbus {confirmation.transport.toUpperCase()} · {confirmation.endpoint} · ID {confirmation.unitId}</dd><dt>功能</dt><dd>{modbusFunctions.find(([value]) => value === confirmation.functionCode)?.[1]}</dd><dt>协议地址 / 数量</dt><dd>{confirmation.address} / {confirmation.quantity}</dd><dt>全部写入值</dt><dd className={styles.confirmValues}>{confirmation.values?.join(', ')}</dd></dl>}

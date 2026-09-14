@@ -7,7 +7,7 @@ $sand: palette.$surface;
 $teal: palette.$primary;
 $line: palette.$line;
 
-.workspace { @include palette.workspace; height: calc(100dvh - 28px); min-height: 0; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
+.workspace { @include palette.workspace; height: calc(100dvh - 28px); min-height: min-content; display: flex; flex-direction: column; min-width: 0; gap: 10px; color: $ink; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace select, .workspace textarea { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 34px; padding: 5px 13px; border: 1px solid $line; color: $teal; background: $paper; border-radius: 7px; cursor: pointer; white-space: nowrap; }
@@ -19,9 +19,9 @@ $line: palette.$line;
 .workspace h3 { margin: 0; font-size: .9375rem; }
 
 // Keep parameters alongside the result; each column owns its overflow.
-.workbench { display: grid; grid-template-columns: clamp(320px, 31%, 360px) minmax(0, 1fr); gap: 12px; min-width: 0; min-height: 0; flex: 1; }
-.controls { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow: auto; scrollbar-gutter: stable; }
-.results { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.workbench { display: grid; grid-template-columns: clamp(300px, 29%, 340px) minmax(0, 1fr); gap: 12px; min-width: 0; min-height: min-content; flex: 1; }
+.controls { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; overflow: auto; scrollbar-gutter: stable; contain: size; }
+.results { display: flex; flex-direction: column; gap: 10px; min-height: min-content; min-width: 0; }
 .connection, .requestPanel, .dataPanel, .logPanel { min-width: 0; padding: 12px; background: $paper; border: 1px solid $line; border-radius: 11px; }
 .connection, .requestPanel { flex-shrink: 0; }
 .connection > header, .dataPanel > header, .logPanel > header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -60,24 +60,38 @@ $line: palette.$line;
 .writeValues { display: grid; gap: 5px; margin-top: 10px; font-size: .75rem; color: $muted; }
 .writeValues textarea { height: 64px; min-width: 0; padding: 7px 10px; overflow: auto; resize: vertical; max-height: 180px; border: 1px solid $line; border-radius: 6px; background: $sand; color: $ink; }
 
-.dataPanel { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.dataPanel { display: flex; min-height: min-content; flex: 1; flex-direction: column; }
 .dataPanel header { flex-shrink: 0; flex-wrap: wrap; }
 .dataPanel header > span { color: $muted; }
 .dataPanel header select { width: 140px; margin-left: auto; }
 .dataPanel footer { margin-top: 7px; min-height: 22px; max-height: 44px; overflow: auto; color: $muted; font-size: .75rem; flex-shrink: 0; }
 .dataPanel footer[role=alert] { color: palette.$danger; }
-.tableScroll { min-height: 0; flex: 1; overflow: auto; border: 1px solid $line; border-radius: 6px; }
+.tableScroll { height: 0; min-height: clamp(300px, calc(100dvh - 360px), 420px); flex: 1; overflow: auto; contain: size; border: 1px solid $line; border-radius: 6px; }
 .tableScroll table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .75rem; }
 .tableScroll th { position: sticky; top: 0; background: palette.$blue-soft; color: palette.$blue; text-align: left; font-weight: 600; }
 .tableScroll th, .tableScroll td { padding: 8px; border-bottom: 1px solid $line; overflow-wrap: anywhere; }
 .tableScroll th:last-child { width: 106px; }
 .tableScroll tbody tr:nth-child(even) { background: $sand; }
+.tableScroll tbody .changed, .tableScroll tbody .changed:nth-child(even) { background: palette.$amber-soft; box-shadow: inset 3px 0 palette.$amber; }
 .tableScroll code { font-family: Consolas, monospace; }
 .empty { color: $muted; text-align: center; padding: 20px 10px; font-size: .8125rem; }
-.logPanel { height: clamp(156px, 24dvh, 230px); flex-shrink: 0; display: flex; flex-direction: column; }
+.empty button { display: block; margin: 12px auto 0; }
+.logPanel { flex-shrink: 0; display: flex; flex-direction: column; position: relative; }
+.logOpen { height: 250px; }
 .logPanel header { margin-bottom: 7px; }
 .logPanel h3 { margin-right: auto; }
+.logPanel h3 small { color: $muted; font: 12px Consolas, monospace; }
 .logPanel header button { min-height: 28px; padding: 2px 12px; }
+.logSummary { display: flex; gap: 8px; align-items: center; min-width: 0; color: $muted; font: 11px/1.5 Consolas, monospace; }
+.logSummary b, .logSummary time { flex-shrink: 0; }
+.logSummary code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sent { color: palette.$blue; }
+.received { color: palette.$success; }
+.logTools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; font-size: .75rem; color: $muted; }
+.logTools label { display: flex; gap: 5px; align-items: center; }
+.logTools span { margin-right: auto; }
+.logTools button { min-height: 26px; padding: 2px 8px; font-size: .75rem; }
+.logPanel .newLogs { position: absolute; bottom: 20px; right: 26px; box-shadow: 0 2px 8px #0003; font-size: .75rem; }
 .log { min-height: 0; flex: 1; overflow: auto; background: palette.$console; border-radius: 6px; color: palette.$console-text; padding: 8px 10px; font: 12px/1.7 Consolas, monospace; }
 .log > div { display: grid; grid-template-columns: 30px 90px minmax(0, 1fr); gap: 8px; margin-bottom: 5px; }
 .log code { font: inherit; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -86,6 +100,19 @@ $line: palette.$line;
 .log p { margin: 2px; color: palette.$console-muted; }
 .tx { color: palette.$tx; }
 .rx { color: palette.$rx; }
+.info { color: palette.$console-info; }
+.dataTools { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.dataTools input:not([type=checkbox]) { height: 32px; flex: 1; }
+.dataTools label { display: flex; align-items: center; gap: 5px; flex-shrink: 0; color: $muted; font-size: .75rem; }
+.dataTools b { padding: 1px 5px; color: palette.$amber; background: palette.$amber-soft; border-radius: 4px; }
+.resultMeta { display: flex; flex-wrap: wrap; gap: 3px 12px; color: $muted; font-size: .6875rem; margin: 8px 0; flex-shrink: 0; }
+.resultMeta span { min-width: 0; overflow-wrap: anywhere; }
+.refreshing { color: palette.$blue !important; }
+.value { font: 600 13px Consolas, monospace; }
+.on, .off { display: inline-block; border-radius: 4px; padding: 2px 6px; font: 600 12px Consolas, monospace; white-space: nowrap; }
+.on { color: palette.$success; background: palette.$success-soft; }
+.off { color: $muted; background: $sand; }
+.changeNote, .changeBadge { display: block; margin-top: 3px; color: palette.$amber; font-size: .6875rem; }
 .confirmValues { max-height: 170px; overflow: auto; font-family: Consolas, monospace; }
 
 // Palette-only distinctions for connection, request, tabular data and raw bytes.
@@ -113,12 +140,13 @@ $line: palette.$line;
 @media (max-width: 900px) {
   .workspace { height: auto; min-height: calc(100dvh - 28px); }
   .workbench { display: flex; flex-direction: column; flex: none; }
-  .controls { overflow: visible; scrollbar-gutter: auto; }
+  .controls { overflow: visible; scrollbar-gutter: auto; contain: none; }
   .connectionFields, .rtuFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .requestFields { grid-template-columns: minmax(0, 1fr) 110px; }
-  .dataPanel { height: 320px; flex: none; }
+  .dataPanel { flex: none; }
+  .tableScroll { height: 400px; min-height: 300px; flex: none; }
   .dataPanel header select { width: 125px; }
-  .logPanel { height: 190px; }
+  .logOpen { height: 250px; }
   .log > div { grid-template-columns: 25px minmax(0, 1fr); gap: 4px 8px; }
   .log time { text-align: right; }
   .log code, .log small { grid-column: 1 / -1; }

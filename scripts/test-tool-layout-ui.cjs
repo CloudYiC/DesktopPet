@@ -51,7 +51,7 @@ const { chromium } = require('playwright');
       assert.equal(Math.round(frame.x - (await sidebar().boundingBox()).width), 16, `${name} content gap is compact`);
       assert.equal(await header().locator('p,em,i').count(), 0, `${name} has no repeated introduction or large icon`);
       assert.equal((await page.getByRole('main').last().innerText()).includes(description), false, `${name} description remains catalog-only`);
-      if (['JSON 格式化', '网络调试助手', '十六进制报文分析器'].includes(name)) {
+      if (['JSON 格式化', '网络调试助手', 'MQTT 调试助手', 'Modbus 调试助手', '十六进制报文分析器'].includes(name)) {
         await page.screenshot({ path: path.join(output, `${name}-1280.png`), fullPage: true });
       }
       await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
@@ -59,7 +59,7 @@ const { chromium } = require('playwright');
     }
     for (const width of [1024, 920, 760]) {
       await page.setViewportSize({ width, height: 800 });
-      for (const name of ['JSON 格式化', '网络调试助手', '十六进制报文分析器']) {
+      for (const name of ['JSON 格式化', '网络调试助手', 'MQTT 调试助手', 'Modbus 调试助手', '十六进制报文分析器']) {
         await openTool(name);
         const frame = await header().boundingBox();
         assert.ok(frame.x + frame.width <= width, `${name} header fits ${width}px`);
@@ -91,6 +91,33 @@ const { chromium } = require('playwright');
         await page.screenshot({ path: path.join(output, `network-unified-${label.replace('/', '-')}.png`), fullPage: true });
         console.log(`PASS unified network ${label}: log ${Math.round(geometry.log.height)}px; no horizontal overflow.`);
         await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
+      }
+    }
+    await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
+    for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1024, height: 640 }, { width: 760, height: 560 }]) {
+      await page.setViewportSize(viewport);
+      for (const textSize of ['comfortable', 'large']) {
+        await page.evaluate((value) => { document.documentElement.dataset.workspaceTextSize = value; }, textSize);
+        for (const [name, prefix, selector, minHeight] of [['MQTT 调试助手', 'mqtt', '[aria-label="MQTT 消息列表"]', 340], ['Modbus 调试助手', 'modbus', '[data-testid="modbus-data"]', 300]]) {
+          await openTool(name);
+          const geometry = await page.getByTestId(`${prefix}-workspace`).evaluate((area, { prefix, selector }) => {
+            const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, height: r.height }; };
+            const main = area.closest('main');
+            return { width: main.clientWidth, scrollWidth: main.scrollWidth,
+              controls: rect(area.querySelector(`[data-testid="${prefix}-controls"]`)),
+              result: rect(area.querySelector(`[data-testid="${prefix === 'mqtt' ? 'mqtt-messages' : 'modbus-results'}"]`)),
+              reader: rect(area.querySelector(selector)) };
+          }, { prefix, selector });
+          const label = `${name}/${viewport.width}x${viewport.height}/${textSize}`;
+          assert.ok(geometry.scrollWidth <= geometry.width + 1, `${label}: no page horizontal overflow`);
+          assert.ok(geometry.reader.height >= minHeight, `${label}: browsing area retains a useful minimum height`);
+          assert.ok(geometry.result.right <= viewport.width + 1, `${label}: result actions stay inside the client`);
+          if (viewport.width > 900) {
+            assert.ok(geometry.result.x >= geometry.controls.right, `${label}: results are beside controls`);
+            assert.ok(Math.abs(geometry.result.y - geometry.controls.y) < 2, `${label}: columns align`);
+          }
+          await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
+        }
       }
     }
     await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });

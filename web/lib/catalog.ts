@@ -247,6 +247,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.10-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Rebuilt MQTT as a message-first workspace with left-side operations, full-height message browsing, payload previews, topic/content and direction filters, and collapsible selection details' },
+      { kind: '+', text: 'Added stable history reading and new-message follow controls without interrupting MQTT reception or replacing the selected message' },
+      { kind: '~', text: 'Prioritized Modbus register and coil data with filtering, same-request value-change highlights, preserved results during refresh and a collapsible raw-traffic panel' },
+      { kind: '~', text: 'Protected newer device state from late polling responses and isolated MQTT event history when starting a new session while retaining final messages after disconnect' },
+      { kind: '~', text: 'Preserved native communication, MQTT TLS/credential handling and per-operation Modbus write confirmation; verified responsive layouts and synthetic message/device regressions' },
+    ],
+  },
+  {
     version: 'v0.13.9-desktop',
     date: '2026-09-15',
     items: [

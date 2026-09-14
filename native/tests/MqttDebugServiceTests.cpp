@@ -262,6 +262,127 @@ SOCKET CreateLoopbackListener(std::uint16_t* port) {
   return listener;
 }
 
+void TestNewSessionClearsQueuedMessagesButStopPreservesThem() {
+  std::uint16_t port = 0;
+  SOCKET listener = CreateLoopbackListener(&port);
+  std::atomic<int> releasePhase(-1), completedPhase(-1);
+  std::atomic<bool> brokerSucceeded(false);
+  std::string brokerFailure;
+  std::thread broker([&]() {
+    SOCKET peer = INVALID_SOCKET;
+    try {
+      for (int phase = 0; phase < 4; ++phase) {
+        Expect(WaitReadable(listener, 6000), "History broker accept timed out.");
+        peer = accept(listener, nullptr, nullptr);
+        Expect(peer != INVALID_SOCKET, "History broker accept failed.");
+        const DWORD sendTimeout = 1000;
+        Expect(setsockopt(peer, SOL_SOCKET, SO_SNDTIMEO,
+                          reinterpret_cast<const char*>(&sendTimeout), sizeof(sendTimeout)) == 0,
+               "History broker send timeout setup failed.");
+        std::vector<unsigned char> packet;
+        Expect(ReceiveFrame(peer, &packet) && (packet[0] >> 4U) == 1U,
+               "History broker did not receive CONNECT.");
+        Expect(SendAll(peer, {0x20U, 0x02U, 0x00U, 0x00U}),
+               "History broker could not send CONNACK.");
+        if (phase % 2 == 0) {
+          const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(6);
+          while (releasePhase.load() < phase && std::chrono::steady_clock::now() < deadline)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          Expect(releasePhase.load() >= phase, "History broker release timed out.");
+        }
+        const std::string topic = phase % 2 == 0 ? "tests/old-session" : "tests/new-session";
+        std::vector<unsigned char> frame(128U);
+        const unsigned char value = static_cast<unsigned char>(phase);
+        cy_mqtt_buffer output = {frame.data(), frame.size(), 0};
+        Expect(cy_mqtt_encode_publish(0U, topic.c_str(), &value, 1U, 0U, 0, &output) == 1,
+               "History broker PUBLISH encoding failed.");
+        frame.resize(output.length);
+        if (phase == 0) {
+          // More than one native Poll batch remains unread. A final QoS 1 ACK
+          // proves the worker consumed the whole preceding QoS 0 burst.
+          std::vector<unsigned char> burst;
+          for (int count = 0; count < 250; ++count) burst.insert(burst.end(), frame.begin(), frame.end());
+          frame.resize(128U); output = {frame.data(), frame.size(), 0};
+          Expect(cy_mqtt_encode_publish(7U, topic.c_str(), &value, 1U, 1U, 0, &output) == 1,
+                 "History marker encoding failed.");
+          frame.resize(output.length); burst.insert(burst.end(), frame.begin(), frame.end());
+          Expect(SendAll(peer, burst), "History broker burst failed.");
+          Expect(ReceiveFrame(peer, &packet) && packet[0] == 0x40U,
+                 "History marker was not acknowledged.");
+          completedPhase.store(phase);
+        } else if (phase == 2) {
+          // QueueStart races an old receive buffer/PushEvent, not just idle data.
+          std::vector<unsigned char> burst;
+          for (int count = 0; count < 800; ++count) burst.insert(burst.end(), frame.begin(), frame.end());
+          Expect(SendAll(peer, burst), "Active history burst failed.");
+          completedPhase.store(phase);
+          const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(4);
+          while (std::chrono::steady_clock::now() < deadline && SendAll(peer, burst)) {}
+        } else {
+          Expect(SendAll(peer, frame), "New-session marker failed.");
+        }
+        unsigned char ignored = 0;
+        const auto closed = std::chrono::steady_clock::now() + std::chrono::seconds(6);
+        while (std::chrono::steady_clock::now() < closed) {
+          if (WaitReadable(peer, 50) && recv(peer, reinterpret_cast<char*>(&ignored), 1, 0) <= 0) break;
+        }
+        closesocket(peer); peer = INVALID_SOCKET;
+      }
+      brokerSucceeded.store(true);
+    } catch (const std::exception& error) {
+      brokerFailure = error.what();
+      if (peer != INVALID_SOCKET) closesocket(peer);
+    }
+  });
+  try {
+    milo::MqttDebugService service;
+    for (int phase = 0; phase < 4; ++phase) {
+      nlohmann::json options = StartPayload(port);
+      options["clientId"] = "history-session-" + std::to_string(phase);
+      service.Handle("start", options);
+      if (phase % 2 == 0) {
+        Expect(WaitForState(&service, "connected"), "History client did not connect.");
+        releasePhase.store(phase);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(6);
+        while (completedPhase.load() < phase && std::chrono::steady_clock::now() < deadline)
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        Expect(completedPhase.load() >= phase, "History burst did not complete.");
+        if (phase == 0) {
+          service.Handle("stop", nlohmann::json::object());
+          const auto poll = service.Handle("poll", nlohmann::json::object());
+          std::size_t oldMessages = 0;
+          for (const auto& event : poll.at("events"))
+            if (event.value("topic", "") == "tests/old-session") ++oldMessages;
+          Expect(oldMessages >= 198U, "Stop discarded unread final MQTT messages.");
+          // Do not drain the remaining old messages before the next Start.
+        }
+      } else {
+        bool sawNew = false;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(6);
+        while (!sawNew && std::chrono::steady_clock::now() < deadline) {
+          const auto poll = service.Handle("poll", nlohmann::json::object());
+          for (const auto& event : poll.at("events")) {
+            Expect(event.value("topic", "") != "tests/old-session",
+                   "An old session message leaked into a newly started session.");
+            if (event.value("topic", "") == "tests/new-session") sawNew = true;
+          }
+          std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        Expect(sawNew, "New session could not retain messages after clearing its queue budget.");
+      }
+    }
+    service.Stop();
+  } catch (...) {
+    releasePhase.store(4);
+    closesocket(listener);
+    if (broker.joinable()) broker.join();
+    throw;
+  }
+  if (broker.joinable()) broker.join();
+  closesocket(listener);
+  Expect(brokerSucceeded.load(), brokerFailure.c_str());
+}
+
 void TestMalformedTopicsDoNotTerminateWorker() {
   std::uint16_t port = 0;
   SOCKET listener = CreateLoopbackListener(&port);
@@ -431,6 +552,7 @@ int main() {
   }
   try {
     TestLoopbackAndWorkerRestart();
+    TestNewSessionClearsQueuedMessagesButStopPreservesThem();
     TestMalformedTopicsDoNotTerminateWorker();
     TestIncomingTrafficDoesNotSuppressKeepAlive();
     TestTlsHandshakeCanBeCancelled();

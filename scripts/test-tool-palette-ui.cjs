@@ -9,10 +9,10 @@ const root = path.resolve(__dirname, '..');
 const sass = require(path.join(root, 'frontend/node_modules/sass'));
 const postcss = require(path.join(root, 'frontend/node_modules/postcss'));
 const styleFiles = [
-  // The unified network workbench intentionally changes layout; its responsive
-  // geometry is covered by the network workspace tests rather than this guard.
+  // Network, MQTT and Modbus intentionally use redesigned result-first layouts;
+  // their geometry is covered by dedicated workspace tests rather than this guard.
   ...['DatabaseStudio', 'ImageToolbox', 'Toolbox', 'SerialDebugger',
-    'MqttDebugger', 'ModbusDebugger', 'UtilityCodecWorkspace', 'UtilitySpecializedWorkspace',
+    'UtilityCodecWorkspace', 'UtilitySpecializedWorkspace',
     'TextDiffWorkspace', 'RegexWorkspace'].map((name) => `frontend/src/toolbox/${name}.module.scss`),
   'shared/packet-inspector/PacketWorkbench.module.scss',
   'shared/tool-workspace/ToolWorkspaceHeader.module.scss',
@@ -107,7 +107,7 @@ function geometry(source, file) {
             const result = page.getByRole('region', { name: '输出区域' });
             assert.notEqual(await input.locator('header').evaluate((el) => getComputedStyle(el).backgroundColor), await result.locator('header').evaluate((el) => getComputedStyle(el).backgroundColor), 'input and output are visually distinct');
           }
-          if (['JSON 格式化', '网络调试助手', '数据库工作台', '图片转换器', '十六进制报文分析器', '文本比较'].includes(name)) {
+          if (['JSON 格式化', '网络调试助手', 'MQTT 调试助手', 'Modbus 调试助手', '数据库工作台', '图片转换器', '十六进制报文分析器', '文本比较'].includes(name)) {
             await page.screenshot({ path: path.join(output, `${name}-${theme}.png`), fullPage: true, animations: 'disabled' });
           }
         }

@@ -679,6 +679,7 @@ struct StartOptions {
 
 struct Command {
   std::string type;
+  std::uint64_t eventGeneration{};
   StartOptions start;
   std::string topic;
   std::uint8_t qos{};
@@ -812,6 +813,11 @@ class MqttDebugService::Impl final {
         WipeString(&queued->start.password);
       }
       commands_.clear();
+      // A newly requested session owns a new history. Close the old event
+      // boundary while holding the same lock used by Poll/PushEvent.
+      command.eventGeneration = ++eventGeneration_;
+      events_.clear();
+      eventBytes_ = 0;
       pendingBytes_ = command.StorageBytes();
       state_ = "connecting";
       lastError_.clear();
@@ -991,6 +997,10 @@ class MqttDebugService::Impl final {
     stored["timestamp"] = UnixMilliseconds();
     const std::size_t bytes = stored.dump().size();
     std::lock_guard<std::mutex> lock(mutex_);
+    // The worker may still be consuming an old receive buffer after QueueStart
+    // clears history. Its events must not leak into the pending new session.
+    // Stop does not advance this generation, so its final frames remain readable.
+    if (workerEventGeneration_ != eventGeneration_) return;
     while (!events_.empty() &&
            (events_.size() >= kMaximumEventCount ||
             bytes > kMaximumEventBytes - eventBytes_)) {
@@ -1387,6 +1397,7 @@ class MqttDebugService::Impl final {
       Command command;
       while (PopCommand(&command)) {
         if (command.type == "start") {
+          workerEventGeneration_ = command.eventGeneration;
           transport.Close();
           ResetSessionState();
           receiveBuffer.clear();
@@ -1518,6 +1529,8 @@ class MqttDebugService::Impl final {
   std::size_t pendingBytes_{};
   std::deque<nlohmann::json> events_;
   std::size_t eventBytes_{};
+  std::uint64_t eventGeneration_{};  // mutex_ protects requested session boundary.
+  std::uint64_t workerEventGeneration_{};  // Only read/written by the worker.
   std::uint64_t nextEventId_{1};
   std::string state_{"stopped"};
   std::string brokerHost_{"127.0.0.1"};

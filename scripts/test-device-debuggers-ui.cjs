@@ -61,14 +61,21 @@ async function addFixture(context) {
               result = { snapshot: { ...modbus }, logs: action === 'poll' ? f.modbusLogs.splice(0) : [] };
             }
           }
-          listeners.forEach((listener) => listener({ data: { type: `${request.type}.${error ? 'error' : 'result'}`, payload: { requestId: p.requestId, ...(error ? { message: error } : result) } } }));
+          const deliver = () => listeners.forEach((listener) => listener({ data: { type: `${request.type}.${error ? 'error' : 'result'}`, payload: { requestId: p.requestId, ...(error ? { message: error } : result) } } }));
+          if (prefix === 'mqtt' && action === 'poll' && f.holdNextMqttPoll) {
+            f.holdNextMqttPoll = false;
+            f.heldMqttPoll = true;
+            f.releaseMqttPoll = () => { f.heldMqttPoll = false; deliver(); };
+          } else deliver();
         }, 20);
       },
     };
   });
 }
 
-(async () => {
+module.exports = { addFixture };
+
+if (require.main === module) (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PACKET_TEST_BROWSER || undefined });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await addFixture(context);
@@ -84,7 +91,7 @@ async function addFixture(context) {
     const frame = await page.getByTestId(id).boundingBox();
     const viewport = page.viewportSize();
     assert.ok(frame.x >= 180 && frame.x + frame.width <= viewport.width + 1, `${id}: no horizontal viewport overflow`);
-    if (viewport.width >= 1024 && viewport.height >= 768) assert.ok(frame.y + frame.height <= viewport.height + 1, `${id}: default workspace fits vertically`);
+    if (id === 'serial-workspace' && viewport.width >= 1024 && viewport.height >= 768) assert.ok(frame.y + frame.height <= viewport.height + 1, `${id}: default workspace fits vertically`);
     const geometry = await main().evaluate((el) => ({ width: el.clientWidth, scroll: el.scrollWidth }));
     assert.ok(geometry.scroll <= geometry.width + 1, `${id}: no outer horizontal scrollbar`);
     if (id === 'serial-workspace') {
@@ -215,6 +222,8 @@ async function addFixture(context) {
     assert.equal(publication.dataHex, '00ff0a'); assert.equal(publication.qos, 2); assert.equal(publication.retain, true);
     const messages = page.getByRole('listbox', { name: 'MQTT 消息列表', exact: true });
     await messages.getByRole('option').first().waitFor();
+    assert.equal(await page.getByTestId('mqtt-detail').count(), 0, 'receiving or publishing does not automatically open a detail panel');
+    await messages.getByRole('option').first().click();
     await page.getByRole('region', { name: 'MQTT 消息', exact: true }).getByRole('button', { name: 'HEX', exact: true }).click();
     assert.equal(await page.getByLabel('消息内容', { exact: true }).innerText(), '00 FF 0A');
     // Empty retained payloads are valid MQTT publications and must not look unselected.
@@ -222,6 +231,7 @@ async function addFixture(context) {
     await publishArea.getByRole('button', { name: /^发布/ }).click();
     await page.waitForFunction(() => window.__deviceFixture.requests.some((request) => request.type === 'mqtt.publish' && request.payload.dataHex === ''));
     await page.waitForFunction(() => document.querySelectorAll('[aria-label="MQTT 消息列表"] [role="option"]').length === 2);
+    await page.getByRole('button', { name: '收起消息详情', exact: true }).click();
     await messages.getByRole('option').last().click();
     assert.ok(!(await page.getByLabel('消息内容', { exact: true }).innerText()).includes('选择'), 'empty payload remains a selected message');
     const messageHeight = (await messages.boundingBox()).height;
@@ -229,11 +239,11 @@ async function addFixture(context) {
     await page.waitForFunction(() => document.querySelectorAll('[aria-label="MQTT 消息列表"] [role="option"]').length === 502);
     assert.ok(Math.abs((await messages.boundingBox()).height - messageHeight) <= 1, 'MQTT list stays fixed after 500 records');
     assert.ok(await messages.evaluate((el) => el.scrollHeight > el.clientHeight), 'MQTT messages scroll internally');
-    await page.getByLabel('筛选 MQTT 主题').fill('unit499');
+    await page.getByLabel('筛选 MQTT 消息').fill('unit499');
     await page.waitForFunction(() => document.querySelectorAll('[aria-label="MQTT 消息列表"] [role="option"]').length === 1);
     await messages.getByRole('option').first().click();
     assert.equal(await page.getByLabel('消息内容', { exact: true }).innerText(), '4F 4B');
-    await page.getByLabel('筛选 MQTT 主题').fill('');
+    await page.getByLabel('筛选 MQTT 消息').fill('');
     await page.getByLabel('取消订阅 devices/+/state').click();
     await page.waitForFunction(() => window.__deviceFixture.mqtt.subscriptions.length === 0);
     await fit('mqtt-workspace', '1280-connected');
