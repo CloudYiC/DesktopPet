@@ -16,12 +16,13 @@ const draft = (overrides = {}) => ({ ...model.createDefaultPacketDraft(), ...ove
 const saved = (id, overrides = {}) => ({ ...draft(overrides), id, updatedAt: '2026-09-14T08:00:00.000Z' });
 const library = (...packets) => ({ schemaVersion: 1, packets });
 
-test('default draft is editable, finite and loopback-only with no running state', () => {
+test('default draft is editable with automatic adapter selection, local target and no running state', () => {
   const value = model.createDefaultPacketDraft();
   assert.equal(value.protocol, 'udp');
   assert.equal(value.host, '127.0.0.1');
   assert.equal(value.port, 9000);
-  assert.equal(value.localAddress, '127.0.0.1');
+  assert.equal(value.localAddress, '0.0.0.0');
+  assert.equal(value.multicastTtl, 1);
   assert.equal(value.localPort, 0);
   assert.equal(value.intervalMs, 1000);
   assert.equal(value.repeatCount, 1);
@@ -29,6 +30,16 @@ test('default draft is editable, finite and loopback-only with no running state'
   assert.equal(model.PACKET_LIBRARY_STORAGE_KEY, 'cloudyi.packet-sender.library.v1');
   assert.equal(model.encodePacketPayload(draft({ payload: '' })).byteCount, 0);
   assert.notEqual(model.createDefaultPacketDraft(), value);
+});
+
+test('legacy schema-1 drafts retain endpoints and payload while adding only a default TTL', () => {
+  const old = saved('old-loopback', { localAddress: '127.0.0.1', host: '224.20.20.20', port: 24576 });
+  delete old.multicastTtl;
+  const restored = model.parsePacketLibrary(JSON.stringify(library(old))).packets[0];
+  assert.deepEqual(restored, { ...old, multicastTtl: 1 });
+  for (const multicastTtl of [-1, 256, 1.5, '1', null]) assert.throws(() => model.validatePacketDraft(draft({ multicastTtl })));
+  for (const multicastTtl of [0, 1, 255]) assert.equal(model.validatePacketDraft(draft({ multicastTtl })).multicastTtl, multicastTtl);
+  assert.throws(() => model.validatePacketDraft(draft({ multicastJoined: true })), /字段/);
 });
 
 test('text is UTF-8, byte count is real, no hidden terminator and no surrogate replacement', () => {

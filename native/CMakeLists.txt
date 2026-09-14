@@ -301,6 +301,7 @@ if(BUILD_TESTING)
   )
   target_link_libraries(MiloNetworkDebugServiceTests PRIVATE
     cloudyi_win32_c
+    iphlpapi
     ws2_32
   )
   if(MSVC)

@@ -1,5 +1,7 @@
 #include "Milo/NetworkDebugService.h"
 
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <windows.h>
 
 #include <chrono>
@@ -7,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "cloudyi/network_debug.h"
 
 namespace {
 
@@ -327,6 +331,124 @@ void TestPacketSenderUdpRestartAndLimits() {
   secondReceiver.Stop();
 }
 
+void TestMulticastValidationAndReadOnlyInterfaces() {
+  std::string error;
+  const std::vector<milo::NetworkDebugInterface> interfaces =
+      milo::NetworkDebugService::Interfaces(&error);
+  Expect(error.empty() && !interfaces.empty(), "IPv4 interface enumeration failed.");
+  bool loopbackFound = false;
+  for (std::size_t index = 0; index < interfaces.size(); ++index) {
+    const milo::NetworkDebugInterface& item = interfaces[index];
+    Expect(!item.name.empty() && item.index != 0 &&
+               cy_net_ipv4_is_address(item.address.c_str()),
+           "Interface enumeration returned an invalid entry.");
+    if (item.loopback && item.address == "127.0.0.1") loopbackFound = true;
+    int interfaceError = 0;
+    Expect(cy_net_validate_multicast_interface(item.address.c_str(), &interfaceError),
+           "A currently enumerated interface was rejected.");
+  }
+  Expect(loopbackFound, "Loopback IPv4 must be available for isolated tests.");
+  int code = 0;
+  Expect(cy_net_validate_multicast_interface("0.0.0.0", &code) &&
+             cy_net_validate_multicast_interface("", &code),
+         "Automatic multicast route should remain supported.");
+  Expect(!cy_net_validate_multicast_interface("0.0.0.3", &code) &&
+             !cy_net_validate_multicast_interface("example.com", &code),
+         "Interface-index encodings and hostnames must be rejected.");
+  Expect(cy_net_ipv4_is_multicast("224.0.0.0") &&
+             cy_net_ipv4_is_multicast("239.255.255.255") &&
+             !cy_net_ipv4_is_multicast("223.255.255.255") &&
+             !cy_net_ipv4_is_multicast("240.0.0.0") &&
+             !cy_net_ipv4_is_multicast("224.020.20.20") &&
+             !cy_net_ipv4_is_multicast("224.20.20.999"),
+         "Strict IPv4 multicast validation failed.");
+
+  milo::NetworkDebugService service;
+  milo::NetworkDebugStartOptions options = UdpOptions(0, 9);
+  options.multicastTtl = 256;
+  Expect(!service.Start(options, &error), "Out-of-range multicast TTL accepted.");
+  options.multicastTtl = -1;
+  Expect(!service.Start(options, &error), "Negative multicast TTL accepted.");
+  options.multicastTtl = 1;
+  options.multicastGroup = "127.0.0.1";
+  Expect(!service.Start(options, &error), "A unicast receive group was accepted.");
+  options.multicastGroup = "239.255.42.99";
+  options.multicastInterface = "127.0.0.1";
+  Expect(!service.Start(options, &error), "Membership must require wildcard binding.");
+  options.localHost = "0.0.0.0";
+  Expect(!service.Start(options, &error), "Membership without LAN consent accepted.");
+  options.allowLan = true;
+  options.multicastInterface = "239.255.42.99";
+  Expect(!service.Start(options, &error), "A group address cannot be a local interface.");
+  options = TcpClientOptions(9);
+  options.multicastInterface = "127.0.0.1";
+  Expect(!service.Start(options, &error), "TCP cannot use UDP multicast options.");
+  options = UdpOptions(0, 9);
+  options.remoteHost = "239.255.42.99";
+  Expect(!service.Start(options, &error), "Implicit multicast route without consent accepted.");
+  Expect(service.Snapshot().state == "stopped" &&
+             !service.Snapshot().multicastJoined,
+         "Rejected options must not join or open a session.");
+}
+
+void TestMulticastSocketOptionsWithoutTraffic() {
+  // No multicast send, join, IGMP, wildcard bind, or physical NIC mutation.
+  // The only opened socket is bound to loopback. TTL/IF are socket-local.
+  int error = 0;
+  Expect(cy_net_startup(&error), "Socket option test could not initialize Winsock.");
+  cy_net_address addresses[CY_NET_MAX_RESOLVED_ADDRESSES] = {};
+  Expect(cy_net_resolve("127.0.0.1", 0, CY_NET_SOCKET_DATAGRAM, 1,
+             addresses, CY_NET_MAX_RESOLVED_ADDRESSES, &error) > 0,
+         "Socket option test could not resolve loopback.");
+  const cy_net_socket socket = cy_net_open_socket(&addresses[0], &error);
+  Expect(socket != CY_NET_INVALID_SOCKET && cy_net_bind(socket, &addresses[0], &error),
+         "Socket option test could not bind loopback.");
+  Expect(cy_net_set_multicast_route(socket, "127.0.0.1", 0, &error),
+         "Unable to set explicit loopback multicast interface and TTL.");
+  DWORD ttl = 99;
+  int size = sizeof(ttl);
+  Expect(getsockopt(static_cast<SOCKET>(socket), IPPROTO_IP, IP_MULTICAST_TTL,
+             reinterpret_cast<char*>(&ttl), &size) == 0 && ttl == 0,
+         "Native multicast TTL was not actually applied to the socket.");
+  DWORD route = 0;
+  size = sizeof(route);
+  Expect(getsockopt(static_cast<SOCKET>(socket), IPPROTO_IP, IP_MULTICAST_IF,
+             reinterpret_cast<char*>(&route), &size) == 0 && route != 0,
+         "Native multicast interface was not actually applied to the socket.");
+  Expect(cy_net_set_multicast_route(socket, "127.0.0.1", 1, &error),
+         "Unable to set default multicast TTL.");
+  size = sizeof(ttl);
+  Expect(getsockopt(static_cast<SOCKET>(socket), IPPROTO_IP, IP_MULTICAST_TTL,
+             reinterpret_cast<char*>(&ttl), &size) == 0 && ttl == 1,
+         "Default multicast TTL must be one hop.");
+  Expect(!cy_net_set_multicast_route(socket, "127.0.0.1", 256, &error) &&
+             !cy_net_set_multicast_route(socket, "0.0.0.3", 1, &error),
+         "C socket wrapper failed to reject invalid route options.");
+  Expect(!cy_net_multicast_membership(socket, "239.255.42.99", "127.0.0.1", 1, &error),
+         "C membership wrapper must reject a non-wildcard socket before joining.");
+  cy_net_close(socket);
+  cy_net_cleanup();
+
+  milo::NetworkDebugService service;
+  milo::NetworkDebugStartOptions options = UdpOptions(0, 9);
+  options.remoteHost = "239.255.42.99";
+  options.multicastInterface = "127.0.0.1";
+  options.multicastTtl = 0;
+  std::string message;
+  Expect(service.Start(options, &message), "Isolated send-only configuration failed.");
+  milo::NetworkDebugSnapshot snapshot;
+  Expect(WaitForState(&service, "ready", 0, &snapshot),
+         "Isolated send-only configuration did not become ready.");
+  Expect(snapshot.localHost == "127.0.0.1" && snapshot.localPort != 0 &&
+             snapshot.multicastInterface == "127.0.0.1" &&
+             snapshot.multicastTtl == 0 && snapshot.multicastGroup.empty() &&
+             !snapshot.multicastJoined && snapshot.txPackets == 0,
+         "Send-only configuration must not auto-join or transmit.");
+  service.Stop();
+  Expect(!service.Snapshot().multicastJoined && service.Snapshot().state == "stopped",
+         "Stop must clear multicast membership state.");
+}
+
 }  // namespace
 
 int main() {
@@ -335,6 +457,8 @@ int main() {
     TestUdpBinaryDatagram();
     TestValidationAndBoundedStop();
     TestPacketSenderUdpRestartAndLimits();
+    TestMulticastValidationAndReadOnlyInterfaces();
+    TestMulticastSocketOptionsWithoutTraffic();
     std::cout << "Milo network debugging service tests passed.\n";
     return 0;
   } catch (const std::exception& error) {

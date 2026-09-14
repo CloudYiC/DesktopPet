@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.7-desktop',
+    date: '2026-09-14',
+    items: [
+      { kind: '~', text: 'Replaced hidden loopback-only packet binding with a visible Windows IPv4 adapter selector and reviewed automatic routing for legacy multicast drafts' },
+      { kind: '+', text: 'Added explicit UDP multicast send-interface and TTL options, separate join/listen and leave actions, and native-confirmed membership with local/remote port display' },
+      { kind: '~', text: 'Pinned packet send controls, preserved editable targets and bytes, and clarified that TX completion is not remote delivery or multicast membership' },
+      { kind: '+', text: 'Added adapter, multicast confirmation, cancellation, port separation and legacy-library regression checks; physical multicast networks remain user-tested' },
+    ],
+  },
+  {
     version: 'v0.13.6-desktop',
     date: '2026-09-14',
     items: [

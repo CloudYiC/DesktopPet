@@ -209,6 +209,9 @@ class NetworkDebugService::Impl final {
       snapshot_.localPort = options.localPort;
       snapshot_.remoteHost = options.remoteHost;
       snapshot_.remotePort = options.remotePort;
+      snapshot_.multicastInterface = options.multicastInterface;
+      snapshot_.multicastGroup = options.multicastGroup;
+      snapshot_.multicastTtl = options.multicastTtl;
       events_.clear();
       eventBytes_ = 0;
       overflowQueued_ = false;
@@ -254,6 +257,7 @@ class NetworkDebugService::Impl final {
       commands_.clear();
       pendingSendBytes_ = 0;
       snapshot_.peers.clear();
+      snapshot_.multicastJoined = false;
       snapshot_.lastError.clear();
       if (snapshot_.state != "stopped") {
         snapshot_.state = "stopped";
@@ -392,6 +396,39 @@ class NetworkDebugService::Impl final {
       if (error != nullptr) {
         *error = "绑定非回环地址前必须明确允许局域网访问。";
       }
+      return false;
+    }
+    if (options->multicastTtl < 0 || options->multicastTtl > 255) {
+      if (error != nullptr) *error = "组播 TTL 必须为 0 到 255。";
+      return false;
+    }
+    if (options->mode != "udp" && (!options->multicastInterface.empty() ||
+        !options->multicastGroup.empty() || options->multicastTtl != 1)) {
+      if (error != nullptr) *error = "组播设置仅适用于 UDP。";
+      return false;
+    }
+    if (!options->multicastGroup.empty() &&
+        !cy_net_ipv4_is_multicast(options->multicastGroup.c_str())) {
+      if (error != nullptr) *error = "接收组必须为 224.0.0.0 到 239.255.255.255 的 IPv4 组播地址。";
+      return false;
+    }
+    if (!options->multicastGroup.empty() && options->localHost != "0.0.0.0") {
+      if (error != nullptr) *error = "加入组播接收组需要绑定 0.0.0.0，并单独选择收发网卡。";
+      return false;
+    }
+    const bool multicast = !options->multicastGroup.empty() ||
+        cy_net_ipv4_is_multicast(options->remoteHost.c_str());
+    if (multicast && !options->allowLan &&
+        (!IsObviousLoopbackHost(options->localHost) ||
+         !IsObviousLoopbackHost(options->multicastInterface))) {
+      if (error != nullptr) *error = "使用组播网卡或加入接收组前必须明确允许局域网访问。";
+      return false;
+    }
+    int interfaceError = 0;
+    if (!options->multicastInterface.empty() &&
+        !cy_net_validate_multicast_interface(options->multicastInterface.c_str(),
+                                              &interfaceError)) {
+      if (error != nullptr) *error = SocketFailure("校验本机组播网卡 IPv4", interfaceError);
       return false;
     }
     return true;
@@ -747,6 +784,7 @@ class NetworkDebugService::Impl final {
     int remoteCount = 0;
     int localCount = 0;
     int error = 0;
+    std::string failedAction = "绑定 UDP 端点";
     std::memset(remoteAddresses, 0, sizeof(remoteAddresses));
     std::memset(localAddresses, 0, sizeof(localAddresses));
     if (!Resolve(options_.remoteHost, options_.remotePort,
@@ -761,6 +799,14 @@ class NetworkDebugService::Impl final {
 
     for (int remoteIndex = 0; remoteIndex < remoteCount; ++remoteIndex) {
       const int family = cy_net_address_family(&remoteAddresses[remoteIndex]);
+      const bool multicast = !options_.multicastGroup.empty() ||
+          cy_net_ipv4_is_multicast(DescribeAddress(remoteAddresses[remoteIndex]).host.c_str());
+      if (multicast && !options_.allowLan &&
+          (!IsObviousLoopbackHost(options_.localHost) ||
+           !IsObviousLoopbackHost(options_.multicastInterface))) {
+        FailSession("组播目标解析成功，但尚未明确允许局域网访问。");
+        return false;
+      }
       for (int localIndex = 0; localIndex < localCount; ++localIndex) {
         if (cy_net_address_family(&localAddresses[localIndex]) != family ||
             !BindingAllowed(localAddresses[localIndex])) {
@@ -774,6 +820,24 @@ class NetworkDebugService::Impl final {
           cy_net_close(candidate);
           continue;
         }
+        if (multicast && !cy_net_set_multicast_route(candidate,
+              options_.multicastInterface.c_str(), options_.multicastTtl, &error)) {
+          failedAction = "配置组播发送网卡或 TTL";
+          cy_net_close(candidate);
+          continue;
+        }
+        if (!options_.multicastGroup.empty() &&
+            !cy_net_multicast_membership(candidate, options_.multicastGroup.c_str(),
+                options_.multicastInterface.c_str(), 1, &error)) {
+          failedAction = "加入组播接收组";
+          cy_net_close(candidate);
+          continue;
+        }
+        multicastJoined_ = !options_.multicastGroup.empty();
+        {
+          std::lock_guard<std::mutex> lock(mutex_);
+          snapshot_.multicastJoined = multicastJoined_;
+        }
         primary_ = candidate;
         udpTarget_ = remoteAddresses[remoteIndex];
         hasUdpTarget_ = true;
@@ -783,10 +847,20 @@ class NetworkDebugService::Impl final {
           SetLocalEndpoint(DescribeAddress(local));
         }
         ChangeState("ready", "UDP 端点已打开。");
+        if (multicast) {
+          const std::string interfaceName = options_.multicastInterface.empty() ||
+              options_.multicastInterface == "0.0.0.0" ? "系统路由" : options_.multicastInterface;
+          PushSimpleEvent("system", 0, std::string(), "组播发送网卡：" + interfaceName +
+              "，TTL " + std::to_string(options_.multicastTtl) + "。");
+        }
+        if (multicastJoined_) {
+          PushSimpleEvent("system", 0, std::string(), "已加入组播接收组 " +
+              options_.multicastGroup + "。尚未发送数据。");
+        }
         return true;
       }
     }
-    FailSession(SocketFailure("绑定 UDP 端点", error));
+    FailSession(SocketFailure(failedAction, error));
     return false;
   }
 
@@ -1167,6 +1241,13 @@ class NetworkDebugService::Impl final {
       listener_ = CY_NET_INVALID_SOCKET;
     }
     if (primary_ != CY_NET_INVALID_SOCKET) {
+      if (multicastJoined_) {
+        int leaveError = 0;
+        // Closing below also releases membership if the adapter disappeared.
+        (void)cy_net_multicast_membership(primary_, options_.multicastGroup.c_str(),
+            options_.multicastInterface.c_str(), 0, &leaveError);
+        PushSimpleEvent("system", 0, std::string(), "组播接收已停止，正在关闭端点。");
+      }
       cy_net_shutdown(primary_);
       cy_net_close(primary_);
       primary_ = CY_NET_INVALID_SOCKET;
@@ -1182,11 +1263,13 @@ class NetworkDebugService::Impl final {
     clientConnecting_ = false;
     clientConnected_ = false;
     hasUdpTarget_ = false;
+    multicastJoined_ = false;
     PublishPeers();
     {
       std::lock_guard<std::mutex> lock(mutex_);
       commands_.clear();
       pendingSendBytes_ = 0;
+      snapshot_.multicastJoined = false;
     }
     if (winsockStarted_) {
       cy_net_cleanup();
@@ -1222,6 +1305,7 @@ class NetworkDebugService::Impl final {
   bool clientConnecting_{};
   bool clientConnected_{};
   bool hasUdpTarget_{};
+  bool multicastJoined_{};
   bool winsockStarted_{};
 };
 
@@ -1256,6 +1340,27 @@ NetworkDebugPollResult NetworkDebugService::Poll() {
 
 NetworkDebugSnapshot NetworkDebugService::Snapshot() const {
   return impl_->Snapshot();
+}
+
+std::vector<NetworkDebugInterface> NetworkDebugService::Interfaces(std::string* error) {
+  std::vector<NetworkDebugInterface> result;
+  std::vector<cy_net_interface> native(CY_NET_MAX_INTERFACES);
+  int errorCode = 0;
+  const int count = cy_net_interfaces(native.data(), native.size(), &errorCode);
+  if (count < 0) {
+    if (error != nullptr) *error = SocketFailure("读取本机 IPv4 网卡", errorCode);
+    return result;
+  }
+  if (error != nullptr) error->clear();
+  for (int index = 0; index < count; ++index) {
+    NetworkDebugInterface item;
+    item.name = native[index].name;
+    item.address = native[index].address;
+    item.index = native[index].index;
+    item.loopback = native[index].loopback != 0;
+    result.push_back(item);
+  }
+  return result;
 }
 
 }  // namespace milo

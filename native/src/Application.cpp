@@ -160,6 +160,10 @@ nlohmann::json NetworkDebugSnapshotToJson(
           {"rxBytes", snapshot.rxBytes},
           {"txPackets", snapshot.txPackets},
           {"txBytes", snapshot.txBytes},
+          {"multicastInterface", snapshot.multicastInterface},
+          {"multicastGroup", snapshot.multicastGroup},
+          {"multicastTtl", snapshot.multicastTtl},
+          {"multicastJoined", snapshot.multicastJoined},
           {"lastError", snapshot.lastError}};
 }
 
@@ -577,7 +581,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.13.6";
+    const std::string marker = "CuteYiyiDesktopPet 0.13.7";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -858,11 +862,35 @@ void Application::HandleWebMessage(WebViewWindow& source,
       }
       return;
     }
+    if (type == "network.interfaces") {
+      std::string requestId;
+      if (!TryReadJsonString(payload, "requestId", &requestId) ||
+          requestId.empty() || requestId.size() > 80) return;
+      std::string error;
+      const std::vector<NetworkDebugInterface> adapters =
+          NetworkDebugService::Interfaces(&error);
+      if (!error.empty()) {
+        source.PostJson(nlohmann::json{{"type", "network.interfaces.error"},
+            {"payload", {{"requestId", requestId}, {"message", error}}}}.dump());
+        return;
+      }
+      nlohmann::json items = nlohmann::json::array();
+      for (const NetworkDebugInterface& adapter : adapters) {
+        items.push_back({{"name", adapter.name}, {"address", adapter.address},
+                         {"index", adapter.index}, {"loopback", adapter.loopback}});
+      }
+      source.PostJson(nlohmann::json{{"type", "network.interfaces.result"},
+          {"payload", {{"requestId", requestId}, {"interfaces", items}}}}.dump());
+      return;
+    }
     if (type == "network.start") {
       std::string requestId;
       std::string mode;
       std::string localHost;
       std::string remoteHost;
+      std::string multicastInterface;
+      std::string multicastGroup;
+      std::int64_t multicastTtl = 1;
       std::int64_t localPort = -1;
       std::int64_t remotePort = -1;
       bool allowLan = false;
@@ -877,17 +905,28 @@ void Application::HandleWebMessage(WebViewWindow& source,
           TryReadJsonInteger(payload, "remotePort", 0, 65535,
                              &remotePort) &&
           allowLanValue != payload.end() && allowLanValue->is_boolean();
+      const bool validMulticastShape = payload.is_object() &&
+          (!payload.contains("multicastInterface") ||
+           TryReadJsonString(payload, "multicastInterface", &multicastInterface)) &&
+          (!payload.contains("multicastGroup") ||
+           TryReadJsonString(payload, "multicastGroup", &multicastGroup)) &&
+          (!payload.contains("multicastTtl") ||
+           TryReadJsonInteger(payload, "multicastTtl", 0, 255, &multicastTtl)) &&
+          multicastInterface.size() <= 15 && multicastGroup.size() <= 15;
       if (validShape) allowLan = allowLanValue->get<bool>();
       NetworkDebugStartOptions options;
       options.mode = mode;
       options.localHost = localHost;
       options.remoteHost = remoteHost;
       options.allowLan = allowLan;
+      options.multicastInterface = multicastInterface;
+      options.multicastGroup = multicastGroup;
+      options.multicastTtl = static_cast<int>(multicastTtl);
       const bool validMode = options.mode == "tcp-client" ||
                              options.mode == "tcp-server" ||
                              options.mode == "udp";
       const bool needsRemote = options.mode != "tcp-server";
-      if (!validShape || requestId.empty() || requestId.size() > 80 ||
+      if (!validShape || !validMulticastShape || requestId.empty() || requestId.size() > 80 ||
           !validMode ||
           !IsValidNetworkHost(options.localHost, true) ||
           !IsValidNetworkHost(options.remoteHost, !needsRemote) ||

@@ -567,6 +567,13 @@ const stoppedNetworkSnapshot: NetworkSessionSnapshot = {
   txBytes: 0,
 };
 
+/** Enumerates only local Windows IPv4 adapters; never probes other devices. */
+export async function requestNetworkInterfaces(): Promise<import('../types').NetworkInterface[]> {
+  if (!nativeBridge) return [];
+  const response = await requestNativePayload<{ interfaces: import('../types').NetworkInterface[] }>('network.interfaces', {}, 10_000);
+  return response.interfaces;
+}
+
 /** Starts an asynchronous Winsock session in the Windows desktop host. */
 export async function requestNetworkStart(
   options: NetworkStartOptions,

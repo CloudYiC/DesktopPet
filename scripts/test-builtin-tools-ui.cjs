@@ -120,7 +120,7 @@ const scenarios = [
         await search.fill('JSON'); assert.equal(await cards().count(), 1);
         await search.fill(''); assert.equal(await cards().count(), tools.length, 'search clearing restores all built-ins');
         const unexpected = await page.evaluate(() => window.__builtinFixture.requests.filter((request) => {
-          if (['app.ready', 'workspace.navigation.update', 'system.snapshot', 'ports.list', 'software.list', 'network.poll', 'network.stop'].includes(request.type)) return false;
+          if (['app.ready', 'workspace.navigation.update', 'system.snapshot', 'ports.list', 'software.list', 'network.poll', 'network.stop', 'network.interfaces'].includes(request.type)) return false;
           if (/^(serial|mqtt|modbus)\.(enumerate|ports|poll|stop)$/.test(request.type)) return false;
           // Packet inspector parses its fixed sample on mount; leaving the
           // network workspace also requests safe session cleanup (stop only).

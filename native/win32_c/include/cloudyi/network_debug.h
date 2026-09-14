@@ -12,6 +12,7 @@ extern "C" {
 /* Large enough for a Windows SOCKADDR_STORAGE without exposing Winsock. */
 #define CY_NET_ADDRESS_STORAGE_SIZE 128
 #define CY_NET_MAX_RESOLVED_ADDRESSES 16
+#define CY_NET_MAX_INTERFACES 128
 
 typedef uintptr_t cy_net_socket;
 
@@ -51,6 +52,29 @@ typedef struct cy_net_poll_entry {
   int writable;
   int exceptional;
 } cy_net_poll_entry;
+
+/* One currently-up IPv4 address. Names are bounded UTF-8, never shell text. */
+typedef struct cy_net_interface {
+  char name[768];
+  char address[16];
+  uint32_t index;
+  int loopback;
+} cy_net_interface;
+
+/* Read-only enumeration. Returns count, or -1 on error/truncation. */
+int cy_net_interfaces(cy_net_interface *interfaces, size_t capacity,
+                      int *error_code);
+int cy_net_ipv4_is_address(const char *text);
+int cy_net_ipv4_is_multicast(const char *text);
+/* Empty/0.0.0.0 selects the route; other addresses must be currently local. */
+int cy_net_validate_multicast_interface(const char *interface_address,
+                                        int *error_code);
+int cy_net_set_multicast_route(cy_net_socket socket, const char *interface_address,
+                               int ttl, int *error_code);
+/* Join requires a UDP socket bound to wildcard IPv4 and explicit caller consent. */
+int cy_net_multicast_membership(cy_net_socket socket, const char *group,
+                                const char *interface_address, int join,
+                                int *error_code);
 
 /* Initializes Winsock 2.2 for the calling process. */
 int cy_net_startup(int *error_code);

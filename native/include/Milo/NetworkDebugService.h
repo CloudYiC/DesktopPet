@@ -25,6 +25,19 @@ struct NetworkDebugStartOptions {
   std::uint16_t remotePort{};
   /// Explicit consent required before binding outside loopback.
   bool allowLan{};
+  /// UDP IPv4 multicast send/join interface; empty/0.0.0.0 uses system route.
+  std::string multicastInterface;
+  /// Empty sends only; numeric 224/4 explicitly requests receive membership.
+  std::string multicastGroup;
+  /// Multicast hop limit, 0..255. Defaults to the local subnet.
+  int multicastTtl{1};
+};
+
+struct NetworkDebugInterface {
+  std::string name;
+  std::string address;
+  std::uint32_t index{};
+  bool loopback{};
 };
 
 /// One connected TCP peer visible to the debugger.
@@ -48,6 +61,10 @@ struct NetworkDebugSnapshot {
   std::uint64_t txPackets{};
   std::uint64_t txBytes{};
   std::string lastError;
+  std::string multicastInterface;
+  std::string multicastGroup;
+  int multicastTtl{1};
+  bool multicastJoined{};
 };
 
 /// Ordered state, connection or data event emitted by the worker thread.
@@ -102,6 +119,9 @@ class NetworkDebugService final {
 
   /** Returns the current state without draining queued events. */
   NetworkDebugSnapshot Snapshot() const;
+
+  /** Read-only list of up IPv4 adapters; does not open or join sockets. */
+  static std::vector<NetworkDebugInterface> Interfaces(std::string* error = nullptr);
 
  private:
   class Impl;

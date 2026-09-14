@@ -163,6 +163,17 @@ export interface NetworkStartOptions {
   remotePort: number;
   /** Required before binding a listener to a non-loopback interface. */
   allowLan: boolean;
+  multicastInterface?: string;
+  multicastGroup?: string;
+  multicastTtl?: number;
+}
+
+/** Read-only IPv4 adapters reported by Windows, not discovered network devices. */
+export interface NetworkInterface {
+  name: string;
+  address: string;
+  index: number;
+  loopback: boolean;
 }
 
 /** One TCP client accepted by the local server, or the active remote peer. */
@@ -186,6 +197,10 @@ export interface NetworkSessionSnapshot {
   txPackets: number;
   txBytes: number;
   lastError?: string;
+  multicastInterface?: string;
+  multicastGroup?: string;
+  multicastTtl?: number;
+  multicastJoined?: boolean;
 }
 
 /** One connection, receive or send record drained from the native event queue. */

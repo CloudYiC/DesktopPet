@@ -10,6 +10,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#include <iphlpapi.h>
 
 #include <limits.h>
 #include <stdio.h>
@@ -36,6 +37,235 @@ static int cy_socket_type_value(int socket_type) {
 
 static int cy_protocol_value(int socket_type) {
   return socket_type == CY_NET_SOCKET_DATAGRAM ? IPPROTO_UDP : IPPROTO_TCP;
+}
+
+/* Strict dotted decimal only: no DNS, short/octal IPv4 or interface-index
+ * encodings such as 0.0.0.3 accepted from the UI. */
+static int cy_parse_ipv4(const char *text, IN_ADDR *address) {
+  unsigned long value = 0;
+  unsigned int part;
+  const char *cursor = text;
+  int index;
+  if (text == NULL || text[0] == '\0' || address == NULL) return 0;
+  for (index = 0; index < 4; ++index) {
+    const char *start = cursor;
+    part = 0;
+    while (*cursor >= '0' && *cursor <= '9') {
+      part = part * 10U + (unsigned int)(*cursor - '0');
+      ++cursor;
+      if (cursor - start > 3 || part > 255U) return 0;
+    }
+    if (cursor == start || (cursor - start > 1 && *start == '0')) return 0;
+    value = (value << 8U) | part;
+    if (index < 3) {
+      if (*cursor++ != '.') return 0;
+    } else if (*cursor != '\0') {
+      return 0;
+    }
+  }
+  address->s_addr = htonl(value);
+  return 1;
+}
+
+int cy_net_ipv4_is_address(const char *text) {
+  IN_ADDR address;
+  return cy_parse_ipv4(text, &address);
+}
+
+int cy_net_ipv4_is_multicast(const char *text) {
+  IN_ADDR address;
+  return cy_parse_ipv4(text, &address) &&
+         (ntohl(address.s_addr) & 0xf0000000UL) == 0xe0000000UL;
+}
+
+int cy_net_interfaces(cy_net_interface *interfaces, size_t capacity,
+                      int *error_code) {
+  ULONG buffer_size = 15000UL;
+  ULONG result = ERROR_BUFFER_OVERFLOW;
+  IP_ADAPTER_ADDRESSES *buffer = NULL;
+  IP_ADAPTER_ADDRESSES *adapter;
+  size_t count = 0;
+  int attempt;
+  if (interfaces == NULL || capacity == 0 || capacity > CY_NET_MAX_INTERFACES) {
+    cy_store_error(error_code, WSAEINVAL);
+    return -1;
+  }
+  for (attempt = 0; attempt < 3 && result == ERROR_BUFFER_OVERFLOW; ++attempt) {
+    if (buffer_size > 1024UL * 1024UL) break;
+    buffer = (IP_ADAPTER_ADDRESSES *)malloc(buffer_size);
+    if (buffer == NULL) {
+      cy_store_error(error_code, WSA_NOT_ENOUGH_MEMORY);
+      return -1;
+    }
+    result = GetAdaptersAddresses(AF_INET,
+        GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER,
+        NULL, buffer, &buffer_size);
+    if (result != NO_ERROR) {
+      free(buffer);
+      buffer = NULL;
+    }
+  }
+  if (result == ERROR_NO_DATA) {
+    cy_store_error(error_code, 0);
+    return 0;
+  }
+  if (result != NO_ERROR || buffer == NULL) {
+    cy_store_error(error_code, (int)result);
+    return -1;
+  }
+  for (adapter = buffer; adapter != NULL; adapter = adapter->Next) {
+    IP_ADAPTER_UNICAST_ADDRESS *unicast;
+    if (adapter->OperStatus != IfOperStatusUp) continue;
+    for (unicast = adapter->FirstUnicastAddress; unicast != NULL;
+         unicast = unicast->Next) {
+      const struct sockaddr_in *address;
+      unsigned long value;
+      size_t duplicate;
+      cy_net_interface item;
+      if (unicast->Address.lpSockaddr == NULL ||
+          unicast->Address.lpSockaddr->sa_family != AF_INET ||
+          unicast->Address.iSockaddrLength < (int)sizeof(struct sockaddr_in) ||
+          unicast->DadState == IpDadStateInvalid ||
+          unicast->DadState == IpDadStateTentative ||
+          unicast->DadState == IpDadStateDuplicate) continue;
+      address = (const struct sockaddr_in *)unicast->Address.lpSockaddr;
+      value = ntohl(address->sin_addr.s_addr);
+      if (value == 0 || (value & 0xf0000000UL) == 0xe0000000UL) continue;
+      memset(&item, 0, sizeof(item));
+      item.index = adapter->IfIndex;
+      item.loopback = adapter->IfType == IF_TYPE_SOFTWARE_LOOPBACK ||
+                      (value >> 24U) == 127UL;
+      (void)_snprintf_s(item.address, sizeof(item.address), _TRUNCATE,
+          "%lu.%lu.%lu.%lu", value >> 24U, (value >> 16U) & 255UL,
+          (value >> 8U) & 255UL, value & 255UL);
+      if (adapter->FriendlyName != NULL) {
+        if (!WideCharToMultiByte(CP_UTF8, 0, adapter->FriendlyName, -1,
+              item.name, (int)sizeof(item.name), NULL, NULL)) item.name[0] = '\0';
+      }
+      if (item.name[0] == '\0') {
+        (void)_snprintf_s(item.name, sizeof(item.name), _TRUNCATE,
+                         "IPv4 interface %lu", (unsigned long)item.index);
+      }
+      for (duplicate = 0; duplicate < count; ++duplicate) {
+        if (interfaces[duplicate].index == item.index &&
+            strcmp(interfaces[duplicate].address, item.address) == 0) break;
+      }
+      if (duplicate < count) continue;
+      if (count >= capacity) {
+        free(buffer);
+        cy_store_error(error_code, ERROR_MORE_DATA);
+        return -1;
+      }
+      interfaces[count++] = item;
+    }
+  }
+  free(buffer);
+  cy_store_error(error_code, 0);
+  return (int)count;
+}
+
+int cy_net_validate_multicast_interface(const char *interface_address,
+                                        int *error_code) {
+  IN_ADDR address;
+  cy_net_interface *interfaces;
+  int count;
+  int index;
+  if (interface_address == NULL || interface_address[0] == '\0' ||
+      strcmp(interface_address, "0.0.0.0") == 0) {
+    cy_store_error(error_code, 0);
+    return 1;
+  }
+  if (!cy_parse_ipv4(interface_address, &address) ||
+      (ntohl(address.s_addr) >> 24U) == 0) {
+    cy_store_error(error_code, WSAEINVAL);
+    return 0;
+  }
+  interfaces = (cy_net_interface *)calloc(CY_NET_MAX_INTERFACES, sizeof(*interfaces));
+  if (interfaces == NULL) {
+    cy_store_error(error_code, WSA_NOT_ENOUGH_MEMORY);
+    return 0;
+  }
+  count = cy_net_interfaces(interfaces, CY_NET_MAX_INTERFACES, error_code);
+  for (index = 0; index < count; ++index) {
+    if (strcmp(interfaces[index].address, interface_address) == 0) {
+      free(interfaces);
+      cy_store_error(error_code, 0);
+      return 1;
+    }
+  }
+  free(interfaces);
+  if (count >= 0) cy_store_error(error_code, WSAEADDRNOTAVAIL);
+  return 0;
+}
+
+int cy_net_set_multicast_route(cy_net_socket socket_value,
+                               const char *interface_address, int ttl,
+                               int *error_code) {
+  IN_ADDR interface_value;
+  DWORD hops;
+  if (ttl < 0 || ttl > 255 ||
+      !cy_net_validate_multicast_interface(interface_address, error_code)) {
+    if (ttl < 0 || ttl > 255) cy_store_error(error_code, WSAEINVAL);
+    return 0;
+  }
+  interface_value.s_addr = INADDR_ANY;
+  if (interface_address != NULL && interface_address[0] != '\0') {
+    if (!cy_parse_ipv4(interface_address, &interface_value)) {
+      cy_store_error(error_code, WSAEINVAL);
+      return 0;
+    }
+  }
+  hops = (DWORD)ttl;
+  if (setsockopt(cy_native_socket(socket_value), IPPROTO_IP, IP_MULTICAST_IF,
+        (const char *)&interface_value, (int)sizeof(interface_value)) == SOCKET_ERROR ||
+      setsockopt(cy_native_socket(socket_value), IPPROTO_IP, IP_MULTICAST_TTL,
+        (const char *)&hops, (int)sizeof(hops)) == SOCKET_ERROR) {
+    cy_store_error(error_code, WSAGetLastError());
+    return 0;
+  }
+  cy_store_error(error_code, 0);
+  return 1;
+}
+
+int cy_net_multicast_membership(cy_net_socket socket_value, const char *group,
+                                const char *interface_address, int join,
+                                int *error_code) {
+  struct ip_mreq membership;
+  struct sockaddr_in local;
+  int local_length = (int)sizeof(local);
+  int type = 0;
+  int type_length = (int)sizeof(type);
+  memset(&membership, 0, sizeof(membership));
+  if (!cy_net_ipv4_is_multicast(group) ||
+      !cy_parse_ipv4(group, &membership.imr_multiaddr) ||
+      (interface_address != NULL && interface_address[0] != '\0' &&
+       !cy_parse_ipv4(interface_address, &membership.imr_interface))) {
+    cy_store_error(error_code, WSAEINVAL);
+    return 0;
+  }
+  /* A removed adapter must not prevent dropping an existing membership. */
+  if (join && !cy_net_validate_multicast_interface(interface_address, error_code)) return 0;
+  memset(&local, 0, sizeof(local));
+  if (getsockname(cy_native_socket(socket_value), (struct sockaddr *)&local,
+        &local_length) == SOCKET_ERROR ||
+      getsockopt(cy_native_socket(socket_value), SOL_SOCKET, SO_TYPE,
+        (char *)&type, &type_length) == SOCKET_ERROR) {
+    cy_store_error(error_code, WSAGetLastError());
+    return 0;
+  }
+  if (local.sin_family != AF_INET || local.sin_addr.s_addr != INADDR_ANY ||
+      type != SOCK_DGRAM) {
+    cy_store_error(error_code, WSAEINVAL);
+    return 0;
+  }
+  if (setsockopt(cy_native_socket(socket_value), IPPROTO_IP,
+        join ? IP_ADD_MEMBERSHIP : IP_DROP_MEMBERSHIP,
+        (const char *)&membership, (int)sizeof(membership)) == SOCKET_ERROR) {
+    cy_store_error(error_code, WSAGetLastError());
+    return 0;
+  }
+  cy_store_error(error_code, 0);
+  return 1;
 }
 
 static int cy_copy_sockaddr(cy_net_address *destination,

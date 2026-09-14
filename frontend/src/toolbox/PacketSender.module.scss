@@ -1,27 +1,46 @@
 @use '../../../shared/tool-workspace/toolPalette' as p;
 .workspace { @include p.workspace; display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 28px); min-height: 0; min-width: 0; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
-.workspace button, .workspace input, .workspace textarea { font: inherit; box-sizing: border-box; }
+.workspace button, .workspace input, .workspace textarea, .workspace select { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 32px; padding: 5px 9px; color: p.$deep; background: p.$paper; border: 1px solid p.$line; border-radius: 7px; cursor: pointer; white-space: nowrap; }
 .workspace button:disabled { opacity: .5; cursor: default; }
 .workspace button:hover:not(:disabled) { border-color: #9dc8c4; background: p.$teal-soft; }
-.workspace :is(button,input,textarea):focus-visible { outline: 2px solid p.$primary; outline-offset: 1px; }
-.workspace input:not([type=checkbox]), .workspace textarea { width: 100%; min-width: 0; color: p.$ink; border: 1px solid p.$line; background: p.$surface; border-radius: 7px; padding: 7px 9px; }
-.workspace input:not([type=checkbox]) { height: 36px; }
+.workspace :is(button,input,textarea,select):focus-visible { outline: 2px solid p.$primary; outline-offset: 1px; }
+.workspace input:not([type=checkbox]), .workspace textarea, .workspace select { width: 100%; min-width: 0; color: p.$ink; border: 1px solid p.$line; background: p.$surface; border-radius: 7px; padding: 7px 9px; }
+.workspace input:not([type=checkbox]), .workspace select { height: 36px; }
 .workspace input[type=checkbox] { accent-color: p.$primary; margin: 0; width: 14px; height: 14px; flex-shrink: 0; }
 .workspace h3 { margin: 0; font-size: .9375rem; }
 .workspace small { color: p.$muted; font-size: .75rem; line-height: 1.5; }
 .workbench { display: grid; grid-template-columns: clamp(320px, 32vw, 390px) minmax(0,1fr); gap: 12px; min-height: 0; min-width: 0; flex: 1; }
-.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; }
+.editScroll { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.editScroll > .card { flex-shrink: 0; }
 .right { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
 .card { min-width: 0; padding: 12px; border: 1px solid p.$line; border-radius: 11px; background: p.$paper; }
 .editor > .card { flex-shrink: 0; }
 .card > header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap; }
 .card header h3 { margin-right: auto; }
-.editor > .card:first-child { background: linear-gradient(180deg,p.$blue-soft,p.$paper 65px); }
+.editScroll > .card:first-child { background: linear-gradient(180deg,p.$blue-soft,p.$paper 65px); }
 .card > label, .targetRow > label, .sendOptions > label { display: grid; gap: 5px; min-width: 0; color: p.$muted; font-size: .75rem; }
 .targetRow { display: grid; grid-template-columns: minmax(0,1fr) 83px; gap: 9px; margin-top: 10px; }
 .protocolRow { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.transportBadge { font-size: .75rem; color: p.$violet; background: p.$violet-soft; padding: 4px 8px; border-radius: 6px; }
+.interfaceRow { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 6px; margin-top: 8px; }
+.interfaceRow label, .localRow label { display: grid; gap: 4px; min-width: 0; color: p.$muted; font-size: .75rem; }
+.interfaceRow button { min-height: 36px; }
+.localRow { display: grid; grid-template-columns: minmax(0,1fr) auto 74px; align-items: end; gap: 7px; margin-top: 8px; }
+.localRow button { padding: 6px; min-height: 36px; }
+.multicastControls { margin-top: 10px; }
+.multicastControls > div { display: flex; gap: 7px; }
+.multicastControls small { display: block; margin-top: 5px; }
+.sendDock { flex-shrink: 0; background: p.$teal-soft; }
+.sendDock .sendOptions { margin-top: 0; }
+.endpoints { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: -2px 0 8px; color: p.$muted; font-size: .75rem; overflow-wrap: anywhere; }
+.endpoints [data-testid=packet-multicast-state] { color: p.$violet; }
+.reviewContent { color: p.$ink; line-height: 1.6; overflow-wrap: anywhere; }
+.reviewContent dl { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: 8px; padding: 12px; background: p.$blue-soft; border-radius: 8px; }
+.reviewContent dt { color: p.$muted; }
+.reviewContent dd { margin: 0; font-weight: 600; }
 .tabs { display: flex; flex-shrink: 0; border-radius: 7px; background: p.$surface; }
 .tabs button { border-color: transparent; background: transparent; }
 .tabs button[aria-pressed=true] { color: p.$teal; background: p.$teal-soft; }
@@ -69,5 +88,5 @@
 .logEmpty { display: grid; height: 100%; place-items: center; text-align: center; color: p.$console-muted; }
 .logPanel footer { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; color: p.$muted; padding-top: 8px; font-size: .6875rem; }
 @media (max-width:1100px) { .workbench { grid-template-columns: 310px minmax(0,1fr); gap: 10px; } .card { padding: 10px; } .sendActions { grid-template-columns: 1fr 1fr; } .sendActions .stop { grid-column: 1/-1; } .logPanel footer span:last-child { display: none; } }
-@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor { overflow: visible; } .payloadCard textarea { min-height: 140px; } .library { height: 230px; } .logPanel { height: 430px; flex: none; } }
+@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor, .editScroll { overflow: visible; } .payloadCard textarea { min-height: 140px; } .library { height: 230px; } .logPanel { height: 430px; flex: none; } }
 @media (max-height:540px) and (min-width:901px) { .workspace { height: 540px; } }

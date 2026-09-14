@@ -13,6 +13,7 @@ export interface PacketSenderDraft {
   payload: string;
   intervalMs: number;
   repeatCount: number;
+  multicastTtl: number;
 }
 
 export interface EncodedPacketPayload {
@@ -47,8 +48,8 @@ const encoder = new TextEncoder();
 export function createDefaultPacketDraft(): PacketSenderDraft {
   return {
     name: '', protocol: 'udp', host: '127.0.0.1', port: 9000,
-    localAddress: '127.0.0.1', localPort: 0,
-    dataMode: 'text', payload: '你好，云依助手', intervalMs: 1000, repeatCount: 1,
+    localAddress: '0.0.0.0', localPort: 0,
+    dataMode: 'text', payload: '你好，云依助手', intervalMs: 1000, repeatCount: 1, multicastTtl: 1,
   };
 }
 
@@ -207,6 +208,7 @@ function normalizedDraft(value: Record<string, unknown>): PacketSenderDraft {
     payload: stringValue(value.payload, '报文内容', MAX_PACKET_LIBRARY_BYTES),
     intervalMs: integer(value.intervalMs, '发送间隔（毫秒）', 100, 86400000),
     repeatCount: integer(value.repeatCount, '发送次数', 1, 1000),
+    multicastTtl: value.multicastTtl === undefined ? 1 : integer(value.multicastTtl, '组播 TTL', 0, 255),
   };
   encodePacketPayload(draft);
   return draft;
@@ -214,7 +216,7 @@ function normalizedDraft(value: Record<string, unknown>): PacketSenderDraft {
 
 export function validatePacketDraft(value: unknown): PacketSenderDraft {
   const draft = record(value, '报文');
-  exactKeys(draft, DRAFT_KEYS, '报文');
+  exactKeys(draft, [...DRAFT_KEYS, ...(Object.prototype.hasOwnProperty.call(draft, 'multicastTtl') ? ['multicastTtl'] : [])], '报文');
   return normalizedDraft(draft);
 }
 
@@ -226,7 +228,7 @@ function normalizedLibrary(value: unknown): PacketLibrary {
   const ids = new Set<string>();
   const packets = library.packets.map((item) => {
     const saved = record(item, '保存的报文');
-    exactKeys(saved, [...DRAFT_KEYS, 'id', 'updatedAt'], '保存的报文');
+    exactKeys(saved, [...DRAFT_KEYS, 'id', 'updatedAt', ...(Object.prototype.hasOwnProperty.call(saved, 'multicastTtl') ? ['multicastTtl'] : [])], '保存的报文');
     const id = stringValue(saved.id, '报文 ID', 80);
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(id)) throw new Error('报文 ID 格式无效。');
     if (ids.has(id)) throw new Error('报文库包含重复 ID，已取消导入，不会覆盖已有报文。');
