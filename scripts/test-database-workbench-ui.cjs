@@ -156,7 +156,7 @@ const { chromium } = require('playwright');
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:3002/?mode=dashboard');
     await page.getByRole('button', { name: /^工具首页/ }).click();
     const cards = page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) });
-    assert.equal(await cards.count(), 20, 'Number Format stays removed and three native debuggers are available');
+    assert.equal(await cards.count(), 21, 'Number Format stays removed; native debuggers and Packet Sender are available');
     assert.equal(await page.getByRole('heading', { name: '数字格式化', exact: true }).count(), 0);
     const card = cards.filter({ has: page.getByRole('heading', { name: '数据库工作台', exact: true }) });
     const description = await card.locator('p').innerText();
@@ -401,7 +401,7 @@ const { chromium } = require('playwright');
     await expectLayout(1280, 800);
     assert.deepEqual(runtimeErrors, [], 'No uncaught browser errors');
     assert.deepEqual(nativeDialogs, [], 'No browser-native alert or confirm dialogs');
-    console.log('PASS: 20-tool catalog, database rename, synthetic native bridge, grouped schema/search, structure/DDL tabs, results/TSV, split resize, independent scrolling, six viewport sizes, duplicate-query guard, errors, read-only/write confirmations, connection cancellation/close/new.');
+    console.log('PASS: 21-tool catalog, database rename, synthetic native bridge, grouped schema/search, structure/DDL tabs, results/TSV, split resize, independent scrolling, six viewport sizes, duplicate-query guard, errors, read-only/write confirmations, connection cancellation/close/new.');
     console.log(`Screenshots: ${output}`);
   } finally {
     await context.close();

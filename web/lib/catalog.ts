@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.6-desktop',
+    date: '2026-09-14',
+    items: [
+      { kind: '+', text: 'Added a desktop Packet Sender with TCP/UDP, lossless text/HEX/escaped-byte editing, binary payload loading and a local packet library with JSON import/export' },
+      { kind: '+', text: 'Added bounded repeat sends, cancellation and live TX/RX logs in a fixed left-editor/right-results workspace; editing and importing never transmit automatically' },
+      { kind: '+', text: 'Supports IPv4 UDP multicast sending through the system default route with explicit local binding consent; no multicast reception, raw packets or HTTP/TLS support' },
+      { kind: '+', text: 'Added pure-model, isolated mocked-bridge and local-loopback native regressions; the Windows installer now includes all 21 tools' },
+    ],
+  },
+  {
     version: 'v0.13.5-desktop',
     date: '2026-09-13',
     items: [

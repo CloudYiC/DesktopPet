@@ -67,7 +67,7 @@ function geometry(source, file) {
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:18779/?mode=dashboard');
     await page.getByRole('button', { name: /^工具首页/ }).click();
     const names = await page.getByRole('article').filter({ has: page.getByRole('button', { name: '打开', exact: true }) }).locator('h3').allTextContents();
-    assert.equal(names.length, 20);
+    assert.equal(names.length, 21);
     for (const theme of ['apricot', 'cloud', 'rose']) {
       await page.evaluate((theme) => { document.documentElement.dataset.workspaceTheme = theme; }, theme);
       const sidebarBefore = await snapshotSidebar();
@@ -112,6 +112,6 @@ function geometry(source, file) {
       }
     }
     assert.deepEqual(errors, []);
-    console.log('PASS palette UI: all 20 tools / 3 themes open; 17 refreshed titles, readable solid actions, distinct input/output and unchanged sidebar. Synthetic preview only.');
+    console.log('PASS palette UI: all 21 tools / 3 themes open; 18 palette-aligned titles, readable solid actions, distinct input/output and unchanged sidebar. Synthetic preview only.');
   } finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

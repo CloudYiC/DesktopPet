@@ -13,6 +13,7 @@ import { ImageToolbox } from './ImageToolbox';
 import { SoftwareUninstaller } from './SoftwareUninstaller';
 import { PacketInspector } from './PacketInspector';
 import { NetworkDebugger } from './NetworkDebugger';
+import { PacketSender } from './PacketSender';
 import { SerialDebugger } from './SerialDebugger';
 import { MqttDebugger } from './MqttDebugger';
 import { ModbusDebugger } from './ModbusDebugger';
@@ -87,6 +88,9 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
     }
     if (activeTool.id === 'network-debugger') {
       return <NetworkDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;
+    }
+    if (activeTool.id === 'packet-sender') {
+      return <PacketSender tool={activeTool} onBack={() => setActiveToolId(null)} />;
     }
     if (activeTool.id === 'serial-debugger') {
       return <SerialDebugger tool={activeTool} onBack={() => setActiveToolId(null)} />;

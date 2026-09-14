@@ -267,6 +267,66 @@ void TestValidationAndBoundedStop() {
          "Stop did not join the non-blocking worker in bounded time.");
 }
 
+void TestPacketSenderUdpRestartAndLimits() {
+  // Only ephemeral loopback endpoints are used. No LAN, multicast or public
+  // traffic is sent while validating the packet-sender session contract.
+  milo::NetworkDebugService firstReceiver;
+  milo::NetworkDebugService secondReceiver;
+  milo::NetworkDebugService sender;
+  std::string error;
+  Expect(firstReceiver.Start(UdpOptions(0, 9), &error),
+         "First packet-sender receiver did not start.");
+  Expect(secondReceiver.Start(UdpOptions(0, 9), &error),
+         "Second packet-sender receiver did not start.");
+  milo::NetworkDebugSnapshot firstEndpoint;
+  milo::NetworkDebugSnapshot secondEndpoint;
+  Expect(WaitForState(&firstReceiver, "ready", 0, &firstEndpoint),
+         "First packet-sender receiver did not become ready.");
+  Expect(WaitForState(&secondReceiver, "ready", 0, &secondEndpoint),
+         "Second packet-sender receiver did not become ready.");
+
+  const std::string firstHex = "00007f80ff414243";
+  Expect(sender.Start(UdpOptions(0, firstEndpoint.localPort), &error),
+         "Packet-sender initial session was rejected.");
+  // Start is asynchronous. A successful Send acknowledges queue admission;
+  // actual completion is observed through the receiving endpoint/counters.
+  Expect(sender.Send(firstHex, 0, &error),
+         "An immediate send after Start was not queued.");
+  Expect(WaitForReceivedHex(&firstReceiver, firstHex),
+         "The initial packet did not reach the configured endpoint.");
+  Expect(sender.Snapshot().txPackets == 1,
+         "The initial packet completion was not counted.");
+
+  Expect(sender.Start(UdpOptions(0, secondEndpoint.localPort), &error),
+         "Restarting with the new fixed UDP target was rejected.");
+  milo::NetworkDebugSnapshot restarted;
+  Expect(WaitForState(&sender, "ready", 0, &restarted),
+         "Restarted packet-sender session did not become ready.");
+  Expect(restarted.remotePort == secondEndpoint.localPort &&
+             restarted.txPackets == 0 && restarted.txBytes == 0,
+         "A restarted session must replace its target and reset counters.");
+  const std::string secondHex = "feff0022";
+  Expect(sender.Send(secondHex, 0, &error),
+         "The second packet was rejected.");
+  Expect(WaitForReceivedHex(&secondReceiver, secondHex),
+         "The second packet did not reach the replacement target.");
+  Expect(!HasReceivedData(&firstReceiver, 100),
+         "Restarted sending leaked to the previous UDP target.");
+
+  Expect(!sender.Send(secondHex, 1, &error),
+         "UDP must reject a peer override instead of changing its target.");
+  std::vector<unsigned char> tooLargeUdp(65508U, 0x55U);
+  Expect(!sender.Send(tooLargeUdp, 0, &error),
+         "A UDP datagram exceeding 65507 bytes must be rejected.");
+  Expect(!sender.Send(std::string(), 0, &error),
+         "An empty packet must be rejected.");
+  sender.Stop();
+  Expect(!sender.Send(secondHex, 0, &error),
+         "A stopped packet-sender session must not accept new sends.");
+  firstReceiver.Stop();
+  secondReceiver.Stop();
+}
+
 }  // namespace
 
 int main() {
@@ -274,6 +334,7 @@ int main() {
     TestTcpBidirectionalAndMultipleClients();
     TestUdpBinaryDatagram();
     TestValidationAndBoundedStop();
+    TestPacketSenderUdpRestartAndLimits();
     std::cout << "Milo network debugging service tests passed.\n";
     return 0;
   } catch (const std::exception& error) {

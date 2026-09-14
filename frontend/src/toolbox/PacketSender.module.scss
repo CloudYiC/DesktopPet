@@ -1,0 +1,73 @@
+@use '../../../shared/tool-workspace/toolPalette' as p;
+.workspace { @include p.workspace; display: flex; flex-direction: column; gap: 12px; height: calc(100dvh - 28px); min-height: 0; min-width: 0; font-size: .8125rem; }
+.workspace > header { flex-shrink: 0; }
+.workspace button, .workspace input, .workspace textarea { font: inherit; box-sizing: border-box; }
+.workspace button { min-height: 32px; padding: 5px 9px; color: p.$deep; background: p.$paper; border: 1px solid p.$line; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+.workspace button:disabled { opacity: .5; cursor: default; }
+.workspace button:hover:not(:disabled) { border-color: #9dc8c4; background: p.$teal-soft; }
+.workspace :is(button,input,textarea):focus-visible { outline: 2px solid p.$primary; outline-offset: 1px; }
+.workspace input:not([type=checkbox]), .workspace textarea { width: 100%; min-width: 0; color: p.$ink; border: 1px solid p.$line; background: p.$surface; border-radius: 7px; padding: 7px 9px; }
+.workspace input:not([type=checkbox]) { height: 36px; }
+.workspace input[type=checkbox] { accent-color: p.$primary; margin: 0; width: 14px; height: 14px; flex-shrink: 0; }
+.workspace h3 { margin: 0; font-size: .9375rem; }
+.workspace small { color: p.$muted; font-size: .75rem; line-height: 1.5; }
+.workbench { display: grid; grid-template-columns: clamp(320px, 32vw, 390px) minmax(0,1fr); gap: 12px; min-height: 0; min-width: 0; flex: 1; }
+.editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.right { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.card { min-width: 0; padding: 12px; border: 1px solid p.$line; border-radius: 11px; background: p.$paper; }
+.editor > .card { flex-shrink: 0; }
+.card > header { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap; }
+.card header h3 { margin-right: auto; }
+.editor > .card:first-child { background: linear-gradient(180deg,p.$blue-soft,p.$paper 65px); }
+.card > label, .targetRow > label, .sendOptions > label { display: grid; gap: 5px; min-width: 0; color: p.$muted; font-size: .75rem; }
+.targetRow { display: grid; grid-template-columns: minmax(0,1fr) 83px; gap: 9px; margin-top: 10px; }
+.protocolRow { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.tabs { display: flex; flex-shrink: 0; border-radius: 7px; background: p.$surface; }
+.tabs button { border-color: transparent; background: transparent; }
+.tabs button[aria-pressed=true] { color: p.$teal; background: p.$teal-soft; }
+.binding { margin-top: 2px; }
+.binding small { display: block; margin-top: 7px; }
+.card > .consent { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: p.$amber; line-height: 1.5; }
+.payloadCard { flex: 1; display: flex; flex-direction: column; background: linear-gradient(180deg,p.$teal-soft,p.$paper 65px); }
+.payloadToolbar { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.payloadToolbar span { color: p.$muted; font-size: .75rem; }
+.payloadCard textarea { flex: 1; min-height: 110px; resize: none; font: 13px/1.7 Consolas,monospace; }
+.payloadCard > small { margin-top: 5px; }
+.sendOptions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.sendActions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+.sendActions button { min-height: 38px; padding: 5px 6px; }
+.workspace .primary { color: #fff; background: p.$primary; border-color: p.$primary; }
+.workspace .primary:hover:not(:disabled) { background: p.$deep; color: #fff; }
+.workspace .stop, .workspace .delete { color: p.$danger; }
+.notice, .error, .warning { margin: 0; padding: 8px 10px; border-radius: 7px; line-height: 1.5; overflow-wrap: anywhere; font-size: .75rem; }
+.notice, .error { flex-shrink: 0; max-height: 80px; overflow: auto; }
+.notice { color: p.$teal; background: p.$teal-soft; }
+.error { color: p.$danger; background: p.$danger-soft; }
+.warning { margin-top: 8px; color: p.$amber; background: p.$amber-soft; }
+.library { display: flex; flex-direction: column; min-height: 0; height: 220px; flex-shrink: 0; background: linear-gradient(180deg,p.$violet-soft,p.$paper 60px); }
+.library header h3 span { color: p.$violet; font-size: .75rem; }
+.library > input { flex-shrink: 0; }
+.packetList { min-height: 0; flex: 1; overflow: auto; margin-top: 6px; }
+.packetList article { display: flex; align-items: center; gap: 5px; padding: 5px; border-bottom: 1px solid p.$line; }
+.packetList article[data-selected=true] { background: p.$teal-soft; }
+.packetList .packetName { display: grid; flex: 1; min-width: 0; text-align: left; border: 0; padding: 2px; background: transparent; gap: 4px; }
+.packetName strong, .packetName small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.empty { color: p.$muted; text-align: center; padding: 10px; line-height: 1.6; }
+.logPanel { display: flex; flex-direction: column; flex: 1; min-height: 0; background: linear-gradient(180deg,p.$blue-soft,p.$paper 60px); }
+.logPanel .follow { display: flex; align-items: center; gap: 5px; color: p.$muted; white-space: nowrap; font-size: .75rem; }
+.session { display: flex; gap: 6px 16px; flex-wrap: wrap; color: p.$muted; margin-bottom: 8px; font-size: .75rem; }
+.session > span:first-child { margin-right: auto; color: p.$teal; }
+.log { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; background: p.$console; color: p.$console-text; border-radius: 8px; padding: 10px 12px; font: 12px/1.6 Consolas,monospace; }
+.logRow { border-bottom: 1px solid #ffffff12; padding: 5px 0; }
+.logRow > div { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.logRow time, .logRow span { color: p.$console-muted; }
+.logRow b { color: p.$console-info; }
+.logRow[data-kind=sent] b { color: p.$tx; }
+.logRow[data-kind=received] b { color: p.$rx; }
+.logRow[data-kind=error] :is(b,pre) { color: p.$console-error; }
+.logRow pre { font: inherit; margin: 3px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.logEmpty { display: grid; height: 100%; place-items: center; text-align: center; color: p.$console-muted; }
+.logPanel footer { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; color: p.$muted; padding-top: 8px; font-size: .6875rem; }
+@media (max-width:1100px) { .workbench { grid-template-columns: 310px minmax(0,1fr); gap: 10px; } .card { padding: 10px; } .sendActions { grid-template-columns: 1fr 1fr; } .sendActions .stop { grid-column: 1/-1; } .logPanel footer span:last-child { display: none; } }
+@media (max-width:900px) { .workspace { height: auto; } .workbench { display: flex; flex-direction: column; } .editor { overflow: visible; } .payloadCard textarea { min-height: 140px; } .library { height: 230px; } .logPanel { height: 430px; flex: none; } }
+@media (max-height:540px) and (min-width:901px) { .workspace { height: 540px; } }

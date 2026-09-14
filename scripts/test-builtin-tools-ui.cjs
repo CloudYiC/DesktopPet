@@ -10,8 +10,8 @@ const storageKey = 'yiyi.plugins.installed.v2';
 const catalog = fs.readFileSync(path.resolve(__dirname, '../frontend/src/toolbox/catalog.ts'), 'utf8');
 const tools = Array.from(catalog.matchAll(/\{ id: '([^']+)', name: '([^']+)'[^\n]*?category: '([^']+)'/g),
   ([, id, name, category]) => ({ id, name, category }));
-assert.equal(tools.length, 20, 'the desktop contains 20 working built-in tools');
-assert.equal(new Set(tools.map((tool) => tool.id)).size, 20);
+assert.equal(tools.length, 21, 'the desktop contains 21 working built-in tools, including Packet Sender');
+assert.equal(new Set(tools.map((tool) => tool.id)).size, 21);
 
 // This is a source-contract check, not a native installation or database test.
 // The UI scenarios below separately exercise restoration from an older host.
@@ -134,7 +134,7 @@ const scenarios = [
         throw error;
       } finally { await context.close(); }
     }
-    console.log('PASS: legacy availability data is ignored; no enable/store/filter/badge UI; 100 direct opens, search, and old marketplace-to-tool-home restoration. Native migration source contracts also passed.');
+    console.log(`PASS: legacy availability data is ignored; no enable/store/filter/badge UI; ${scenarios.length * tools.length} direct opens, search, and old marketplace-to-tool-home restoration. Native migration source contracts also passed.`);
     console.log(`Screenshots: ${output}`);
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
