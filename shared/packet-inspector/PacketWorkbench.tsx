@@ -42,10 +42,14 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
   const [tab, setTab] = useState<'standard' | 'custom'>('standard');
   const [offsetInput, setOffsetInput] = useState(hexOffset(first.range.offset));
   const [locateError, setLocateError] = useState('');
-  const [columns, setColumns] = useState(16);
+  const [columnChoice, setColumnChoice] = useState<'auto' | '8' | '16' | '32'>('auto');
+  const [byteViewportWidth, setByteViewportWidth] = useState(0);
+  const autoColumns = byteViewportWidth >= 612 ? 16 : 8;
+  const columns = columnChoice === 'auto' ? autoColumns : Number(columnChoice);
   const [viewport, setViewport] = useState({ top: 0, height: 256 });
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorRevision, setEditorRevision] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftOffset, setDraftOffset] = useState('34');
@@ -57,10 +61,11 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
   const nameRef = useRef<HTMLInputElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const fieldScrollerRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLFormElement>(null);
   const selectionAnchor = useRef(first.range.offset);
   const generation = useRef(0);
   const selectionRevision = useRef(0);
-  const columnScrollTarget = useRef<number | null>(null);
+  const previousByteLayout = useRef<{ columns: number; width: number; height: number } | null>(null);
   const ids = useId();
   const dirty = input !== analyzedInput || mode !== analyzedMode;
 
@@ -79,26 +84,39 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
   useEffect(() => {
     const element = scrollerRef.current;
     if (!element) return;
-    const observer = new ResizeObserver(() => setViewport({ top: element.scrollTop, height: element.clientHeight }));
+    const observer = new ResizeObserver(() => {
+      setViewport({ top: element.scrollTop, height: element.clientHeight });
+      setByteViewportWidth(element.clientWidth);
+    });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    // Apply the offset after the new row count changes the scrollable height.
+    // Initial automatic sizing should show the packet from offset 0000. Later
+    // layout changes keep the selection visible without moving an already
+    // visible range unnecessarily. User scrolling alone must not trigger this.
     const element = scrollerRef.current;
-    if (!element || columnScrollTarget.current === null) return;
-    element.scrollTop = Math.max(0, Math.floor(columnScrollTarget.current / columns) * ROW_HEIGHT - ROW_HEIGHT);
-    columnScrollTarget.current = null;
+    const previous = previousByteLayout.current;
+    previousByteLayout.current = { columns, width: byteViewportWidth, height: viewport.height };
+    if (!element || !previous || previous.width === 0
+      || (previous.columns === columns && previous.width === byteViewportWidth && previous.height === viewport.height)) return;
+    const top = Math.floor(range.offset / columns) * ROW_HEIGHT;
+    if (top < element.scrollTop || top + ROW_HEIGHT * 2 > element.scrollTop + element.clientHeight) {
+      element.scrollTop = Math.max(0, top - ROW_HEIGHT);
+    }
     setViewport({ top: element.scrollTop, height: element.clientHeight });
-  }, [columns]);
+  }, [columns, byteViewportWidth, viewport.height]);
 
   useEffect(() => {
     if (editorOpen) {
       fieldScrollerRef.current?.scrollTo({ top: 0 });
+      // Opening an editor below the fold must reveal it in the outer dashboard,
+      // including when a second range is defined while the editor is already open.
+      editorRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       nameRef.current?.focus({ preventScroll: true });
     }
-  }, [editorOpen]);
+  }, [editorOpen, editorRevision]);
 
   const scrollToByte = (offset: number, force = false) => {
     const element = scrollerRef.current;
@@ -238,6 +256,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     setCustomError('');
     setTab('custom');
     setEditorOpen(true);
+    setEditorRevision((revision) => revision + 1);
     fieldScrollerRef.current?.scrollTo({ top: 0 });
   };
 
@@ -342,33 +361,37 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
         {!!analysis.bytes.length && <span className={styles.summaryFacts}>首部 {headerBytes} B · 载荷 {payloadBytes} B{dirty ? ' · 当前显示上次结果' : ''}</span>}
       </div>
 
-      <div className={styles.inspectorGrid}>
-        <aside className={styles.layerPanel}>
+      <div className={styles.inspectorGrid} data-testid="packet-inspector-grid">
+        <aside className={styles.layerPanel} data-testid="packet-layer-panel">
           <div className={styles.layerTreeArea}>
             <h3>协议分层</h3>
             <div className={styles.layerTree}>
-              {analysis.layers.map((layer, index) => <button key={`${layer.id}-${index}`} type="button" aria-pressed={layer.id === activeLayer}
-                style={{ '--layer-color': layerTone(layer).background, '--layer-accent': layerTone(layer).accent } as CSSProperties}
-                onClick={() => { selectRange(layer, `layer:${index}`, layer.id); setTab('standard'); }}>
-                <i /><span><strong>{layerLabel(layer)}</strong><small>{rangeText(layer)}</small></span>
-              </button>)}
+              {analysis.layers.map((layer, index) => <div key={`${layer.id}-${index}`} className={styles.layerNode}
+                data-testid={isPayload(layer) ? 'payload-layer-node' : undefined} data-layer-id={layer.id} data-layer-offset={layer.offset}
+                style={{ '--layer-color': layerTone(layer).background, '--layer-accent': layerTone(layer).accent } as CSSProperties}>
+                <button type="button" className={styles.layerButton} aria-pressed={layer.id === activeLayer}
+                  onClick={() => { selectRange(layer, `layer:${index}`, layer.id); setTab('standard'); }}>
+                  <i /><span><strong>{layerLabel(layer)}</strong><small>{rangeText(layer)}</small></span>
+                </button>
+                {isPayload(layer) && <button type="button" className={styles.definePayload}
+                  aria-label={`定义载荷字段：${rangeText(layer)}`} onClick={() => {
+                    selectRange(layer, 'bytes', layer.id); openEditor(layer);
+                  }}>定义载荷字段 <span aria-hidden="true">→</span></button>}
+              </div>)}
             </div>
-            {unknownLayers.length > 0 && <button type="button" className={styles.definePayload} onClick={() => {
-              const layer = unknownLayers[0]; selectRange(layer, 'bytes', layer.id); openEditor(layer);
-            }}>定义载荷字段 →</button>}
             {!analysis.layers.length && <p className={styles.emptyState}>暂无协议层</p>}
             {!!warnings.length && <details className={styles.warningList}><summary>{warnings.length} 条解析提示</summary>
               {warnings.map((warning, index) => <p key={index}>{warning.message}<small>{hexOffset(warning.offset)}</small></p>)}
             </details>}
           </div>
           <section className={styles.selectionDetails} aria-label="当前选区">
-            <h3>当前选区</h3><span className={styles.selectionTag}>{selectedDescription}</span>
+            <h3 title="检查当前选中的原始字节范围；协议解析后的字段值请查看标准字段">当前选区</h3><span className={styles.selectionTag}>{selectedDescription}</span>
             <code className={styles.selectedHex} title={hexBytes(selectedBytes.slice(0, 64))}>{hexBytes(selectedBytes.slice(0, 24)) || '—'}{selectedBytes.length > 24 ? ' …' : ''}</code>
             <dl>
               <div><dt title="所有偏移从输入报文的第 0 字节开始">起始偏移</dt><dd>{validRange ? `${hexOffset(range.offset)} / ${range.offset}` : '—'}</dd></div>
               <div><dt>长度</dt><dd>{validRange ? range.length : 0} 字节</dd></div>
-              <div><dt>大端整数</dt><dd>{integerValue(selectedBytes, 'big')}</dd></div>
-              <div><dt>小端整数</dt><dd>{integerValue(selectedBytes, 'little')}</dd></div>
+              <div><dt title="按选中的完整原始字节解释；协议位字段值请查看标准字段">大端整数</dt><dd>{integerValue(selectedBytes, 'big')}</dd></div>
+              <div><dt title="按选中的完整原始字节解释；协议位字段值请查看标准字段">小端整数</dt><dd>{integerValue(selectedBytes, 'little')}</dd></div>
             </dl>
             {selectedBytes.length > 8 && <small>整数解释支持 1–8 字节</small>}
             <div className={styles.selectionActions}>
@@ -379,18 +402,17 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
           {unknownLayers.length > 0 && <p className={styles.unknownNote}>ⓘ 未知载荷需按协议文档定义</p>}
         </aside>
 
-        <div className={styles.resultPanels}>
-          <section className={styles.bytePanel}>
+        <div className={styles.resultPanels} data-testid="packet-result-panels">
+          <section className={styles.bytePanel} data-testid="packet-byte-panel">
             <header className={styles.byteToolbar}>
-              <h3>字节视图</h3>
+              <h3 title="按偏移检查 Hex 与 ASCII 原文，单击或 Shift 连选字节，与协议层和字段联动">字节视图</h3>
               <div className={styles.byteTools}>
                 <label>定位偏移<input aria-label="定位偏移" value={offsetInput} placeholder="0x0022" title="输入偏移后按 Enter 定位；十六进制请加 0x"
                   onChange={(event) => { setOffsetInput(event.target.value); setLocateError(''); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); locate(); } }} />
                   <button type="button" aria-label="跳转到偏移" title="跳转到偏移" onClick={locate}>↵</button></label>
-                <select aria-label="每行字节数" value={columns} onChange={(event) => {
-                  columnScrollTarget.current = range.offset;
-                  setColumns(Number(event.target.value));
-                }}><option value={8}>8 字节 / 行</option><option value={16}>16 字节 / 行</option><option value={32}>32 字节 / 行</option></select>
+                <select aria-label="每行字节数" value={columnChoice} onChange={(event) => setColumnChoice(event.target.value as typeof columnChoice)}>
+                  <option value="auto">自动（{autoColumns} 字节）</option><option value="8">8 字节 / 行</option><option value="16">16 字节 / 行</option><option value="32">32 字节 / 行</option>
+                </select>
               </div>
               <div className={styles.legend}>{analysis.layers.map((layer, index) => <span key={`${layer.id}-${index}`}><i style={{ background: layerTone(layer).accent }} />{isPayload(layer) ? '载荷' : layer.name.replace(' II', '')}</span>)}</div>
               {locateError && <p className={styles.inputError} role="alert">{locateError}</p>}
@@ -434,10 +456,10 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
             <footer className={styles.byteFooter}><span>{validRange ? `已选 ${rangeText(range).replace(' B', ' 字节')}` : '尚未选择字节'}</span><span>单击选择 · Shift 连选</span></footer>
           </section>
 
-          <section className={styles.fieldPanel}>
+          <section className={styles.fieldPanel} data-testid="packet-field-panel">
             <header className={styles.fieldToolbar}>
               <div className={styles.fieldTabs} role="tablist" aria-label="字段类型">
-                <button type="button" id={`${ids}-standard-tab`} role="tab" aria-selected={tab === 'standard'} aria-controls={`${ids}-fields`} onClick={() => setTab('standard')}>标准字段</button>
+                <button type="button" id={`${ids}-standard-tab`} role="tab" title="查看当前协议层已解析的字段及含义，例如 IP 地址、端口、版本和长度；点击可定位原始字节" aria-selected={tab === 'standard'} aria-controls={`${ids}-fields`} onClick={() => setTab('standard')}>标准字段</button>
                 <button type="button" id={`${ids}-custom-tab`} role="tab" aria-selected={tab === 'custom'} aria-controls={`${ids}-fields`} onClick={() => setTab('custom')}>自定义字段{customFields.length ? ` (${customFields.length})` : ''}</button>
               </div>
               {tab === 'standard' ? <label className={styles.layerFilter}>当前层：<select aria-label="当前协议层" value={activeLayer} disabled={!analysis.layers.length} onChange={(event) => {
@@ -454,7 +476,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
                 </tr>)}</tbody>
               </table> : <p className={styles.emptyState}>当前没有标准字段。可在字节视图选择范围并定义字段。</p>
                 : <>
-                  {editorOpen && <form className={styles.customEditor} onSubmit={saveField}>
+                  {editorOpen && <form ref={editorRef} className={styles.customEditor} onSubmit={saveField}>
                     <header><strong>{editingId ? '编辑字段' : '定义选区字段'}</strong><button type="button" onClick={() => setEditorOpen(false)}>取消</button></header>
                     <div className={styles.customForm}>
                       <label>字段名称<input ref={nameRef} aria-label="字段名称" value={draftName} maxLength={80} placeholder="例如：消息类型" onChange={(e) => setDraftName(e.target.value)} /></label>

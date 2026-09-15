@@ -65,6 +65,17 @@ test('initial selection points to the actual UDP source-port bytes', () => {
   assert.equal(model.fieldLabel(sample.fields[fieldIndex]), '源端口');
 });
 
+test('raw selection integers remain distinct from standard protocol bit-field values', () => {
+  const versionField = sample.fields.find((field) => field.layer === 'ipv4' && field.offset === 14 && field.length === 1);
+  assert.ok(versionField, 'IPv4 version/IHL field is present');
+  const bytes = sample.bytes.slice(versionField.offset, versionField.offset + versionField.length);
+  assert.equal(model.hexBytes(bytes), '45');
+  assert.equal(model.integerValue(bytes, 'big'), '69');
+  assert.equal(model.integerValue(bytes, 'little'), '69');
+  assert.match(versionField.value, /^IPv4 \/ 20 字节$/);
+  assert.equal(bytes[0] >> 4, 4);
+});
+
 test('range bounds accept the last byte and reject empty, fractional and unsafe ranges', () => {
   assert.equal(model.rangeInPacket({ offset: 65, length: 1 }, 66), true);
   assert.equal(model.rangeInPacket({ offset: 0, length: 65536 }, 65536), true);

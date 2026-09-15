@@ -11,6 +11,7 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 .workspace {
   @include palette.workspace;
   --inspector-height: clamp(490px, calc(100dvh - 334px), 760px);
+  container-name: packet-workbench;
   container-type: inline-size;
   display: grid;
   min-width: 0;
@@ -156,14 +157,16 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 // keeping the selected field and its corresponding bytes visible together.
 .inspectorGrid { display: grid; min-width: 0; height: var(--inspector-height); grid-template-columns: 228px minmax(0, 1fr); gap: 10px; }
 .layerPanel { display: flex; min-height: 0; padding: 12px; flex-direction: column; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.layerTreeArea { min-height: 110px; max-height: 52%; flex: 0 1 auto; overflow: auto; scrollbar-width: thin; h3 { margin-bottom: 8px; } }
+.layerTreeArea { min-height: 110px; flex: 0 0 auto; h3 { margin-bottom: 8px; } }
 .layerTree {
   position: relative;
   display: grid;
   gap: 2px;
 
   &::before { position: absolute; top: 18px; bottom: 21px; left: 5px; width: 1px; content: ''; background: $line; }
-  > button {
+}
+.layerNode { position: relative; min-width: 0; }
+.layerButton {
     position: relative;
     display: grid;
     width: 100%;
@@ -186,9 +189,24 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
     > span { display: grid; min-width: 0; gap: 1px; }
     strong { font-size: 0.8125rem; font-weight: 650; }
     small { color: $muted; font-size: 0.75rem; line-height: 1.4; overflow-wrap: anywhere; }
-  }
 }
-.definePayload { display: block; margin: 5px 0 2px auto; padding: 0; color: $teal-dark; background: transparent; border: 0; font-size: 0.75rem; font-weight: 650; }
+.definePayload {
+  display: flex;
+  width: calc(100% - 34px);
+  min-height: 30px;
+  margin: 2px 0 5px 34px;
+  padding: 4px 6px;
+  align-items: center;
+  gap: 5px;
+  color: $teal-dark;
+  background: color-mix(in srgb, $teal 7%, $paper);
+  border: 1px solid color-mix(in srgb, $teal 24%, $line);
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-align: left;
+  &:hover { background: color-mix(in srgb, $teal 14%, $paper); border-color: $teal; }
+}
 .warningList {
   flex: 0 0 auto;
   color: palette.$amber;
@@ -243,7 +261,7 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 }
 .byteTools input, .byteTools select, .layerFilter select { min-width: 0; height: 29px; padding: 3px 7px; color: $ink; background: $paper; border: 1px solid $line; border-radius: 5px; font-size: 0.75rem; }
 .byteTools input { width: 75px; font-family: $mono; }
-.byteTools select { width: 107px; }
+.byteTools select { width: 117px; }
 .legend { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 4px; color: $muted; font-size: 0.6875rem; white-space: nowrap; }
 .legend i { width: 10px; height: 10px; background: var(--layer-accent, var(--layer-color)); border-radius: 3px; }
@@ -383,18 +401,18 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 .fieldTable th { color: #48647c; background: #edf3f7; }
 .emptyState { display: grid; min-height: 80px; height: 100%; padding: 16px; align-content: center; justify-items: center; gap: 6px; color: $muted; text-align: center; font-size: 0.8125rem; line-height: 1.6; }
 
-@container (max-width: 1040px) {
-  .inspectorGrid { grid-template-columns: 216px minmax(0, 1fr); }
+@container packet-workbench (max-width: 1040px) {
+  .inspectorGrid { grid-template-columns: 200px minmax(0, 1fr); }
   .byteTools { gap: 5px 7px; }
   .legend { width: 100%; justify-content: flex-end; gap: 10px; }
   .byteToolbar > h3 { align-self: flex-start; padding-top: 4px; }
   .inputFacts { gap: 8px; }
 }
 
-@container (max-width: 780px) {
+@container packet-workbench (max-width: 720px) {
   .inspectorGrid { height: auto; grid-template-columns: 1fr; }
   .layerPanel { display: grid; max-height: none; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 10px 16px; overflow: visible; }
-  .layerTreeArea { min-height: 0; max-height: 260px; }
+  .layerTreeArea { min-height: 0; }
   .selectionDetails { margin: 0; padding: 0 0 0 14px; border-top: 0; border-left: 1px solid $line; }
   .warningList { grid-column: 1 / -1; grid-row: 2; }
   .resultPanels { height: 620px; grid-template-rows: minmax(250px, 1fr) minmax(220px, 1fr); }
@@ -404,7 +422,7 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
   .primaryButton kbd { display: none; }
 }
 
-@container (max-width: 520px) {
+@container packet-workbench (max-width: 520px) {
   .inputCard { padding: 10px; }
   .inputHeading { align-items: flex-start; flex-direction: column; gap: 6px; }
   .inputActions { width: 100%; justify-content: space-between; gap: 8px; }
@@ -417,8 +435,9 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
   .layerPanel { display: flex; padding: 10px; gap: 0; }
   .layerTreeArea { width: 100%; }
   .layerTree { grid-template-columns: 1fr 1fr; }
-  .layerTree::before, .layerTree > button::before { display: none; }
-  .layerTree > button { padding-left: 5px; }
+  .layerTree::before, .layerButton::before { display: none; }
+  .layerButton { padding-left: 5px; }
+  .definePayload { width: calc(100% - 26px); margin-left: 26px; }
   .selectionDetails { width: 100%; margin-top: 10px; padding: 10px 0 0; border-top: 1px solid $line; border-left: 0; }
   .selectionDetails dl { grid-template-columns: 1fr 1fr; gap: 4px 12px; }
   .selectionDetails dl > div { grid-template-columns: 1fr; gap: 0; }

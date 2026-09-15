@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.12-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Kept packet protocol navigation and current selection beside byte and field views at default and scaled desktop widths, with automatic byte-row sizing' },
+      { kind: '~', text: 'Attached payload-field actions to their corresponding protocol nodes and brought custom-field editing into view on activation' },
+      { kind: '~', text: 'Clarified standard protocol fields versus raw selected-byte integer interpretation while preserving parser, selection and saved-field behavior' },
+    ],
+  },
+  {
     version: 'v0.13.11-desktop',
     date: '2026-09-15',
     items: [

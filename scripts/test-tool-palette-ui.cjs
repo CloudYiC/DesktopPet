@@ -9,12 +9,13 @@ const root = path.resolve(__dirname, '..');
 const sass = require(path.join(root, 'frontend/node_modules/sass'));
 const postcss = require(path.join(root, 'frontend/node_modules/postcss'));
 const styleFiles = [
-  // Network, MQTT and Modbus intentionally use redesigned result-first layouts;
-  // their geometry is covered by dedicated workspace tests rather than this guard.
+  // Network, MQTT, Modbus and the packet inspector intentionally use redesigned
+  // result-first layouts. Dedicated workspace tests cover their geometry; in
+  // particular test-packet-workbench-ui.cjs owns packet pane sizing, responsive
+  // byte columns and payload-field placement. Their theme checks remain below.
   ...['DatabaseStudio', 'ImageToolbox', 'Toolbox', 'SerialDebugger',
     'UtilityCodecWorkspace', 'UtilitySpecializedWorkspace',
     'TextDiffWorkspace', 'RegexWorkspace'].map((name) => `frontend/src/toolbox/${name}.module.scss`),
-  'shared/packet-inspector/PacketWorkbench.module.scss',
   'shared/tool-workspace/ToolWorkspaceHeader.module.scss',
 ];
 
