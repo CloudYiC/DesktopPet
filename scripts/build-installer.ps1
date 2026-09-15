@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
-Builds the signed-prerequisite, offline-capable Windows installer.
+Builds the Windows installer with complete offline prerequisites.
 
 .DESCRIPTION
-Builds the Release app, obtains a pinned NSIS compiler, validates Microsoft
-signatures on redistributable prerequisites, and emits an NSIS setup executable
-under out/dist.
+Builds the Release app, obtains a pinned NSIS compiler and complete Microsoft
+redistributables on the BUILD machine. Validates their signatures, then embeds
+both runtimes so the recipient needs no internet connection. Emits the setup
+executable and a payload-integrity manifest under out/dist.
 #>
 param(
     [switch]$SkipAppBuild
@@ -52,7 +53,10 @@ function Get-Download {
         return
     }
     Write-Host "Downloading $Uri"
-    Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $Destination
+    # Never cache an interrupted/partial download under the final filename.
+    $partial = "$Destination.partial"
+    Invoke-WebRequest -UseBasicParsing -Uri $Uri -OutFile $partial
+    Move-Item -LiteralPath $partial -Destination $Destination
 }
 
 function Assert-MicrosoftSignature {
@@ -66,6 +70,19 @@ function Assert-MicrosoftSignature {
         $signature.SignerCertificate.Subject -notlike '*Microsoft Corporation*') {
         throw "The prerequisite is not validly signed by Microsoft: $Path"
     }
+}
+
+function Assert-StandaloneWebView2 {
+    param([Parameter(Mandatory)][string]$Path)
+
+    # A signed Evergreen Bootstrapper is only about 2 MB. It cannot satisfy an
+    # offline deployment. Signature validation alone would accept that file.
+    $file = Get-Item -LiteralPath $Path
+    if ($file.Name -ne 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe' -or
+        $file.Length -lt 50MB) {
+        throw 'WebView2 must be the complete x64 Evergreen Standalone Installer, not the online bootstrapper.'
+    }
+    Assert-MicrosoftSignature -Path $Path
 }
 
 function Assert-ChildPath {
@@ -159,16 +176,18 @@ try {
     }
 
     $vcRedist = Join-Path $installerCache 'vc_redist.x64.exe'
-    $webViewBootstrapper =
-        Join-Path $installerCache 'MicrosoftEdgeWebView2Setup.exe'
+    # Microsoft documents this complete installer for disconnected computers.
+    # Keep the separate filename: never reuse the former bootstrapper cache.
+    $webViewStandalone =
+        Join-Path $installerCache 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
     Get-Download `
         -Uri 'https://aka.ms/vc14/vc_redist.x64.exe' `
         -Destination $vcRedist
     Get-Download `
-        -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' `
-        -Destination $webViewBootstrapper
+        -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124701' `
+        -Destination $webViewStandalone
     Assert-MicrosoftSignature -Path $vcRedist
-    Assert-MicrosoftSignature -Path $webViewBootstrapper
+    Assert-StandaloneWebView2 -Path $webViewStandalone
 
     & $makensis `
         "/INPUTCHARSET" `
@@ -189,8 +208,32 @@ try {
         throw "Installer output was not created: $installer"
     }
     $hash = Get-FileHash -LiteralPath $installer -Algorithm SHA256
+    $payloads = @($vcRedist, $webViewStandalone) | ForEach-Object {
+        $file = Get-Item -LiteralPath $_
+        [ordered]@{
+            file = $file.Name
+            size = $file.Length
+            sha256 = (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash
+            # For WebView2 this is the signed installer wrapper's version,
+            # not the version of the embedded Chromium runtime.
+            installerVersion = $file.VersionInfo.ProductVersion
+            signer = (Get-AuthenticodeSignature -LiteralPath $_).SignerCertificate.Subject
+        }
+    }
+    [ordered]@{
+        appVersion = $appVersion
+        target = 'windows-x64'
+        offlinePrerequisites = $true
+        installer = [ordered]@{
+            file = (Split-Path -Leaf $installer)
+            size = (Get-Item -LiteralPath $installer).Length
+            sha256 = $hash.Hash
+        }
+        prerequisites = @($payloads)
+    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$installer.manifest.json" -Encoding UTF8
     Write-Host "Installer complete: $installer"
     Write-Host "SHA256: $($hash.Hash)"
+    Write-Host "Offline payload manifest: $installer.manifest.json"
 } finally {
     if ($restartApp -and -not (
             Get-Process -Name 'CuteYiyiDesktopPet' -ErrorAction SilentlyContinue)) {

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.14",
+  "latestVersion": "0.13.15",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.14",
-  "releaseNotes": "Manage packet templates in their own editor and explicitly apply them to the send area without connecting, sending or disconnecting. Ordinary success feedback now uses non-layout toasts; network, serial, MQTT, software-uninstall and packet-inspector errors stay beside their operation. Independent error states and stale-response guards preserve actionable failures. Existing templates, connection safety and uninstall confirmations are retained.",
-  "publishedAt": "2026-09-15T04:07:08Z",
+  "title": "云依助手 0.13.15 · 完整离线安装包",
+  "releaseNotes": "Full offline Windows x64 setup includes the complete Microsoft WebView2 Evergreen Standalone Installer and Visual C++ redistributable. Copy this single EXE via USB to a Windows 10/11 x64 computer; prerequisite installation requires no internet download. Existing runtimes are retained, missing components are installed and rechecked, failures stop setup and restart requirements are reported. Administrator permission and company application policies still apply.",
+  "publishedAt": "2026-09-15T07:52:36Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.14.exe",
-      "sha256": "AE4C843A06425919DE26AA30E87A89829E3AA6961D1C0D80F6DA490FEF12DEA8",
-      "size": 23339411,
+      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.15.exe",
+      "sha256": "2CE2FA8C648AEE722E74FBC9E2ECBEE7B37BAC1B2BADC2F82080A375D1329C40",
+      "size": 237276551,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.14.exe"
+    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.15.exe"
   }
 }

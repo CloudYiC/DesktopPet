@@ -247,6 +247,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.15-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Made Windows setup fully offline by embedding the complete signed WebView2 x64 Standalone Installer alongside the Visual C++ runtime; recipients can install from USB without downloading prerequisites' },
+      { kind: '+', text: 'Added prerequisite verification, failure/reboot handling and an offline payload integrity manifest; supported platforms remain Windows 10/11 x64' },
+    ],
+  },
+  {
     version: 'v0.13.14-desktop',
     date: '2026-09-15',
     items: [

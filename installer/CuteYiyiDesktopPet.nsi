@@ -7,10 +7,10 @@ Unicode True
 !include "x64.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "0.13.14"
+  !define APP_VERSION "0.13.15"
 !endif
 !ifndef APP_FILE_VERSION
-  !define APP_FILE_VERSION "0.13.14.0"
+  !define APP_FILE_VERSION "0.13.15.0"
 !endif
 !ifndef APP_SOURCE
   !error "APP_SOURCE must point to the Release application directory."
@@ -31,6 +31,8 @@ Unicode True
 !define APP_PUBLISHER "云依助手项目"
 !define APP_UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 !define WEBVIEW2_CLIENT_ID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+Var PrerequisiteError
 
 ; Product identity and package-level branding.
 Name "${APP_NAME}"
@@ -60,6 +62,9 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright (c) 2026"
 !define MUI_UNICON "${APP_ICON}"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
 !define MUI_FINISHPAGE_RUN_TEXT "启动${APP_NAME}"
+; MUI hides the run option when SetRebootFlag is true. Never reboot by default.
+!define MUI_FINISHPAGE_REBOOTLATER_DEFAULT
+!define MUI_FINISHPAGE_TEXT_REBOOT "云依助手文件已安装，但微软运行环境需要重启 Windows 才能使用。请先保存工作并重启，再启动云依助手。"
 !define MUI_UNCONFIRMPAGE_TEXT_TOP "卸载将永久删除提醒、名称、自定义角色和本机设置，删除后无法恢复。"
 
 !insertmacro MUI_PAGE_WELCOME
@@ -104,6 +109,8 @@ Function IsVCRuntimeInstalled
 FunctionEnd
 
 Function IsWebView2Installed
+  ; Preserve an existing Evergreen runtime, including older registered versions.
+  ; Do not force upgrades/downgrades or remove shared Microsoft components.
   SetRegView 32
   ClearErrors
   ReadRegStr $0 HKLM "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2_CLIENT_ID}" "pv"
@@ -124,34 +131,95 @@ Function IsWebView2Installed
   SetRegView 64
 FunctionEnd
 
+Function FailPrerequisite
+  DetailPrint "$PrerequisiteError"
+  SetErrorLevel 1603
+  MessageBox MB_OK|MB_ICONSTOP "$PrerequisiteError" /SD IDOK
+  Quit
+FunctionEnd
+
+Function .onInstSuccess
+  ; Silent deployment callers must also be told that a restart is required.
+  ${If} ${RebootFlag}
+    SetErrorLevel 3010
+  ${EndIf}
+FunctionEnd
+
 Section "-运行环境" SecPrerequisites
   SectionIn RO
+  InitPluginsDir
   SetOutPath "$PLUGINSDIR"
 
   Call IsVCRuntimeInstalled
   Pop $0
   ${If} $0 = 0
     DetailPrint "正在安装 Microsoft Visual C++ x64 运行库..."
+    ClearErrors
     File "/oname=vc_redist.x64.exe" "${PREREQ_SOURCE}\vc_redist.x64.exe"
+    ${If} ${Errors}
+      StrCpy $PrerequisiteError "无法解压内置 Microsoft Visual C++ 运行库。请检查临时目录权限和磁盘空间后重试。"
+      Call FailPrerequisite
+    ${EndIf}
+    ClearErrors
     ExecWait '"$PLUGINSDIR\vc_redist.x64.exe" /install /quiet /norestart' $1
+    ${If} ${Errors}
+      StrCpy $PrerequisiteError "无法启动内置 Microsoft Visual C++ 运行库安装程序。请检查系统权限或安全软件拦截后重试。"
+      Call FailPrerequisite
+    ${EndIf}
     ${If} $1 != 0
     ${AndIf} $1 != 3010
     ${AndIf} $1 != 1638
-      MessageBox MB_OK|MB_ICONSTOP "Microsoft Visual C++ 运行库安装失败，错误代码：$1"
-      Quit
+      StrCpy $PrerequisiteError "Microsoft Visual C++ 运行库安装失败，错误代码：$1。请检查系统权限、磁盘空间或安全软件拦截后重试。"
+      Call FailPrerequisite
+    ${EndIf}
+    ${If} $1 = 3010
+      SetRebootFlag true
+    ${EndIf}
+    Call IsVCRuntimeInstalled
+    Pop $0
+    ${If} $0 = 0
+      ${If} $1 = 3010
+        StrCpy $PrerequisiteError "Microsoft Visual C++ 运行库尚未就绪，需要重启 Windows。本次云依助手安装未完成，请保存工作、重启后重新运行此离线安装包。"
+      ${Else}
+        StrCpy $PrerequisiteError "Microsoft Visual C++ 安装程序已退出（代码：$1），但未检测到 x64 运行库。本次安装未完成，请检查系统权限或安全软件拦截后重试。"
+      ${EndIf}
+      Call FailPrerequisite
     ${EndIf}
   ${EndIf}
 
   Call IsWebView2Installed
   Pop $0
   ${If} $0 = 0
-    DetailPrint "正在安装 Microsoft Edge WebView2 Runtime..."
-    File "/oname=MicrosoftEdgeWebView2Setup.exe" "${PREREQ_SOURCE}\MicrosoftEdgeWebView2Setup.exe"
-    ExecWait '"$PLUGINSDIR\MicrosoftEdgeWebView2Setup.exe" /silent /install' $1
+    DetailPrint "正在离线安装 Microsoft Edge WebView2 Runtime (x64)..."
+    ClearErrors
+    File "/oname=MicrosoftEdgeWebView2RuntimeInstallerX64.exe" "${PREREQ_SOURCE}\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+    ${If} ${Errors}
+      StrCpy $PrerequisiteError "无法解压内置 WebView2 x64 离线运行库。请检查临时目录权限和磁盘空间后重试。"
+      Call FailPrerequisite
+    ${EndIf}
+    ClearErrors
+    ExecWait '"$PLUGINSDIR\MicrosoftEdgeWebView2RuntimeInstallerX64.exe" /silent /install' $1
+    ${If} ${Errors}
+      StrCpy $PrerequisiteError "无法启动内置 WebView2 x64 离线安装程序。请检查系统权限或安全软件拦截后重试。"
+      Call FailPrerequisite
+    ${EndIf}
     ${If} $1 != 0
     ${AndIf} $1 != 3010
-      MessageBox MB_OK|MB_ICONSTOP "WebView2 Runtime 安装失败，错误代码：$1。请检查网络连接后重试。"
-      Quit
+      StrCpy $PrerequisiteError "WebView2 Runtime 离线安装失败，错误代码：$1。请检查系统权限、磁盘空间或安全软件拦截后重试。"
+      Call FailPrerequisite
+    ${EndIf}
+    ${If} $1 = 3010
+      SetRebootFlag true
+    ${EndIf}
+    Call IsWebView2Installed
+    Pop $0
+    ${If} $0 = 0
+      ${If} $1 = 3010
+        StrCpy $PrerequisiteError "WebView2 Runtime 尚未就绪，需要重启 Windows。本次云依助手安装未完成，请保存工作、重启后重新运行此离线安装包。"
+      ${Else}
+        StrCpy $PrerequisiteError "WebView2 离线安装程序已退出（代码：$1），但未检测到运行库。本次安装未完成，请检查系统权限或安全软件拦截后重试。"
+      ${EndIf}
+      Call FailPrerequisite
     ${EndIf}
   ${EndIf}
 SectionEnd
@@ -206,7 +274,7 @@ Section /o "开机自动启动" SecAutoStart
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}" '"$INSTDIR\${APP_EXE}"'
 SectionEnd
 
-LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并安装应用需要的微软运行环境。"
+LangString DESC_SecPrerequisites ${LANG_SIMPCHINESE} "检测并从安装包内离线安装微软 x64 运行环境，无需联网。"
 LangString DESC_SecApplication ${LANG_SIMPCHINESE} "安装云依助手、内置工具和卸载程序。"
 LangString DESC_SecDesktopShortcut ${LANG_SIMPCHINESE} "在桌面创建云依助手快捷方式。"
 LangString DESC_SecAutoStart ${LANG_SIMPCHINESE} "登录 Windows 后自动启动云依助手。"
