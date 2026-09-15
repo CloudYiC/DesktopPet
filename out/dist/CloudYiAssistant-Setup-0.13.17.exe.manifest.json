@@ -1,0 +1,26 @@
+{
+  "appVersion": "0.13.17",
+  "target": "windows-x64",
+  "offlinePrerequisites": true,
+  "installer": {
+    "file": "CloudYiAssistant-Setup-0.13.17.exe",
+    "size": 237272465,
+    "sha256": "58E6202FA407454989FB343EB4FD8A648C211C5703EE983E713A7E890E449032"
+  },
+  "prerequisites": [
+    {
+      "file": "vc_redist.x64.exe",
+      "size": 18731856,
+      "sha256": "843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C",
+      "installerVersion": "14.51.36247.0",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "file": "MicrosoftEdgeWebView2RuntimeInstallerX64.exe",
+      "size": 212745424,
+      "sha256": "EBEBC5EC130378FF1AB513F3917BE791A9CF84F849E970B1695FF01801A9D348",
+      "installerVersion": "1.3.265.7",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    }
+  ]
+}

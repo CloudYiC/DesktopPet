@@ -247,6 +247,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.17-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '+', text: '桌面依依新增工具台、我的理财和个人学习快捷入口；网站在依依设置中保存，点击后使用默认浏览器打开，未配置时直接定位输入框。' },
+      { kind: '~', text: '人物与拖动框采用同一中心，拖动时暂停位移动画；快捷菜单适配屏幕缩放与边缘，保留举牌提醒、延后和完成动作。' },
+      { kind: '-', text: '删除桌面自动收起及等待时间、和我互动动作菜单；旧自动收起设置不再生效，托盘手动隐藏与工作台显隐保留。' },
+      { kind: '~', text: '继续提供含完整 WebView2 与 VC++ 运行库的 Windows 10/11 x64 离线安装包，可通过 U 盘分发。' },
+    ],
+  },
+  {
     version: 'v0.13.16-desktop',
     date: '2026-09-15',
     items: [

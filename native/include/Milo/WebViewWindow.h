@@ -31,7 +31,7 @@ class WebViewWindow final {
   bool Create(HINSTANCE instance);
   /// Shows the window without stealing focus for the desktop pet.
   void Show();
-  /// Hides the window and restores any auto-tucked position first.
+  /// Hides the window and closes its expanded shortcut menu first.
   void Hide();
   /// Updates the native title used by the taskbar and accessibility APIs.
   void SetTitle(const std::wstring& title);
@@ -50,8 +50,8 @@ class WebViewWindow final {
   void EndReminderPresentation();
   /// True through move-in, holding and return; an open dashboard must not hide it.
   bool IsReminderPresenting() const;
-  /// Slides the idle pet to/from the nearest monitor edge.
-  void SetAutoTucked(bool tucked);
+  /// Expands/closes the shortcut host without moving the character.
+  void SetPetMenuOpen(bool open, const std::string& layout = "single");
   /// Sends a serialized JSON event to the hosted React application.
   void PostJson(const std::string& json);
 
@@ -73,15 +73,12 @@ class WebViewWindow final {
   void ConfigureTransparentHost();
   void SnapPetToWorkArea();
 
-  // Independent state machines drive edge tucking and reminder presentation.
-  void UpdateAutoTuckAnimation();
-  void ResetAutoTuck(bool restorePosition);
+  // Shortcut bounds are independent of the reminder presentation lifecycle.
   void UpdatePresentationAnimation();
   void StartPresentationReturn(bool notifyWebView);
   std::wstring PageUrl() const;
 
   enum class PresentationState { Idle, MovingIn, Holding, MovingOut };
-  enum class AutoTuckState { Visible, MovingOut, Tucked, MovingIn };
 
   Application& application_;
   WindowKind kind_;
@@ -91,11 +88,10 @@ class WebViewWindow final {
   Microsoft::WRL::ComPtr<ICoreWebView2> webView_;
   // Animation bounds are stored in physical screen pixels.
   PresentationState presentationState_{PresentationState::Idle};
-  AutoTuckState autoTuckState_{AutoTuckState::Visible};
-  RECT autoTuckRestBounds_{};
-  RECT autoTuckFrom_{};
-  RECT autoTuckTo_{};
-  ULONGLONG autoTuckStarted_{};
+  bool petMenuOpen_{};
+  RECT petMenuRestBounds_{};
+  bool petMenuSingle_{true};
+  UINT petMenuDpi_{96};
   RECT restBounds_{};
   RECT animationFrom_{};
   RECT animationTo_{};

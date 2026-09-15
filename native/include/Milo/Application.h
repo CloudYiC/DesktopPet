@@ -53,7 +53,7 @@ class Application final {
   int Run(int showCommand);
   /// Validates and dispatches a JSON message received from a WebView.
   void HandleWebMessage(WebViewWindow& source, const std::string& rawMessage);
-  /// Processes due reminders and checks whether the pet should auto-hide.
+  /// Processes due reminders and synchronizes desktop visibility.
   void HandleTimer();
   /// Handles notification-area callbacks for the application tray icon.
   void HandleTrayMessage(LPARAM event);
@@ -113,6 +113,9 @@ class Application final {
   void DrainSoftwareScan();
   bool IsDashboardOnDesktop() const;
   void SetPetHiddenByUser(bool hidden);
+  void OpenWorkspaceDestination(const std::string& destination,
+                                const std::string& shortcut = std::string());
+  void SendPendingWorkspaceDestination();
 
   // Character wardrobe persistence.
   void LoadCharacters();
@@ -158,8 +161,11 @@ class Application final {
   std::string activeCharacterId_{"builtin"};
   bool soundEnabled_{true};
   bool speechEnabled_{};
-  bool autoHideEnabled_{true};
-  int autoHideMinutes_{10};
+  std::string financeWebsiteUrl_;
+  std::string learningWebsiteUrl_;
+  bool dashboardFrontendReady_{};
+  std::string pendingWorkspaceDestination_;
+  std::string pendingShortcut_;
   std::string workspaceTheme_{"warm"};
   std::string workspaceTextSize_{"comfortable"};
   bool openLastView_{true};

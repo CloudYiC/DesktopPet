@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -17,7 +18,20 @@ import type {
 import styles from './Pet.module.scss';
 
 type PetAction = 'idle' | 'walkLeft' | 'walkRight' | 'wave' | 'hop' | 'sleepy' | 'petted';
-type InteractionView = 'closed' | 'choices' | 'actions' | 'feedback';
+type InteractionView = 'closed' | 'shortcuts' | 'feedback';
+type MenuPlacement = 'above' | 'below' | 'left' | 'right';
+type ShortcutIconName = 'toolbox' | 'finance' | 'learning' | 'settings' | 'external';
+
+function ShortcutIcon({ name }: { name: ShortcutIconName }) {
+  const paths: Record<ShortcutIconName, JSX.Element> = {
+    toolbox: <><rect x="3" y="7" width="18" height="14" rx="3" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v3h4v-3" /></>,
+    finance: <><path d="M4 4v16h16M8 14l4-4 3 2 5-6M16 6h4v4" /></>,
+    learning: <><path d="M12 5v16M3 4c4-1 6 0 9 2 3-2 5-3 9-2v15c-4-1-6 0-9 2-3-2-5-3-9-2Z" /></>,
+    settings: <><path d="m10 3-.6 2.3-2 .9-2.2-.7-2 3.5 1.7 1.6v2.8L3.2 15l2 3.5 2.2-.7 2 .9.6 2.3h4l.6-2.3 2-.9 2.2.7 2-3.5-1.7-1.6v-2.8L20.8 9l-2-3.5-2.2.7-2-.9L14 3Z" /><circle cx="12" cy="12" r="3" /></>,
+    external: <><path d="M14 4h6v6M20 4l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4" /></>,
+  };
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
 
 interface DragGesture {
   pointerId: number;
@@ -41,8 +55,8 @@ const emptyState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
-  autoHideEnabled: true,
-  autoHideMinutes: 10,
+  financeWebsiteUrl: '',
+  learningWebsiteUrl: '',
   characters: [builtInCharacter],
   activeCharacterId: 'builtin',
   workspaceTheme: 'warm',
@@ -167,10 +181,17 @@ export function Pet() {
   const [hour, setHour] = useState(new Date().getHours());
   const [celebrating, setCelebrating] = useState(false);
   const [interactionView, setInteractionView] = useState<InteractionView>('closed');
+  const [menuPlacement, setMenuPlacement] = useState<MenuPlacement>('above');
+  const [menuAnchorY, setMenuAnchorY] = useState<number | null>(null);
+  const [menuAnchorX, setMenuAnchorX] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const [isDragging, setIsDragging] = useState(false);
   const celebrationTimer = useRef<number>();
   const interactionTimer = useRef<number>();
   const dragGesture = useRef<DragGesture | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const characterRef = useRef<HTMLDivElement | null>(null);
   const activeCharacter = state.characters?.find(
     (character) => character.id === state.activeCharacterId,
   ) ?? state.characters?.[0] ?? builtInCharacter;
@@ -197,6 +218,10 @@ export function Pet() {
       }
       if (hostMessage.type === 'reminder.triggered') {
         const reminder = hostMessage.payload as Reminder;
+        // The native presentation now owns window movement. A held pointer
+        // must not keep the drag frame or enqueue stale drag.move/end messages.
+        dragGesture.current = null;
+        setIsDragging(false);
         activeReminderRef.current = reminder;
         setActiveReminder(reminder);
         setIsPresenting(true);
@@ -233,6 +258,13 @@ export function Pet() {
         setMessage((hostMessage.payload as { message: string }).message);
         setInteractionView('feedback');
       }
+      if (hostMessage.type === 'pet.menu.layout') {
+        const layout = hostMessage.payload as { open?: boolean; placement?: MenuPlacement; anchorY?: number; anchorX?: number };
+        setMenuPlacement(layout.placement && ['above', 'below', 'left', 'right'].includes(layout.placement) ? layout.placement : 'above');
+        setMenuAnchorY(Number.isFinite(layout.anchorY) ? Number(layout.anchorY) : null);
+        setMenuAnchorX(Number.isFinite(layout.anchorX) ? Number(layout.anchorX) : null);
+        if (layout.open === false) setInteractionView('closed');
+      }
     });
 
     postHostMessage('app.ready');
@@ -245,17 +277,42 @@ export function Pet() {
 
   useEffect(() => {
     window.clearTimeout(interactionTimer.current);
-    if (interactionView === 'closed') return;
-    interactionTimer.current = window.setTimeout(
-      () => setInteractionView('closed'),
-      interactionView === 'feedback' ? 2_600 : 8_000,
-    );
+    // Only transient error feedback expires; the pet and shortcut menu do not
+    // disappear while the user is deciding which destination to open.
+    if (interactionView !== 'feedback') return;
+    interactionTimer.current = window.setTimeout(() => setInteractionView('closed'), 4_500);
     return () => window.clearTimeout(interactionTimer.current);
   }, [interactionView]);
+
+  const isMenuOpen = interactionView !== 'closed' && !activeReminder && !isPresenting;
+  useEffect(() => {
+    postHostMessage('window.petMenu', { open: isMenuOpen, layout: activeCharacter.layout });
+    if (isMenuOpen) menuRef.current?.querySelector<HTMLButtonElement>('[data-menu-primary]')?.focus();
+  }, [isMenuOpen, activeCharacter.layout]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !isMenuOpen) return;
+      event.preventDefault();
+      setInteractionView('closed');
+      characterRef.current?.focus();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isMenuOpen]);
 
   useEffect(() => {
     setInteractionView('closed');
   }, [activeCharacter.id]);
+
+  useEffect(() => {
+    const resize = () => {
+      setViewportHeight(window.innerHeight);
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setHour(new Date().getHours()), 60_000);
@@ -320,18 +377,42 @@ export function Pet() {
 
   const toggleInteractionMenu = () => {
     if (isPresenting || activeReminder) return;
-    setInteractionView((current) => current === 'closed' ? 'choices' : 'closed');
-  };
-
-  const requestPetAction = (requested: PetAction) => {
-    setMessage(actionMessages[requested]);
-    setInteractionView('feedback');
-    postHostMessage('pet.action', { action: requested });
+    setInteractionView((current) => current === 'closed' ? 'shortcuts' : 'closed');
   };
 
   const openDashboard = () => {
     setInteractionView('closed');
     postHostMessage('window.openDashboard');
+  };
+
+  const openToolbox = () => {
+    setInteractionView('closed');
+    postHostMessage('window.openToolbox');
+  };
+
+  const openWebsite = (shortcut: 'finance' | 'learning') => {
+    setInteractionView('closed');
+    postHostMessage('shortcuts.open', { shortcut });
+  };
+
+  const openShortcutSettings = () => {
+    setInteractionView('closed');
+    postHostMessage('window.openShortcutSettings');
+  };
+
+  const handleMenuKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const buttons = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    if (!buttons.length) return;
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   const beginCharacterPress = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -392,6 +473,27 @@ export function Pet() {
     : styles.priorityNormal;
   const isNight = hour >= 21 || hour < 7;
   const isSingleCharacter = activeCharacter.layout === 'single';
+  const characterWidth = isSingleCharacter ? 210 : 255;
+  const characterHeight = isSingleCharacter ? 210 : 340;
+  const sideMenu = menuPlacement === 'left' || menuPlacement === 'right';
+  const anchoredMenuTop = menuAnchorY === null ? null : Math.max(8, Math.min(
+    viewportHeight - 224 - 8,
+    sideMenu ? menuAnchorY + (characterHeight - 224) / 2
+      : menuPlacement === 'below' ? menuAnchorY + characterHeight + 16
+        : menuAnchorY - 224 - 16,
+  ));
+  const anchoredMenuLeft = menuAnchorX === null ? null : Math.max(8, Math.min(
+    viewportWidth - 292 - 8,
+    menuPlacement === 'left' ? menuAnchorX - 292 - 16
+      : menuPlacement === 'right' ? menuAnchorX + characterWidth + 16
+        : menuAnchorX + (characterWidth - 292) / 2,
+  ));
+  const menuPosition: CSSProperties = {
+    ...(anchoredMenuTop === null ? {} : { top: anchoredMenuTop, bottom: 'auto' }),
+    ...(anchoredMenuLeft === null ? {} : { left: anchoredMenuLeft }),
+    '--menu-tail-y': `${menuAnchorY === null || anchoredMenuTop === null ? 112 : Math.max(20, Math.min(204, menuAnchorY + characterHeight / 2 - anchoredMenuTop))}px`,
+    '--menu-tail-x': `${menuAnchorX === null || anchoredMenuLeft === null ? 146 : Math.max(20, Math.min(272, menuAnchorX + characterWidth / 2 - anchoredMenuLeft))}px`,
+  } as CSSProperties;
   // JSON string escaping prevents quotes in generated file URLs from breaking CSS.
   const characterImageStyle = {
     backgroundImage: `url(${JSON.stringify(activeCharacter.imageUrl)})`,
@@ -401,6 +503,10 @@ export function Pet() {
     <section
       className={`${styles.stage} ${isPresenting ? styles.presentationStage : ''} ${
         isDragging ? styles.draggingStage : ''
+      } ${isMenuOpen ? styles.menuOpenStage : ''} ${
+        isMenuOpen && menuPlacement === 'below' ? styles.menuBelowStage : ''
+      } ${isMenuOpen && menuPlacement === 'left' ? styles.menuLeftStage : ''} ${
+        isMenuOpen && menuPlacement === 'right' ? styles.menuRightStage : ''
       } ${priorityClass}`}
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) setInteractionView('closed');
@@ -441,38 +547,33 @@ export function Pet() {
         </div>
       )}
 
-      {!isPresenting && !activeReminder && interactionView !== 'closed' && (
+      {isMenuOpen && (
         <div
+          ref={menuRef}
           className={`${styles.interactionCloud} ${
             interactionView === 'feedback' ? styles.interactionCloudFeedback : ''
-          }`}
+          } ${isSingleCharacter ? styles.singleCharacterMenu : styles.sheetCharacterMenu}`}
           role="dialog"
-          aria-label={`${state.petName}互动菜单`}
+          aria-label="依依快捷入口"
+          onKeyDown={handleMenuKey}
+          style={menuPosition}
         >
-          <span className={styles.cloudEyebrow}>{state.petName}</span>
-          {interactionView === 'choices' && (
+          <div className={styles.cloudHeader}>
+            <strong>依依快捷入口</strong>
+            <button type="button" className={styles.cloudSettings} onClick={openShortcutSettings} aria-label="网站快捷入口设置" title="网站快捷入口设置"><ShortcutIcon name="settings" /></button>
+          </div>
+          {interactionView === 'shortcuts' && (
             <>
-              <strong>现在想做什么？</strong>
               <div className={styles.cloudChoices}>
-                <button type="button" onClick={openDashboard}>
-                  <span>▦</span><b>打开工作台</b><small>查看提醒和工具</small>
+                <button type="button" className={styles.toolboxShortcut} onClick={openToolbox} data-menu-primary>
+                  <span className={styles.shortcutIcon}><ShortcutIcon name="toolbox" /></span><b>打开工具台</b><span className={styles.shortcutChevron} aria-hidden="true">›</span>
                 </button>
-                <button type="button" onClick={() => setInteractionView('actions')}>
-                  <span>♡</span><b>和我互动</b><small>一起玩一会儿</small>
+                <button type="button" className={styles.financeShortcut} onClick={() => openWebsite('finance')}>
+                  <span className={styles.shortcutIcon}><ShortcutIcon name="finance" /></span><b>我的理财</b><ShortcutIcon name="external" />
                 </button>
-              </div>
-            </>
-          )}
-          {interactionView === 'actions' && (
-            <>
-              <strong>想和我怎么玩？</strong>
-              <div className={styles.cloudActions}>
-                <button type="button" onClick={() => requestPetAction('wave')}>挥挥手</button>
-                <button type="button" onClick={() => requestPetAction('hop')}>跳一下</button>
-                <button type="button" onClick={() => requestPetAction('walkRight')}>散散步</button>
-                <button type="button" onClick={() => requestPetAction('petted')}>摸摸头</button>
-                <button type="button" onClick={() => requestPetAction('sleepy')}>休息会</button>
-                <button type="button" onClick={() => setInteractionView('choices')}>返回</button>
+                <button type="button" className={styles.learningShortcut} onClick={() => openWebsite('learning')}>
+                  <span className={styles.shortcutIcon}><ShortcutIcon name="learning" /></span><b>个人学习</b><ShortcutIcon name="external" />
+                </button>
               </div>
             </>
           )}
@@ -511,10 +612,15 @@ export function Pet() {
       )}
 
       <div
+        ref={characterRef}
         key={`${activeCharacter.id}-${actionCycle}`}
         className={`${styles.spriteShell} ${styles[action]} ${
           isSingleCharacter ? `${styles.singleCharacterShell} ${styles.customCharacter}` : ''
         }`}
+        style={isMenuOpen ? {
+          ...(menuAnchorY === null ? {} : { top: menuAnchorY, bottom: 'auto' }),
+          ...(menuAnchorX === null ? {} : { left: menuAnchorX }),
+        } : undefined}
         onPointerDown={beginCharacterPress}
         onPointerMove={continueCharacterPress}
         onPointerUp={endCharacterPress}
@@ -523,7 +629,7 @@ export function Pet() {
         role="button"
         tabIndex={isPresenting ? -1 : 0}
         aria-expanded={interactionView !== 'closed'}
-        aria-label={`点击${state.petName}打开互动菜单，拖动可移动位置`}
+        aria-label={`点击${state.petName}打开快捷入口，拖动可移动位置`}
       >
         <div
           className={`${styles.sprite} ${styles[action]} ${

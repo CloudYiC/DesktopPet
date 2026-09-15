@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.16",
+  "latestVersion": "0.13.17",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.16 · 桌面依依恢复与举牌修复",
-  "releaseNotes": "Removed the toolbox introduction banner and sidebar subtitle. Restored centered reminder placards, including the ten-second test while the workspace is open. Closing, hiding or minimizing the workspace restores the desktop pet; reopening restores minimized windows and synchronizes WebView2 visibility. Manual hiding is kept separate. Idle edge-tucking follows the configured system inactivity threshold, works after reminder presentation, and retains visible character content. Full offline WebView2 and VC++ prerequisites remain included for Windows 10/11 x64 USB distribution.",
-  "publishedAt": "2026-09-15T11:20:48Z",
+  "title": "云依助手 0.13.17 · 依依快捷入口与位置修复",
+  "releaseNotes": "Centered the desktop character and drag frame across display scales. Removed automatic edge-tucking and its wait setting. Replaced the desktop interaction menu with Toolbox, My Finance and Personal Learning shortcuts, with editable local HTTP(S) website settings and default-browser opening. Unconfigured shortcuts lead to settings without visiting a placeholder site. Preserved reminder placards, completion, snooze and manual hiding; protected reminder positioning during dragging and display-scale changes. Full offline WebView2 and VC++ prerequisites remain included for Windows 10/11 x64 USB distribution.",
+  "publishedAt": "2026-09-15T14:18:56Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.16.exe",
-      "sha256": "61F67CA8E775F3CD28CA9A2C5E1B106750FB53F88E07D5DECC913223AE269AF0",
-      "size": 237265241,
+      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.17.exe",
+      "sha256": "58E6202FA407454989FB343EB4FD8A648C211C5703EE983E713A7E890E449032",
+      "size": 237272465,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.16.exe"
+    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.17.exe"
   }
 }

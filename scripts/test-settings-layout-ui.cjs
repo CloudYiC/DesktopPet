@@ -136,11 +136,11 @@ const { chromium } = require('playwright');
     assert.equal(await remember.getAttribute('aria-checked'), 'true');
     const updates = await page.evaluate(() => window.__settingsFixture.requests.filter((request) => request.type === 'settings.update'));
     assert.equal(updates.length, 8, 'three themes, three sizes, and two remember-view changes reach the host');
-    const expectedKeys = ['petName', 'soundEnabled', 'speechEnabled', 'autoHideEnabled', 'autoHideMinutes', 'workspaceTheme', 'workspaceTextSize', 'openLastView'].sort();
+    const expectedKeys = ['petName', 'soundEnabled', 'speechEnabled', 'workspaceTheme', 'workspaceTextSize', 'openLastView'].sort();
     for (const { payload } of updates) {
       assert.deepEqual(Object.keys(payload).sort(), expectedKeys, 'settings.update sends the complete native-compatible record');
       assert.equal(payload.petName, '可爱依依'); assert.equal(payload.soundEnabled, false); assert.equal(payload.speechEnabled, true);
-      assert.equal(payload.autoHideEnabled, false); assert.equal(payload.autoHideMinutes, 17);
+      assert.ok(!('autoHideEnabled' in payload) && !('autoHideMinutes' in payload), 'retired auto-hide settings never reach the host');
     }
     await tab('常规').focus(); await page.keyboard.press('ArrowRight');
     assert.equal(await tab('本机数据').getAttribute('aria-selected'), 'true', 'arrow key selects the next settings tab');
@@ -165,7 +165,7 @@ const { chromium } = require('playwright');
       [/^今天/, ['今天接下来要做', '合成今日提醒']],
       [/^全部事项/, ['全部未完成事项', '合成今日提醒', '合成以后提醒']],
       [/^可爱依依状态/, ['和可爱依依互动', '挥挥手', '休息一下']],
-      [/^设置$/, ['角色衣柜', '名字与提醒声音', '自动收起']],
+      [/^设置$/, ['角色衣柜', '名字与提醒声音', '网站快捷入口']],
     ]) {
       await petNav.getByRole('button', { name: navigation }).click(); await assertInsets(String(navigation));
       const text = await main().innerText();

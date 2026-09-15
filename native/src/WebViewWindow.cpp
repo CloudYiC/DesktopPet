@@ -11,6 +11,8 @@
 
 #include "Milo/Application.h"
 #include "Milo/Utils.h"
+#include "cloudyi/pet_behavior.h"
+#include <nlohmann/json.hpp>
 #include "resource.h"
 
 namespace milo {
@@ -19,7 +21,6 @@ namespace {
 constexpr wchar_t kWindowClassName[] = L"MiloDesktopPet.WebViewWindow";
 constexpr UINT kReminderTimerId = 1;
 constexpr UINT kPresentationTimerId = 2;
-constexpr UINT kAutoTuckTimerId = 3;
 constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr ULONGLONG kHoldDurationMs = 12000;
 constexpr ULONGLONG kMoveOutDurationMs = 850;
@@ -31,6 +32,22 @@ constexpr int kDashboardFallbackHeight = 560;
 constexpr int kDashboardWorkAreaMargin = 48;
 constexpr LONG kDashboardMinimumTrackWidth = 760;
 constexpr LONG kDashboardMinimumTrackHeight = 560;
+
+UINT MonitorDpi(HMONITOR monitor) {
+  UINT x = 96, y = 96;
+  HMODULE library = LoadLibraryExW(L"shcore.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+  if (library != nullptr) {
+    typedef HRESULT (WINAPI *ReadDpi)(HMONITOR, int, UINT*, UINT*);
+    ReadDpi readDpi = reinterpret_cast<ReadDpi>(GetProcAddress(library, "GetDpiForMonitor"));
+    if (readDpi == nullptr || FAILED(readDpi(monitor, 0, &x, &y))) x = 96;
+    FreeLibrary(library);
+  }
+  return x;
+}
+
+int ScaleCss(int value, UINT dpi) {
+  return MulDiv(value, static_cast<int>(dpi == 0 ? 96 : dpi), 96);
+}
 
 template <typename T>
 T ClampValue(T value, T lower, T upper) {
@@ -132,8 +149,11 @@ bool WebViewWindow::Create(HINSTANCE instance) {
 
     RECT workArea{};
     SystemParametersInfoW(SPI_GETWORKAREA, 0, &workArea, 0);
-    constexpr int width = 320;
-    constexpr int height = 360;
+    POINT startPoint = application_.HasPetPosition() ? application_.PetPosition()
+        : POINT{workArea.right - 1, workArea.bottom - 1};
+    const UINT dpi = MonitorDpi(MonitorFromPoint(startPoint, MONITOR_DEFAULTTONEAREST));
+    const int width = ScaleCss(320, dpi);
+    const int height = ScaleCss(360, dpi);
     int left = workArea.right - width - 18;
     int top = workArea.bottom - height - 18;
     if (application_.HasPetPosition()) {
@@ -189,7 +209,6 @@ void WebViewWindow::Show() {
     return;
   }
   if (kind_ == WindowKind::Pet) {
-    ResetAutoTuck(true);
     ShowWindow(window_, SW_SHOWNOACTIVATE);
     SetWindowPos(window_, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
@@ -203,7 +222,7 @@ void WebViewWindow::Show() {
 
 void WebViewWindow::Hide() {
   if (window_ != nullptr) {
-    ResetAutoTuck(true);
+    SetPetMenuOpen(false);
     ShowWindow(window_, SW_HIDE);
     SyncWebViewVisibility();
   }
@@ -225,10 +244,10 @@ void WebViewWindow::SetIcons(HICON largeIcon, HICON smallIcon) {
 
 void WebViewWindow::BeginDrag() {
   if (window_ == nullptr || kind_ != WindowKind::Pet ||
-      presentationState_ != PresentationState::Idle ||
-      autoTuckState_ != AutoTuckState::Visible) {
+      presentationState_ != PresentationState::Idle) {
     return;
   }
+  SetPetMenuOpen(false);
   if (!GetCursorPos(&manualDragStartCursor_) ||
       !GetWindowRect(window_, &manualDragStartBounds_)) {
     return;
@@ -237,7 +256,8 @@ void WebViewWindow::BeginDrag() {
 }
 
 void WebViewWindow::UpdateDrag() {
-  if (!manualDragActive_ || window_ == nullptr) return;
+  if (!manualDragActive_ || window_ == nullptr ||
+      presentationState_ != PresentationState::Idle) return;
   POINT cursor{};
   if (!GetCursorPos(&cursor)) return;
   const int x = manualDragStartBounds_.left +
@@ -249,6 +269,10 @@ void WebViewWindow::UpdateDrag() {
 }
 
 void WebViewWindow::EndDrag() {
+  if (presentationState_ != PresentationState::Idle) {
+    manualDragActive_ = false;
+    return;
+  }
   if (!manualDragActive_) return;
   UpdateDrag();
   manualDragActive_ = false;
@@ -262,7 +286,10 @@ void WebViewWindow::BeginReminderPresentation(const std::string& priority,
     return;
   }
 
-  ResetAutoTuck(true);
+  // A due reminder owns all subsequent window movement. Old pointer move/up
+  // messages must not race its animation or persist a transient center pose.
+  manualDragActive_ = false;
+  SetPetMenuOpen(false);
   RECT current{};
   if (!GetWindowRect(window_, &current)) {
     return;
@@ -296,8 +323,9 @@ void WebViewWindow::BeginReminderPresentation(const std::string& priority,
   const int preferredHeight = priority == "urgent" ? 540
                               : priority == "important" ? 520
                                                          : 500;
-  const int targetWidth = std::min(preferredWidth, workWidth - 40);
-  const int targetHeight = std::min(preferredHeight, workHeight - 40);
+  const UINT dpi = MonitorDpi(monitor);
+  const int targetWidth = std::min(ScaleCss(preferredWidth, dpi), workWidth - 40);
+  const int targetHeight = std::min(ScaleCss(preferredHeight, dpi), workHeight - 40);
   const int targetX = monitorInfo.rcWork.left + (workWidth - targetWidth) / 2;
   const int targetY = monitorInfo.rcWork.top + (workHeight - targetHeight) / 2;
 
@@ -323,62 +351,43 @@ bool WebViewWindow::IsReminderPresenting() const {
   return presentationState_ != PresentationState::Idle;
 }
 
-void WebViewWindow::SetAutoTucked(bool tucked) {
-  if (window_ == nullptr || kind_ != WindowKind::Pet ||
-      presentationState_ != PresentationState::Idle ||
-      !IsWindowVisible(window_)) {
+void WebViewWindow::SetPetMenuOpen(bool open, const std::string& layout) {
+  if (window_ == nullptr || kind_ != WindowKind::Pet) return;
+  if (!open) {
+    if (!petMenuOpen_) return;
+    petMenuOpen_ = false;
+    SetWindowPos(window_, nullptr, petMenuRestBounds_.left, petMenuRestBounds_.top,
+                 petMenuRestBounds_.right - petMenuRestBounds_.left,
+                 petMenuRestBounds_.bottom - petMenuRestBounds_.top,
+                 SWP_NOACTIVATE | SWP_NOZORDER);
+    PostJson(R"({"type":"pet.menu.layout","payload":{"open":false,"placement":"above"}})");
     return;
   }
-  if (tucked && (autoTuckState_ == AutoTuckState::MovingOut ||
-                 autoTuckState_ == AutoTuckState::Tucked)) {
+  if (presentationState_ != PresentationState::Idle || manualDragActive_) {
+    PostJson(R"({"type":"pet.menu.layout","payload":{"open":false,"placement":"above"}})");
     return;
   }
-  if (!tucked && (autoTuckState_ == AutoTuckState::Visible ||
-                  autoTuckState_ == AutoTuckState::MovingIn)) {
-    return;
-  }
-
-  RECT current{};
-  if (!GetWindowRect(window_, &current)) {
-    return;
-  }
-
-  if (tucked) {
-    autoTuckRestBounds_ = current;
-    const HMONITOR monitor =
-        MonitorFromWindow(window_, MONITOR_DEFAULTTONEAREST);
-    MONITORINFO monitorInfo{sizeof(monitorInfo)};
-    if (!GetMonitorInfoW(monitor, &monitorInfo)) {
-      return;
-    }
-    // The centered character has transparent padding. A 42px host strip can
-    // contain no visible pixels; half of the host keeps part of either layout.
-    const LONG width = current.right - current.left;
-    const LONG height = current.bottom - current.top;
-    const LONG visibleStrip = (std::max)(LONG{1}, width / 2);
-    const LONG leftDistance =
-        std::abs(current.left - monitorInfo.rcWork.left);
-    const LONG rightDistance =
-        std::abs(monitorInfo.rcWork.right - current.right);
-    const LONG targetX =
-        leftDistance <= rightDistance
-            ? monitorInfo.rcWork.left - width + visibleStrip
-            : monitorInfo.rcWork.right - visibleStrip;
-    const LONG targetY = ClampValue(
-        current.top, monitorInfo.rcWork.top,
-        monitorInfo.rcWork.bottom - height);
-    autoTuckFrom_ = current;
-    autoTuckTo_ = {targetX, targetY, targetX + width, targetY + height};
-    autoTuckState_ = AutoTuckState::MovingOut;
-  } else {
-    autoTuckFrom_ = current;
-    autoTuckTo_ = autoTuckRestBounds_;
-    autoTuckState_ = AutoTuckState::MovingIn;
-  }
-
-  autoTuckStarted_ = GetTickCount64();
-  KillTimer(window_, kAutoTuckTimerId);
-  SetTimer(window_, kAutoTuckTimerId, 16, nullptr);
+  if (!petMenuOpen_ && !GetWindowRect(window_, &petMenuRestBounds_)) return;
+  const HMONITOR monitor = MonitorFromRect(&petMenuRestBounds_, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info{sizeof(info)};
+  if (!GetMonitorInfoW(monitor, &info)) return;
+  const UINT dpi = GetDpiForWindow(window_);
+  petMenuDpi_ = dpi == 0 ? 96 : dpi;
+  petMenuSingle_ = layout == "single";
+  const cloudyi_pet_rect resting = {static_cast<int>(petMenuRestBounds_.left), static_cast<int>(petMenuRestBounds_.top),
+                                   static_cast<int>(petMenuRestBounds_.right), static_cast<int>(petMenuRestBounds_.bottom)};
+  const cloudyi_pet_rect work = {static_cast<int>(info.rcWork.left), static_cast<int>(info.rcWork.top),
+                                static_cast<int>(info.rcWork.right), static_cast<int>(info.rcWork.bottom)};
+  const cloudyi_pet_menu_geometry geometry = cloudyi_pet_menu_bounds(resting, work, dpi, petMenuSingle_);
+  petMenuOpen_ = true;
+  SetWindowPos(window_, nullptr, geometry.bounds.left, geometry.bounds.top,
+               geometry.bounds.right - geometry.bounds.left,
+               geometry.bounds.bottom - geometry.bounds.top,
+               SWP_NOACTIVATE | SWP_NOZORDER);
+  PostJson(nlohmann::json{{"type", "pet.menu.layout"},
+      {"payload", {{"open", true}, {"placement", geometry.side < 0 ? "left" : geometry.side > 0 ? "right" : geometry.above ? "above" : "below"},
+                   {"anchorX", geometry.character_left_css},
+                   {"anchorY", geometry.character_top_css}}}}.dump());
 }
 
 void WebViewWindow::PostJson(const std::string& json) {
@@ -430,12 +439,47 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
       if (kind_ == WindowKind::Dashboard) application_.SyncPetVisibility();
       return 0;
 
+    case WM_ACTIVATE:
+      if (kind_ == WindowKind::Pet && LOWORD(wParam) == WA_INACTIVE && petMenuOpen_)
+        SetPetMenuOpen(false);
+      return 0;
+
     case WM_DPICHANGED: {
       const auto* suggested = reinterpret_cast<RECT*>(lParam);
-      SetWindowPos(window_, nullptr, suggested->left, suggested->top,
-                   suggested->right - suggested->left,
-                   suggested->bottom - suggested->top,
-                   SWP_NOACTIVATE | SWP_NOZORDER);
+      int left = suggested->left;
+      int top = suggested->top;
+      int width = suggested->right - suggested->left;
+      int height = suggested->bottom - suggested->top;
+      bool restoredMenuAnchor = false;
+      if (kind_ == WindowKind::Pet && presentationState_ == PresentationState::Idle) {
+        if (petMenuOpen_) {
+          const HMONITOR monitor = MonitorFromRect(&petMenuRestBounds_, MONITOR_DEFAULTTONEAREST);
+          MONITORINFO info{sizeof(info)};
+          if (GetMonitorInfoW(monitor, &info)) {
+            const cloudyi_pet_rect resting = {static_cast<int>(petMenuRestBounds_.left),
+                static_cast<int>(petMenuRestBounds_.top), static_cast<int>(petMenuRestBounds_.right),
+                static_cast<int>(petMenuRestBounds_.bottom)};
+            const cloudyi_pet_rect work = {static_cast<int>(info.rcWork.left),
+                static_cast<int>(info.rcWork.top), static_cast<int>(info.rcWork.right),
+                static_cast<int>(info.rcWork.bottom)};
+            const cloudyi_pet_rect anchored = cloudyi_pet_rest_after_dpi(
+                resting, work, petMenuDpi_, HIWORD(wParam), petMenuSingle_);
+            left = anchored.left;
+            top = anchored.top;
+            restoredMenuAnchor = true;
+          }
+        }
+        petMenuOpen_ = false;
+        PostJson(R"({"type":"pet.menu.layout","payload":{"open":false,"placement":"above"}})");
+        width = ScaleCss(320, HIWORD(wParam));
+        height = ScaleCss(360, HIWORD(wParam));
+      }
+      SetWindowPos(window_, nullptr, left, top,
+                   width, height, SWP_NOACTIVATE | SWP_NOZORDER);
+      // The anchor helper already clamps to the work area. Do not additionally
+      // edge-snap a valid near-edge center after closing the menu.
+      if (kind_ == WindowKind::Pet && !manualDragActive_ && !restoredMenuAnchor)
+        SnapPetToWorkArea();
       return 0;
     }
 
@@ -456,6 +500,7 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
 
     case WM_DISPLAYCHANGE:
       if (kind_ == WindowKind::Pet) {
+        SetPetMenuOpen(false);
         SnapPetToWorkArea();
         application_.SavePetPosition(window_);
       }
@@ -473,9 +518,6 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
       } else if (kind_ == WindowKind::Pet &&
                  wParam == kPresentationTimerId) {
         UpdatePresentationAnimation();
-      } else if (kind_ == WindowKind::Pet &&
-                 wParam == kAutoTuckTimerId) {
-        UpdateAutoTuckAnimation();
       }
       return 0;
 
@@ -499,7 +541,6 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
       if (kind_ == WindowKind::Pet) {
         KillTimer(window_, kReminderTimerId);
         KillTimer(window_, kPresentationTimerId);
-        KillTimer(window_, kAutoTuckTimerId);
         PostQuitMessage(0);
       }
       return 0;
@@ -722,56 +763,6 @@ void WebViewWindow::SnapPetToWorkArea() {
 
   SetWindowPos(window_, nullptr, x, y, 0, 0,
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-}
-
-void WebViewWindow::UpdateAutoTuckAnimation() {
-  if (window_ == nullptr ||
-      (autoTuckState_ != AutoTuckState::MovingOut &&
-       autoTuckState_ != AutoTuckState::MovingIn)) {
-    KillTimer(window_, kAutoTuckTimerId);
-    return;
-  }
-
-  const ULONGLONG duration =
-      autoTuckState_ == AutoTuckState::MovingOut ? 620 : 480;
-  const double rawProgress = ClampValue(
-      static_cast<double>(GetTickCount64() - autoTuckStarted_) /
-          static_cast<double>(duration),
-      0.0, 1.0);
-  const double progress = EaseInOutCubic(rawProgress);
-  const LONG x =
-      Interpolate(autoTuckFrom_.left, autoTuckTo_.left, progress);
-  const LONG y = Interpolate(autoTuckFrom_.top, autoTuckTo_.top, progress);
-  SetWindowPos(window_, HWND_TOPMOST, x, y, 0, 0,
-               SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-
-  if (rawProgress < 1.0) {
-    return;
-  }
-  SetWindowPos(window_, HWND_TOPMOST, autoTuckTo_.left, autoTuckTo_.top,
-               0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-  autoTuckState_ = autoTuckState_ == AutoTuckState::MovingOut
-                       ? AutoTuckState::Tucked
-                       : AutoTuckState::Visible;
-  KillTimer(window_, kAutoTuckTimerId);
-}
-
-void WebViewWindow::ResetAutoTuck(bool restorePosition) {
-  if (window_ == nullptr || kind_ != WindowKind::Pet ||
-      autoTuckState_ == AutoTuckState::Visible) {
-    return;
-  }
-  KillTimer(window_, kAutoTuckTimerId);
-  if (restorePosition) {
-    const LONG width =
-        autoTuckRestBounds_.right - autoTuckRestBounds_.left;
-    const LONG height =
-        autoTuckRestBounds_.bottom - autoTuckRestBounds_.top;
-    SetWindowPos(window_, nullptr, autoTuckRestBounds_.left,
-                 autoTuckRestBounds_.top, width, height,
-                 SWP_NOZORDER | SWP_NOACTIVATE);
-  }
-  autoTuckState_ = AutoTuckState::Visible;
 }
 
 void WebViewWindow::UpdatePresentationAnimation() {

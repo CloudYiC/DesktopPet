@@ -94,7 +94,7 @@ contract('monitor anchoring ignores closed or minimized workbenches', () => {
   assert.match(begin, /anchorWindow != nullptr && IsWindowVisible\(anchorWindow\) &&\s*!IsIconic\(anchorWindow\)\s*\? anchorWindow\s*:\s*window_/);
   assert.match(begin, /MonitorFromWindow\(monitorWindow, MONITOR_DEFAULTTONEAREST\)/);
   assert.match(begin, /monitorInfo\.rcWork/);
-  assert.ok(begin.indexOf('ResetAutoTuck(true)') < begin.indexOf('GetWindowRect(window_, &current)'));
+  assert.doesNotMatch(begin, /ResetAutoTuck|SetAutoTucked/);
   assert.match(begin, /if \(presentationState_ == PresentationState::Idle\)\s*\{\s*restBounds_ = current;/);
 });
 
@@ -119,7 +119,7 @@ contract('production links and calls the independently unit-tested C behavior po
   assert.match(nativeCmake, /add_executable\(MiloPetBehaviorTests tests\/PetBehaviorTests\.c\)/);
   assert.match(nativeCmake, /add_test\(NAME MiloPetBehaviorTests COMMAND MiloPetBehaviorTests\)/);
   assert.match(syncPet, /cloudyi_pet_should_show\(\s*IsDashboardOnDesktop\(\), petManuallyHidden_,\s*petWindow_->IsReminderPresenting\(\) && !suppressCurrentPresentation_\)/);
-  assert.match(timer, /cloudyi_pet_should_tuck\(/);
+  assert.doesNotMatch(timer, /cloudyi_pet_should_tuck\(/);
 });
 
 contract('minimized workbenches are consistently excluded from desktop visibility', () => {
@@ -173,13 +173,11 @@ contract('WebView painting visibility follows the native host after show, hide, 
   assert.match(method(windowHost, 'WebViewWindow::InitializeWebView'), /controller_ = controller;[\s\S]*?ConfigureWebView\(\);\s*ResizeWebView\(\);\s*SyncWebViewVisibility\(\);/);
 });
 
-contract('auto-tuck uses actual system idle time and animation state, not unresolved reminder state', () => {
-  assert.match(timer, /SyncPetVisibility\(\);[\s\S]*?GetLastInputInfo\(&lastInput\)/);
-  assert.match(timer, /const DWORD idleMilliseconds = GetTickCount\(\) - lastInput\.dwTime;/);
-  assert.match(timer, /cloudyi_pet_should_tuck\(\s*autoHideEnabled_, dashboardVisible, petManuallyHidden_,\s*petWindow_->IsReminderPresenting\(\), idleMilliseconds,\s*autoHideMinutes_\)/);
-  const autoTuckPolicy = timer.slice(timer.indexOf('const bool shouldTuck'), timer.indexOf('petWindow_->SetAutoTucked(shouldTuck)'));
-  assert.doesNotMatch(autoTuckPolicy, /hasPresentedReminder_/);
-  assert.match(timer, /petWindow_->SetAutoTucked\(shouldTuck\);/);
+contract('retired auto-hide preferences are neither read, written nor evaluated', () => {
+  assert.match(timer, /SyncPetVisibility\(\);/);
+  assert.doesNotMatch(timer, /GetLastInputInfo|SetAutoTucked|shouldTuck/);
+  assert.doesNotMatch(application + applicationHeader, /autoHideEnabled_|autoHideMinutes_|"pet\.autoHide(?:Minutes)?"/);
+  assert.doesNotMatch(read('frontend/src/types.ts'), /autoHideEnabled|autoHideMinutes/);
 });
 
 contract('manual hide is explicit and never replaced by a snapshot of temporary workspace visibility', () => {
@@ -208,12 +206,68 @@ contract('every process startup shows the pet independently of the onboarding ma
   assert.match(run, /AddTrayIcon\(\);\s*petWindow_->Show\(\);\s*if \(showDashboardOnStart_\)/);
 });
 
-contract('auto-tuck leaves character content visible rather than only a transparent 42px host edge', () => {
-  const tuck = method(windowHost, 'WebViewWindow::SetAutoTucked');
-  assert.match(tuck, /const LONG visibleStrip = \(std::max\)\(LONG\{1\}, width \/ 2\);/);
-  assert.match(tuck, /monitorInfo\.rcWork\.left - width \+ visibleStrip/);
-  assert.match(tuck, /monitorInfo\.rcWork\.right - visibleStrip/);
-  assert.doesNotMatch(tuck, /kVisibleStrip\s*=\s*42/);
+contract('native tucking timers and animation state machine are fully removed', () => {
+  assert.doesNotMatch(windowHost + windowHeader, /AutoTuck|autoTuck|kAutoTuckTimerId/);
+  assert.doesNotMatch(read('native/c_core/src/pet_behavior.c'), /cloudyi_pet_should_tuck/);
 });
 
-console.log(`PASS ${checked} native reminder source contracts. This is source inspection, not a real native UI or offline-installation test.`);
+contract('website launches use only stored allow-listed shortcuts and revalidate before Windows shell association', () => {
+  const handler = method(application, 'Application::HandleWebMessage');
+  const open = handler.slice(handler.indexOf('if (type == "shortcuts.open")'), handler.indexOf('if (type == "window.drag.start")'));
+  assert.match(open, /shortcut != "finance" && shortcut != "learning"/);
+  assert.match(open, /financeWebsiteUrl_ : learningWebsiteUrl_/);
+  assert.match(open, /OpenWorkspaceDestination\("shortcuts", shortcut\)/);
+  assert.ok(open.indexOf('cloudyi_shortcut_url_is_valid(') < open.indexOf('ShellExecuteExW('));
+  assert.match(open, /execute\.lpFile = target\.c_str\(\)/);
+  assert.doesNotMatch(open, /payload\.(?:value|at)\("url"|CreateProcess|lpParameters\s*=/);
+});
+
+contract('website addresses are saved atomically and exposed separately from appearance settings', () => {
+  const handler = method(application, 'Application::HandleWebMessage');
+  const save = handler.slice(handler.indexOf('if (type == "shortcuts.save")'), handler.indexOf('if (type == "shortcuts.open")'));
+  assert.match(save, /source\.Kind\(\) != WindowKind::Dashboard/);
+  assert.equal((save.match(/cloudyi_shortcut_url_is_valid\(/g) || []).length, 2);
+  assert.equal((save.match(/reminders_\.SetSetting\(/g) || []).length, 1);
+  assert.match(save, /"workspace.shortcuts"/);
+  assert.match(save, /"shortcuts.save.result"/);
+  assert.match(save, /"shortcuts.save.error"/);
+  const state = method(application, 'Application::BuildState');
+  assert.match(state, /"financeWebsiteUrl", financeWebsiteUrl_/);
+  assert.match(state, /"learningWebsiteUrl", learningWebsiteUrl_/);
+});
+
+contract('shortcut navigation waits for React readiness and is consumed once', () => {
+  const handler = method(application, 'Application::HandleWebMessage');
+  assert.match(handler, /type == "app.ready" && source.Kind\(\) == WindowKind::Dashboard/);
+  assert.match(handler, /dashboardFrontendReady_ = true;\s*SendPendingWorkspaceDestination\(\)/);
+  const destination = method(application, 'Application::SendPendingWorkspaceDestination');
+  assert.match(destination, /!dashboardFrontendReady_/);
+  assert.match(destination, /"workspace.toolbox.open" : "workspace.shortcuts.open"/);
+  assert.match(destination, /pendingWorkspaceDestination_\.clear\(\)/);
+});
+
+contract('menus restore normal bounds before a drag, hide or reminder begins', () => {
+  for (const name of ['WebViewWindow::BeginDrag', 'WebViewWindow::Hide', 'WebViewWindow::BeginReminderPresentation']) {
+    assert.match(method(windowHost, name), /SetPetMenuOpen\(false\)/);
+  }
+  assert.match(method(windowHost, 'WebViewWindow::SetPetMenuOpen'), /cloudyi_pet_menu_bounds\(/);
+});
+
+contract('a reminder revokes an in-flight drag before any presentation movement', () => {
+  assert.ok(begin.indexOf('manualDragActive_ = false') >= 0);
+  assert.ok(begin.indexOf('manualDragActive_ = false') < begin.indexOf('GetWindowRect(window_, &current)'));
+  assert.match(method(windowHost, 'WebViewWindow::UpdateDrag'), /presentationState_ != PresentationState::Idle/);
+  const end = method(windowHost, 'WebViewWindow::EndDrag');
+  assert.match(end, /if \(presentationState_ != PresentationState::Idle\)\s*\{\s*manualDragActive_ = false;\s*return;/);
+  assert.match(read('frontend/src/pet/Pet.tsx'), /dragGesture\.current = null;\s*setIsDragging\(false\);\s*activeReminderRef\.current = reminder;/);
+});
+
+contract('DPI changes recover the resting character anchor rather than the expanded menu origin', () => {
+  const dispatch = method(windowHost, 'WebViewWindow::HandleMessage');
+  const dpi = dispatch.slice(dispatch.indexOf('case WM_DPICHANGED:'), dispatch.indexOf('case WM_GETMINMAXINFO:'));
+  assert.match(dpi, /petMenuRestBounds_/);
+  assert.match(dpi, /cloudyi_pet_rest_after_dpi\(/);
+  assert.match(dpi, /petMenuDpi_, HIWORD\(wParam\), petMenuSingle_/);
+});
+
+console.log(`PASS ${checked} native reminder/shortcut source contracts. This is source inspection, not a real native UI or offline-installation test.`);

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { postHostMessage, subscribeHost } from '../bridge/hostBridge';
+import { postHostMessage, requestNativePayload, subscribeHost } from '../bridge/hostBridge';
 import { AppSidebar } from '../navigation/AppSidebar';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import type { DashboardView } from '../navigation/types';
@@ -45,8 +45,8 @@ const initialState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
-  autoHideEnabled: true,
-  autoHideMinutes: 10,
+  financeWebsiteUrl: '',
+  learningWebsiteUrl: '',
   characters: [builtInCharacter],
   activeCharacterId: 'builtin',
   workspaceTheme: 'warm',
@@ -92,7 +92,122 @@ const statusActionGlyphs: Record<PetAction, string> = {
   petted: '♡',
 };
 
-const autoHideMinuteOptions = [1, 2, 5, 10, 20, 30, 60];
+type WebsiteShortcuts = Pick<AppState, 'financeWebsiteUrl' | 'learningWebsiteUrl'>;
+
+function websiteAddressError(value: string) {
+  if (!value.trim()) return '';
+  if (value.trim().length > 2048 || /[\u0000-\u0020\u007f\\]/.test(value.trim())) {
+    return '请填写完整的网站地址，不要包含空格或反斜杠。';
+  }
+  if (!/^https?:\/\//i.test(value.trim())) return '网站地址需要以 http:// 或 https:// 开头。';
+  try {
+    const url = new URL(value.trim());
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+      return '网站地址需要以 http:// 或 https:// 开头。';
+    }
+    if (url.username || url.password) return '请不要在网站地址中包含用户名或密码。';
+  } catch {
+    return '请填写有效的网站地址，例如 https://example.com。';
+  }
+  return '';
+}
+
+function WebsiteShortcutSettings({ saved }: { saved: WebsiteShortcuts }) {
+  const [draft, setDraft] = useState<WebsiteShortcuts>(saved);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [failed, setFailed] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Partial<WebsiteShortcuts>>({});
+  const dirty = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    // Periodic native snapshots must not overwrite an address being edited.
+    if (!dirty.current) setDraft(saved);
+  }, [saved.financeWebsiteUrl, saved.learningWebsiteUrl]);
+
+  function edit(field: keyof WebsiteShortcuts, value: string) {
+    dirty.current = true;
+    setDraft((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+    setFeedback('');
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (saving) return;
+    const next = {
+      financeWebsiteUrl: draft.financeWebsiteUrl.trim(),
+      learningWebsiteUrl: draft.learningWebsiteUrl.trim(),
+    };
+    const errors = {
+      financeWebsiteUrl: websiteAddressError(next.financeWebsiteUrl),
+      learningWebsiteUrl: websiteAddressError(next.learningWebsiteUrl),
+    };
+    setFieldErrors(errors);
+    if (errors.financeWebsiteUrl || errors.learningWebsiteUrl) {
+      setFailed(true);
+      setFeedback('请检查标出的地址。');
+      document.getElementById(errors.financeWebsiteUrl ? 'finance-website-url' : 'learning-website-url')?.focus();
+      return;
+    }
+    dirty.current = true;
+    setSaving(true);
+    setFeedback('');
+    try {
+      const result = await requestNativePayload<WebsiteShortcuts>('shortcuts.save', next);
+      if (!mounted.current) return;
+      dirty.current = false;
+      setDraft({ financeWebsiteUrl: result.financeWebsiteUrl, learningWebsiteUrl: result.learningWebsiteUrl });
+      setFailed(false);
+      setFeedback('网站入口已保存');
+    } catch (reason) {
+      if (!mounted.current) return;
+      setFailed(true);
+      setFeedback(reason instanceof Error ? reason.message : '保存失败，请重试。');
+    } finally {
+      if (mounted.current) setSaving(false);
+    }
+  }
+
+  return (
+    <section className={styles.websitePanel} data-testid="pet-website-settings" aria-labelledby="website-shortcuts-heading">
+      <div className={styles.sectionHeading}>
+        <div><h2 id="website-shortcuts-heading">网站快捷入口</h2></div>
+        <em>使用默认浏览器打开</em>
+      </div>
+      <form onSubmit={save} noValidate>
+        <div className={styles.websiteFields}>
+          {([
+            ['financeWebsiteUrl', 'finance-website-url', '我的理财', '填写理财网站地址'],
+            ['learningWebsiteUrl', 'learning-website-url', '个人学习', '填写学习网站地址'],
+          ] as const).map(([field, id, label, placeholder]) => (
+            <label key={field} htmlFor={id}>
+              <span>{label}</span>
+              <input id={id} type="url" inputMode="url" autoComplete="off" spellCheck={false}
+                maxLength={2048} value={draft[field]} placeholder={placeholder} disabled={saving}
+                onChange={(event) => edit(field, event.target.value)}
+                aria-label={label}
+                aria-invalid={Boolean(fieldErrors[field])}
+                aria-describedby={fieldErrors[field] ? `${id}-error` : 'website-shortcuts-hint'} />
+              {fieldErrors[field] && <small id={`${id}-error`} className={styles.websiteError}>{fieldErrors[field]}</small>}
+            </label>
+          ))}
+        </div>
+        <div className={styles.websiteSaveRow}>
+          <p id="website-shortcuts-hint">从桌面依依打开；支持内网地址，留空可清除。</p>
+          <div>
+            <span role={failed ? 'alert' : 'status'} aria-live="polite" className={failed ? styles.websiteError : styles.websiteSaved}>{feedback}</span>
+            <button type="submit" disabled={saving}>{saving ? '正在保存…' : '保存入口'}</button>
+          </div>
+        </div>
+      </form>
+    </section>
+  );
+}
 
 /** Converts epoch milliseconds to the local format expected by datetime-local. */
 function toDateTimeInput(timestamp: number) {
@@ -172,6 +287,7 @@ export function Dashboard() {
   const celebrationTimer = useRef<number>();
   const actionPreviewTimer = useRef<number>();
   const restoredNavigation = useRef(false);
+  const [websiteFocus, setWebsiteFocus] = useState<{ shortcut?: 'finance' | 'learning'; sequence: number } | null>(null);
   const contentRegion = useRef<HTMLElement>(null);
   const scrollContentToTop = useCallback(() => {
     contentRegion.current?.scrollTo({ top: 0, left: 0 });
@@ -180,6 +296,18 @@ export function Dashboard() {
   useEffect(() => {
     // Native state snapshots are authoritative; local state only drives form UI.
     const unsubscribe = subscribeHost((message: HostMessage) => {
+      if (message.type === 'workspace.toolbox.open') {
+        restoredNavigation.current = true;
+        setActiveToolCategory(null);
+        setActiveView('toolbox');
+      }
+      if (message.type === 'workspace.shortcuts.open') {
+        const payload = message.payload as { shortcut?: 'finance' | 'learning' } | undefined;
+        // A direct desktop-menu request wins over the remembered startup page.
+        restoredNavigation.current = true;
+        setActiveView('settings');
+        setWebsiteFocus((previous) => ({ shortcut: payload?.shortcut, sequence: (previous?.sequence ?? 0) + 1 }));
+      }
       if (message.type === 'state.sync') {
         const incoming = {
           ...initialState,
@@ -241,6 +369,16 @@ export function Dashboard() {
   useEffect(() => {
     scrollContentToTop();
   }, [activeToolCategory, activeView, scrollContentToTop]);
+
+  useEffect(() => {
+    if (activeView !== 'settings' || !websiteFocus) return;
+    const frame = window.requestAnimationFrame(() => {
+      const field = document.getElementById(websiteFocus.shortcut === 'learning' ? 'learning-website-url' : 'finance-website-url');
+      field?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      field?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeView, websiteFocus]);
 
   const reminders = useMemo(
     () => [...state.reminders].sort((left, right) => left.dueAt - right.dueAt),
@@ -368,8 +506,6 @@ export function Dashboard() {
     | 'petName'
     | 'soundEnabled'
     | 'speechEnabled'
-    | 'autoHideEnabled'
-    | 'autoHideMinutes'
     | 'workspaceTheme'
     | 'workspaceTextSize'
     | 'openLastView'
@@ -380,8 +516,6 @@ export function Dashboard() {
       petName: patch.petName ?? state.petName,
       soundEnabled: patch.soundEnabled ?? state.soundEnabled,
       speechEnabled: patch.speechEnabled ?? state.speechEnabled,
-      autoHideEnabled: patch.autoHideEnabled ?? state.autoHideEnabled,
-      autoHideMinutes: patch.autoHideMinutes ?? state.autoHideMinutes,
       workspaceTheme: patch.workspaceTheme ?? state.workspaceTheme,
       workspaceTextSize: patch.workspaceTextSize ?? state.workspaceTextSize,
       openLastView: patch.openLastView ?? state.openLastView,
@@ -475,7 +609,7 @@ export function Dashboard() {
     : activeView === 'status'
       ? `看看${state.petName}的状态，也可以叫她做个小动作。`
     : activeView === 'settings'
-      ? '角色、名字、声音和自动收起都集中在这里。'
+      ? '网站入口、角色、名字和提醒声音。'
       : `${state.petName}会帮你看着时间，不让重要的小事溜走。`;
   const viewKicker = activeView === 'toolbox'
     ? 'CLOUDYI TOOLBOX'
@@ -640,6 +774,7 @@ export function Dashboard() {
 
             {activeView === 'settings' && (
               <>
+            <WebsiteShortcutSettings saved={{ financeWebsiteUrl: state.financeWebsiteUrl, learningWebsiteUrl: state.learningWebsiteUrl }} />
             <section className={styles.characterPanel}>
               <div className={styles.sectionHeading}>
                 <div><span>CHARACTER CLOSET</span><h2>角色衣柜</h2></div>
@@ -761,46 +896,6 @@ export function Dashboard() {
               </div>
             </section>
 
-            <section className={styles.autoHidePanel}>
-              <div className={styles.sectionHeading}>
-                <div><span>DESKTOP BEHAVIOR</span><h2>自动收起</h2></div>
-                <em>{state.autoHideEnabled ? `${state.autoHideMinutes} 分钟后` : '已关闭'}</em>
-              </div>
-              <div className={styles.autoHideControls}>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={state.autoHideEnabled}
-                  className={state.autoHideEnabled ? styles.toggleActive : undefined}
-                  onClick={() => updateSettings({
-                    autoHideEnabled: !state.autoHideEnabled,
-                  })}
-                >
-                  <i />
-                  <span>
-                    <strong>无人操作时缩到屏幕边缘</strong>
-                    <small>恢复鼠标或键盘操作后会自动回来，提醒到点也会立即出现</small>
-                  </span>
-                </button>
-                <label>
-                  <span>等待时间</span>
-                  <select
-                    value={state.autoHideMinutes}
-                    disabled={!state.autoHideEnabled}
-                    onChange={(event) => updateSettings({
-                      autoHideMinutes: Number(event.target.value),
-                    })}
-                    aria-label="自动收起等待时间"
-                  >
-                    {autoHideMinuteOptions.map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes} 分钟
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </section>
               </>
             )}
 

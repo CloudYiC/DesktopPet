@@ -69,7 +69,7 @@ const singleImage = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http:/
   const requests = (page, type) => page.evaluate((type) => window.__reminderFixture.calls.filter((item) => item.type === type), type);
   const emit = (page, type, payload) => page.evaluate(({ type, payload }) => window.__reminderFixture.emit(type, payload), { type, payload });
   const sync = (page, patch) => page.evaluate((patch) => window.__reminderFixture.sync(patch), patch);
-  const character = () => pet.getByRole('button', { name: '点击测试依依打开互动菜单，拖动可移动位置', exact: true });
+  const character = () => pet.getByRole('button', { name: /点击测试依依打开快捷入口/ });
   const placard = () => pet.getByRole('alert');
 
   async function checkPlacard(reminder, expectedPriority) {

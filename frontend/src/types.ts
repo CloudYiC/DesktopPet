@@ -63,8 +63,9 @@ export interface AppState {
   petName: string;
   soundEnabled: boolean;
   speechEnabled: boolean;
-  autoHideEnabled: boolean;
-  autoHideMinutes: number;
+  /** Optional desktop shortcuts; only HTTP(S) URLs are accepted by the host. */
+  financeWebsiteUrl: string;
+  learningWebsiteUrl: string;
   characters: CharacterProfile[];
   activeCharacterId: string;
   workspaceTheme: WorkspaceTheme;

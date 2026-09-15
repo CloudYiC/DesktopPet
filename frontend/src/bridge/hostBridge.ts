@@ -76,8 +76,8 @@ let mockState: AppState = {
   petName: '可爱依依',
   soundEnabled: true,
   speechEnabled: false,
-  autoHideEnabled: true,
-  autoHideMinutes: 10,
+  financeWebsiteUrl: '',
+  learningWebsiteUrl: '',
   characters: [
     {
       id: 'builtin',
@@ -258,12 +258,6 @@ function handleMockMessage(message: HostMessage<Record<string, unknown>>) {
         petName: String(payload.petName ?? mockState.petName),
         soundEnabled: Boolean(payload.soundEnabled ?? mockState.soundEnabled),
         speechEnabled: Boolean(payload.speechEnabled ?? mockState.speechEnabled),
-        autoHideEnabled: Boolean(
-          payload.autoHideEnabled ?? mockState.autoHideEnabled,
-        ),
-        autoHideMinutes: Number(
-          payload.autoHideMinutes ?? mockState.autoHideMinutes,
-        ),
         workspaceTheme: String(
           payload.workspaceTheme ?? mockState.workspaceTheme,
         ) as AppState['workspaceTheme'],
@@ -281,6 +275,19 @@ function handleMockMessage(message: HostMessage<Record<string, unknown>>) {
         lastToolCategory: String(payload.category ?? mockState.lastToolCategory),
       };
       break;
+    case 'window.openShortcutSettings':
+      emit({ type: 'workspace.shortcuts.open', payload });
+      break;
+    case 'window.openToolbox':
+      emit({ type: 'workspace.toolbox.open' });
+      break;
+    case 'shortcuts.open': {
+      const url = payload.shortcut === 'finance'
+        ? mockState.financeWebsiteUrl : mockState.learningWebsiteUrl;
+      if (!url) emit({ type: 'workspace.shortcuts.open', payload });
+      // Browser previews deliberately never launch websites as a side effect.
+      break;
+    }
     default:
       break;
   }
@@ -309,7 +316,8 @@ if (nativeBridge) {
         }
       }
     }
-    if (message.type.startsWith('system.snapshot.') ||
+    if (message.type.startsWith('shortcuts.') ||
+        message.type.startsWith('system.snapshot.') ||
         message.type.startsWith('database.') ||
         message.type.startsWith('image.') ||
         message.type.startsWith('software.') ||
@@ -341,6 +349,27 @@ export function requestNativePayload<T>(
   payload: Record<string, unknown>,
   timeoutMilliseconds = 12_000,
 ) {
+  if (!nativeBridge && type === 'shortcuts.save') {
+    try {
+      const fields = ['financeWebsiteUrl', 'learningWebsiteUrl'] as const;
+      const next = { financeWebsiteUrl: '', learningWebsiteUrl: '' };
+      for (const field of fields) {
+        if (typeof payload[field] !== 'string') throw new Error('网站地址格式无效。');
+        const value = (payload[field] as string).trim();
+        if (value) {
+          if (value.length > 2048 || /[\s\\\u0000-\u001f\u007f]/.test(value)) throw new Error('请输入有效的 HTTP 或 HTTPS 网站地址。');
+          const url = new URL(value);
+          if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error('请输入有效的 HTTP 或 HTTPS 网站地址。');
+        }
+        next[field] = value;
+      }
+      mockState = { ...mockState, ...next };
+      emitMockState();
+      return Promise.resolve(next as T);
+    } catch (error) {
+      return Promise.reject<T>(error instanceof Error ? error : new Error('网站地址格式无效。'));
+    }
+  }
   if (!nativeBridge) return Promise.reject<T>(new Error('此功能需要在云依助手客户端中使用。'));
   const requestId = `native-${Date.now()}-${++toolRequestSequence}`;
   return new Promise<T>((resolve, reject) => {

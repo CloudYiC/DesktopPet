@@ -32,7 +32,6 @@ constexpr UINT kTrayMessage = WM_APP + 42;
 constexpr UINT kOpenDashboardCommand = 1001;
 constexpr UINT kHidePetCommand = 1002;
 constexpr UINT kQuitCommand = 1003;
-constexpr int kAutoHideMinuteOptions[] = {1, 2, 5, 10, 20, 30, 60};
 constexpr wchar_t kPackagedGirlRelativePath[] =
     L"assets\\private-default-girl.png";
 
@@ -314,12 +313,6 @@ bool IsValidCharacterName(const std::string& name) {
   return IsValidLabel(name, 20);
 }
 
-bool IsValidAutoHideMinutes(int minutes) {
-  return std::find(std::begin(kAutoHideMinuteOptions),
-                   std::end(kAutoHideMinuteOptions),
-                   minutes) != std::end(kAutoHideMinuteOptions);
-}
-
 bool IsValidWorkspaceTheme(const std::string& value) {
   return value == "warm" || value == "cloud" || value == "rose";
 }
@@ -502,13 +495,21 @@ Application::Application(HINSTANCE instance) : instance_(instance) {
     if (reminders_.GetSetting("audio.speech", setting)) {
       speechEnabled_ = setting == "1";
     }
-    if (reminders_.GetSetting("pet.autoHide", setting)) {
-      autoHideEnabled_ = setting != "0";
-    }
-    if (reminders_.GetSetting("pet.autoHideMinutes", setting)) {
-      const int savedMinutes = std::stoi(setting);
-      if (IsValidAutoHideMinutes(savedMinutes)) {
-        autoHideMinutes_ = savedMinutes;
+    // A single JSON value makes the two shortcut addresses an atomic update.
+    // Retired auto-hide keys are deliberately left in SQLite but never read.
+    if (reminders_.GetSetting("workspace.shortcuts", setting)) {
+      const nlohmann::json shortcuts = nlohmann::json::parse(setting, nullptr, false);
+      if (shortcuts.is_object()) {
+        const auto finance = shortcuts.find("financeWebsiteUrl");
+        const auto learning = shortcuts.find("learningWebsiteUrl");
+        if (finance != shortcuts.end() && finance->is_string()) {
+          const std::string value = finance->get<std::string>();
+          if (cloudyi_shortcut_url_is_valid(value.data(), value.size())) financeWebsiteUrl_ = value;
+        }
+        if (learning != shortcuts.end() && learning->is_string()) {
+          const std::string value = learning->get<std::string>();
+          if (cloudyi_shortcut_url_is_valid(value.data(), value.size())) learningWebsiteUrl_ = value;
+        }
       }
     }
     if (reminders_.GetSetting("workspace.theme", setting) &&
@@ -582,7 +583,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.13.16";
+    const std::string marker = "CuteYiyiDesktopPet 0.13.17";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -615,6 +616,90 @@ void Application::HandleWebMessage(WebViewWindow& source,
 
     if (type == "app.ready" || type == "reminder.list") {
       SendState(&source);
+      if (type == "app.ready" && source.Kind() == WindowKind::Dashboard) {
+        dashboardFrontendReady_ = true;
+        SendPendingWorkspaceDestination();
+      }
+      return;
+    }
+    if (type == "window.petMenu") {
+      if (source.Kind() == WindowKind::Pet) {
+        const std::string layout = payload.value("layout", "single");
+        if (layout == "single" || layout == "sheet")
+          source.SetPetMenuOpen(payload.value("open", false), layout);
+      }
+      return;
+    }
+    if (type == "window.openToolbox") {
+      OpenWorkspaceDestination("toolbox");
+      return;
+    }
+    if (type == "window.openShortcutSettings") {
+      const std::string shortcut = payload.value("shortcut", "");
+      if (!shortcut.empty() && shortcut != "finance" && shortcut != "learning") {
+        SendError(source, "未知的网站快捷入口。");
+        return;
+      }
+      OpenWorkspaceDestination("shortcuts", shortcut);
+      return;
+    }
+    if (type == "shortcuts.save") {
+      std::string requestId;
+      try {
+        if (!TryReadJsonString(payload, "requestId", &requestId) ||
+            requestId.empty() || requestId.size() > 80)
+          throw std::runtime_error("网站设置请求编号无效。");
+        if (source.Kind() != WindowKind::Dashboard)
+          throw std::runtime_error("请在工作台设置中保存网站地址。");
+        std::string finance, learning;
+        if (!TryReadJsonString(payload, "financeWebsiteUrl", &finance) ||
+            !TryReadJsonString(payload, "learningWebsiteUrl", &learning))
+          throw std::runtime_error("网站地址必须为文本。");
+        if (!cloudyi_shortcut_url_is_valid(finance.data(), finance.size()))
+          throw std::runtime_error("理财网站地址无效：请填写 HTTP 或 HTTPS 网址，不包含账号密码，最多 2048 字节。");
+        if (!cloudyi_shortcut_url_is_valid(learning.data(), learning.size()))
+          throw std::runtime_error("学习网站地址无效：请填写 HTTP 或 HTTPS 网址，不包含账号密码，最多 2048 字节。");
+        reminders_.SetSetting("workspace.shortcuts",
+            nlohmann::json{{"financeWebsiteUrl", finance}, {"learningWebsiteUrl", learning}}.dump());
+        financeWebsiteUrl_ = finance;
+        learningWebsiteUrl_ = learning;
+        SendState();
+        source.PostJson(nlohmann::json{{"type", "shortcuts.save.result"},
+            {"payload", {{"requestId", requestId}, {"financeWebsiteUrl", finance},
+                         {"learningWebsiteUrl", learning}}}}.dump());
+      } catch (const std::exception& error) {
+        source.PostJson(nlohmann::json{{"type", "shortcuts.save.error"},
+            {"payload", {{"requestId", requestId}, {"message", error.what()}}}}.dump());
+      }
+      return;
+    }
+    if (type == "shortcuts.open") {
+      const std::string shortcut = payload.value("shortcut", "");
+      if (shortcut != "finance" && shortcut != "learning") {
+        SendError(source, "未知的网站快捷入口。");
+        return;
+      }
+      const std::string& url = shortcut == "finance" ? financeWebsiteUrl_ : learningWebsiteUrl_;
+      if (url.empty()) {
+        OpenWorkspaceDestination("shortcuts", shortcut);
+        return;
+      }
+      // Validate again immediately before crossing into the Windows shell.
+      // This is a URL association, never cmd.exe, a command line or a path.
+      if (!cloudyi_shortcut_url_is_valid(url.data(), url.size())) {
+        SendError(source, "已保存的网站地址无效，请在设置中重新填写。");
+        return;
+      }
+      const std::wstring target = Utf8ToWide(url);
+      SHELLEXECUTEINFOW execute{};
+      execute.cbSize = sizeof(execute);
+      execute.fMask = SEE_MASK_FLAG_NO_UI;
+      execute.hwnd = source.Handle();
+      execute.lpVerb = L"open";
+      execute.lpFile = target.c_str();
+      execute.nShow = SW_SHOWNORMAL;
+      if (!ShellExecuteExW(&execute))
+        SendError(source, "无法打开默认浏览器，请检查系统浏览器设置。");
       return;
     }
     if (type == "window.drag.start") {
@@ -1525,12 +1610,6 @@ void Application::HandleWebMessage(WebViewWindow& source,
         SendError(source, "名字需要是 1 到 16 个左右的可见字符。");
         return;
       }
-      const int autoHideMinutes =
-          payload.value("autoHideMinutes", autoHideMinutes_);
-      if (!IsValidAutoHideMinutes(autoHideMinutes)) {
-        SendError(source, "自动收起时间只支持 1、2、5、10、20、30 或 60 分钟。");
-        return;
-      }
       const std::string workspaceTheme =
           payload.value("workspaceTheme", workspaceTheme_);
       const std::string workspaceTextSize =
@@ -1543,25 +1622,16 @@ void Application::HandleWebMessage(WebViewWindow& source,
       petName_ = petName;
       soundEnabled_ = payload.value("soundEnabled", soundEnabled_);
       speechEnabled_ = payload.value("speechEnabled", speechEnabled_);
-      autoHideEnabled_ =
-          payload.value("autoHideEnabled", autoHideEnabled_);
-      autoHideMinutes_ = autoHideMinutes;
       workspaceTheme_ = workspaceTheme;
       workspaceTextSize_ = workspaceTextSize;
       openLastView_ = payload.value("openLastView", openLastView_);
       reminders_.SetSetting("pet.name", petName_);
       reminders_.SetSetting("audio.sound", soundEnabled_ ? "1" : "0");
       reminders_.SetSetting("audio.speech", speechEnabled_ ? "1" : "0");
-      reminders_.SetSetting("pet.autoHide", autoHideEnabled_ ? "1" : "0");
-      reminders_.SetSetting("pet.autoHideMinutes",
-                            std::to_string(autoHideMinutes_));
       reminders_.SetSetting("workspace.theme", workspaceTheme_);
       reminders_.SetSetting("workspace.textSize", workspaceTextSize_);
       reminders_.SetSetting("workspace.openLastView",
                             openLastView_ ? "1" : "0");
-      if (!autoHideEnabled_) {
-        petWindow_->SetAutoTucked(false);
-      }
       UpdateBranding();
       SendState();
       return;
@@ -1763,17 +1833,6 @@ void Application::HandleTimer() {
     }
 
     SyncPetVisibility();
-    // Windows' system-wide last-input tick includes activity outside this app,
-    // matching the user's expectation of "no computer operation".
-    LASTINPUTINFO lastInput{sizeof(lastInput)};
-    if (GetLastInputInfo(&lastInput)) {
-      const DWORD idleMilliseconds = GetTickCount() - lastInput.dwTime;
-      const bool shouldTuck = cloudyi_pet_should_tuck(
-          autoHideEnabled_, dashboardVisible, petManuallyHidden_,
-          petWindow_->IsReminderPresenting(), idleMilliseconds,
-          autoHideMinutes_) != 0;
-      petWindow_->SetAutoTucked(shouldTuck);
-    }
   } catch (const std::exception& error) {
     Broadcast({{"type", "app.error"},
                {"payload", {{"message", error.what()}}}});
@@ -1796,6 +1855,25 @@ void Application::ShowDashboard() {
   dashboardWindow_->Show();
   SyncPetVisibility();
   SendState(dashboardWindow_.get());
+}
+
+void Application::OpenWorkspaceDestination(const std::string& destination,
+                                             const std::string& shortcut) {
+  pendingWorkspaceDestination_ = destination;
+  pendingShortcut_ = shortcut;
+  ShowDashboard();
+  SendPendingWorkspaceDestination();
+}
+
+void Application::SendPendingWorkspaceDestination() {
+  if (!dashboardFrontendReady_ || dashboardWindow_ == nullptr ||
+      pendingWorkspaceDestination_.empty()) return;
+  dashboardWindow_->PostJson(nlohmann::json{
+      {"type", pendingWorkspaceDestination_ == "toolbox"
+                   ? "workspace.toolbox.open" : "workspace.shortcuts.open"},
+      {"payload", {{"shortcut", pendingShortcut_}}}}.dump());
+  pendingWorkspaceDestination_.clear();
+  pendingShortcut_.clear();
 }
 
 void Application::CloseDashboard() {
@@ -1834,7 +1912,7 @@ void Application::SyncPetVisibility() {
       IsDashboardOnDesktop(), petManuallyHidden_,
       petWindow_->IsReminderPresenting() && !suppressCurrentPresentation_) != 0;
   const bool visible = IsWindowVisible(petWindow_->Handle()) != FALSE;
-  // Only apply transitions: repeated timer/resize events must not reset tucking.
+  // Only apply transitions: repeated timer/resize events are idempotent.
   if (shouldShow && !visible) petWindow_->Show();
   if (!shouldShow && visible) petWindow_->Hide();
 }
@@ -2113,8 +2191,8 @@ nlohmann::json Application::BuildState() {
           {"petName", petName_},
           {"soundEnabled", soundEnabled_},
           {"speechEnabled", speechEnabled_},
-          {"autoHideEnabled", autoHideEnabled_},
-          {"autoHideMinutes", autoHideMinutes_},
+          {"financeWebsiteUrl", financeWebsiteUrl_},
+          {"learningWebsiteUrl", learningWebsiteUrl_},
           {"workspaceTheme", workspaceTheme_},
           {"workspaceTextSize", workspaceTextSize_},
           {"openLastView", openLastView_},
