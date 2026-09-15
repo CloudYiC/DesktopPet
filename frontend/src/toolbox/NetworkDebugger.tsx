@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { requestNetworkInterfaces, requestNetworkPoll, requestNetworkSend, requestNetworkStart, requestNetworkStop } from '../bridge/hostBridge';
 import type { NetworkDebugEvent, NetworkInterface, NetworkSessionSnapshot, NetworkStartOptions, NetworkMode } from '../types';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { PacketTemplateDialog } from './PacketTemplateDialog';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
 import type { ToolDefinition } from './catalog';
 import { createDefaultPacketDraft, validatePacketDraft, encodePacketPayload, convertPacketPayloadMode, isMulticastHost, encodeNetworkPayload, packetNetworkMode,
@@ -22,7 +23,7 @@ const defaultDraft = (): PacketSenderDraft => ({ ...createDefaultPacketDraft(), 
 const modeName = (mode: NetworkMode) => mode === 'tcp-server' ? 'TCP 服务端' : mode === 'tcp-client' ? 'TCP 客户端' : 'UDP';
 function initialLibrary() {
   try { const raw = localStorage.getItem(PACKET_LIBRARY_STORAGE_KEY); return { library: raw ? parsePacketLibrary(raw) : { schemaVersion: 1 as const, packets: [] }, error: '' }; }
-  catch (error) { return { library: { schemaVersion: 1 as const, packets: [] }, error: `报文库读取失败，原数据未覆盖：${errorText(error)}` }; }
+  catch (error) { return { library: { schemaVersion: 1 as const, packets: [] }, error: `报文模板读取失败，原数据未覆盖：${errorText(error)}` }; }
 }
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }));
@@ -52,7 +53,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const [draft, setDraft] = useState<PacketSenderDraft>(defaultDraft);
   const [selectedId, setSelectedId] = useState('');
   const [search, setSearch] = useState('');
-  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templateFeedback, setTemplateFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const [adapters, setAdapters] = useState<NetworkInterface[]>([]);
   const [adaptersLoading, setAdaptersLoading] = useState(false);
   const [review, setReview] = useState<NetworkReview | null>(null);
@@ -79,6 +81,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const runControl = useRef<{ cancelled: boolean } | null>(null), lastTrafficError = useRef('');
   const followTail = useRef(true), followEnabled = useRef(true);
   const log = useRef<HTMLDivElement>(null), importInput = useRef<HTMLInputElement>(null), payloadFile = useRef<HTMLInputElement>(null);
+  const payloadInput = useRef<HTMLTextAreaElement>(null), templateSearch = useRef<HTMLInputElement>(null);
+  const templateReturnFocus = useRef<HTMLElement | null>(null);
   const mode = packetNetworkMode(draft);
   const preview = useMemo(() => { try { return { value: encodeNetworkPayload(draft), error: '' }; } catch (e) { return { value: null, error: errorText(e) }; } }, [draft]);
   const filtered = library.packets.filter((packet) => (packet.name + ' ' + packet.host + ' ' + packet.port).toLowerCase().includes(search.toLowerCase()));
@@ -297,33 +301,35 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     setDraft((old) => ({ ...old, networkMode, protocol: networkMode === 'udp' ? 'udp' : 'tcp',
       localPort: networkMode === 'tcp-server' && old.localPort === 0 ? 9000 : old.localPort }));
   };
+  const networkModes: NetworkMode[] = ['tcp-client', 'tcp-server', 'udp'];
   const showLatest = () => {
     followTail.current = true; followEnabled.current = true; setFollow(true); setUnseen(false);
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
   };
   const persist = (next: PacketLibrary) => {
-    if (initial.error) throw new Error('报文库读取失败，禁止覆盖原数据。请先导出原始备份。');
+    if (initial.error) throw new Error('报文模板读取失败，禁止覆盖原数据。请先导出原始备份。');
     const json = serializePacketLibrary(next); localStorage.setItem(PACKET_LIBRARY_STORAGE_KEY, json); libraryRef.current = next; setLibrary(next);
   };
   const save = () => {
     try {
       const packet = validatePacketDraft(draft);
-      if (!packet.name.trim()) throw new Error('保存前请填写报文名称。');
+      if (!packet.name.trim()) throw new Error('保存前请填写模板名称。');
       const item: SavedPacket = { ...packet, id: selectedId || crypto.randomUUID(), updatedAt: new Date().toISOString() };
       persist({ schemaVersion: 1, packets: selectedId ? library.packets.map((old) => old.id === selectedId ? item : old) : [...library.packets, item] });
-      setSelectedId(item.id); setNotice('报文已保存到本机；保存和载入都不会自动发送。'); setError('');
+      setSelectedId(item.id); setNotice('报文模板已保存到本机；保存和载入都不会自动发送。'); setError('');
     } catch (e) { setError(errorText(e)); }
   };
   const load = (packet: SavedPacket) => {
     if (locked.current) return;
     const { id, updatedAt: _updatedAt, ...editable } = packet;
     editRevision.current += 1;
-    setDraft(validatePacketDraft(editable)); setSelectedId(id); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('报文已载入，点击发送才会访问目标。');
+    setDraft(validatePacketDraft(editable)); setSelectedId(id); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('模板已载入，点击发送才会访问目标。');
+    templateReturnFocus.current = payloadInput.current; setTemplatesOpen(false);
   };
   const importLibrary = async (file?: File) => {
     if (!file || locked.current) return;
-    try { if (file.size > MAX_PACKET_LIBRARY_BYTES) throw new Error('报文库文件不能超过 1 MiB。'); const incoming = parsePacketLibrary(await file.text()); if (!alive.current || locked.current) return; persist(mergePacketLibraries(libraryRef.current, incoming)); setNotice(`已导入 ${incoming.packets.length} 条报文，未执行发送。`); setError(''); }
-    catch (e) { if (alive.current) setError(errorText(e)); }
+    try { if (file.size > MAX_PACKET_LIBRARY_BYTES) throw new Error('模板文件不能超过 1 MiB。'); const incoming = parsePacketLibrary(await file.text()); if (!alive.current || locked.current) return; persist(mergePacketLibraries(libraryRef.current, incoming)); const text = `已导入 ${incoming.packets.length} 条模板，未执行发送。`; setNotice(text); setTemplateFeedback({ text, error: false }); setError(''); }
+    catch (e) { if (alive.current) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); } }
   };
   const loadFile = async (file?: File) => {
     if (!file || locked.current) return;
@@ -331,7 +337,7 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     try { if (file.size > (draft.protocol === 'udp' ? 65507 : 65536)) throw new Error('文件超过单次报文容量。'); const bytes = new Uint8Array(await file.arrayBuffer()); if (!alive.current || locked.current || revision !== editRevision.current) return; setDraft((old) => ({ ...old, dataMode: 'hex', payload: Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(' ') })); setNotice(`已载入 ${file.size} 字节，未发送。`); setError(''); }
     catch (e) { if (alive.current) setError(errorText(e)); }
   };
-  const exportLibrary = () => { try { download('cloudyi-packets.json', initial.error ? localStorage.getItem(PACKET_LIBRARY_STORAGE_KEY) ?? '' : serializePacketLibrary(library)); } catch (e) { setError(errorText(e)); } };
+  const exportLibrary = () => { try { download('cloudyi-packets.json', initial.error ? localStorage.getItem(PACKET_LIBRARY_STORAGE_KEY) ?? '' : serializePacketLibrary(library)); } catch (e) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); } };
   const copyLogs = async () => { try { await navigator.clipboard.writeText(events.map((event) => `${showTime ? new Date(event.timestamp).toISOString() + ' ' : ''}${event.kind} ${event.peerLabel ?? ''} ${event.byteLength} B ${logPayload(event, logMode)}`).join('\n')); setNotice('已复制收发记录。'); } catch (e) { setError(errorText(e)); } };
 
 
@@ -342,7 +348,12 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
     {(error || notice) && <p className={error ? styles.error : styles.notice} role={error ? 'alert' : 'status'}>{error || notice}</p>}
     <div className={styles.modeBar}>
-      <div className={styles.tabs} role="tablist" aria-label="网络模式">{(['tcp-client', 'tcp-server', 'udp'] as NetworkMode[]).map((value) => <button key={value} role="tab" aria-selected={mode === value} aria-pressed={mode === value} disabled={busy} onClick={() => changeNetworkMode(value)}>{modeName(value)}</button>)}</div>
+      <div className={styles.modeTabs} role="tablist" aria-label="网络模式">{networkModes.map((value, index) => <button key={value} role="tab" aria-selected={mode === value} aria-pressed={mode === value} tabIndex={mode === value ? 0 : -1} disabled={busy} onClick={() => changeNetworkMode(value)} onKeyDown={(event) => {
+        const next = event.key === 'ArrowRight' ? (index + 1) % networkModes.length : event.key === 'ArrowLeft' ? (index + networkModes.length - 1) % networkModes.length : event.key === 'Home' ? 0 : event.key === 'End' ? networkModes.length - 1 : -1;
+        if (next < 0 || busy) return;
+        event.preventDefault(); changeNetworkMode(networkModes[next]);
+        event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role=tab]')[next]?.focus();
+      }}>{modeName(value)}</button>)}</div>
       <span>{ready(snapshot) ? modeName(snapshot!.mode) + ' · 会话就绪' : '尚未连接'}</span>
     </div>
     <div className={styles.workbench}>
@@ -361,14 +372,14 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
             {mode === 'tcp-server' && <div className={styles.peerPanel} aria-label="TCP 客户端列表"><strong>已连接客户端 {peers.length}</strong><div>{peers.length ? peers.map((peer) => <button key={peer.id} disabled={busy} aria-pressed={peerTarget === peer.id} onClick={() => setPeerTarget(peer.id)}>{peer.address}:{peer.port}</button>) : <small>等待客户端连接</small>}</div></div>}
           </section>
           <section className={styles.card}>
-            <header><h3>发送数据</h3><button disabled={busy} onClick={() => { editRevision.current += 1; setDraft(defaultDraft()); setSelectedId(''); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('新建草稿，未发送。'); }}>新建</button><button disabled={busy} onClick={save}>{selectedId ? '更新报文' : '保存报文'}</button></header>
+            <header><h3>发送数据</h3><button className={styles.templateButton} aria-label="报文模板" aria-haspopup="dialog" onClick={() => { templateReturnFocus.current = null; setTemplateFeedback(initial.error ? { text: initial.error, error: true } : null); setTemplatesOpen(true); }}>报文模板 <span>{library.packets.length}</span></button></header>
 
             <div className={styles.payloadToolbar}><div className={styles.tabs} aria-label="发送数据方式">{([['text', '文本'], ['hex', 'HEX'], ['escaped', '转义字节']] as const).map(([value, label]) => <button key={value} aria-pressed={draft.dataMode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><span data-testid="packet-byte-count">{preview.value?.byteCount ?? 0} 字节</span><button disabled={busy} onClick={() => payloadFile.current?.click()}>载入文件</button></div>
-            <textarea className={styles.payloadInput} aria-label="报文内容" spellCheck={false} value={draft.payload} disabled={busy} onChange={(e) => edit('payload', e.target.value)} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.repeat) { e.preventDefault(); submit('send', 1); } }} />
-            <label className={styles.packetTitle}>报文名称<input aria-label="报文名称" maxLength={80} value={draft.name} disabled={busy} onChange={(e) => edit('name', e.target.value)} /></label>
+            <textarea ref={payloadInput} className={styles.payloadInput} aria-label="报文内容" spellCheck={false} value={draft.payload} disabled={busy} onChange={(e) => edit('payload', e.target.value)} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.repeat) { e.preventDefault(); submit('send', 1); } }} />
+            <label className={styles.packetTitle}>模板名称<input aria-label="模板名称" maxLength={80} value={draft.name} disabled={busy} onChange={(e) => edit('name', e.target.value)} /></label>
+            <div className={styles.templateActions}><button disabled={busy} onClick={() => { editRevision.current += 1; setDraft(defaultDraft()); setSelectedId(''); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('新建草稿，未发送。'); }}>新建</button><button disabled={busy} onClick={save}>{selectedId ? '更新模板' : '保存模板'}</button></div>
             {draft.dataMode === 'escaped' && <small>转义字节：\00、\FF、\r、\n、\t、\\；普通文字按 UTF-8 编码。</small>}{preview.error && <p className={styles.warning}>{preview.error}</p>}{!native && <small>网络连接需要 Windows 客户端。</small>}
           </section>
-        </div>
         <section className={styles.sendDock + ' ' + styles.card} data-testid="network-send-actions">
           {mode === 'tcp-server' && <label className={styles.peerTarget}>发送目标<select aria-label="发送目标" disabled={busy} value={peerTarget} onChange={(e) => setPeerTarget(e.target.value)}><option value="all">全部已连接客户端（{peers.length}）</option>{peerTarget !== 'all' && !peers.some((peer) => peer.id === peerTarget) && <option value={peerTarget}>原目标已断开，请重新选择</option>}{peers.map((peer) => <option key={peer.id} value={peer.id}>{peer.address}:{peer.port}</option>)}</select></label>}
           <div className={styles.sendOptions}><label>行尾<select aria-label="行尾" value={draft.lineEnding ?? 'none'} disabled={busy} onChange={(e) => edit('lineEnding', e.target.value as PacketSenderDraft['lineEnding'])}><option value="none">不添加</option><option value="lf">LF（\n）</option><option value="crlf">CRLF（\r\n）</option></select></label><label>间隔（毫秒）<input aria-label="重发间隔" type="number" min={50} max={86400000} value={draft.intervalMs} disabled={busy} onChange={(e) => edit('intervalMs', Number(e.target.value))} /></label><label>发送次数<input aria-label="重发次数" type="number" min={1} max={1000} value={draft.repeatCount} disabled={busy} onChange={(e) => edit('repeatCount', Number(e.target.value))} /></label></div>
@@ -376,15 +387,9 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
           <div className={styles.stopActions}><button disabled={!sending || stopping.current} onClick={stopSending}>停止发送</button><button className={styles.stop} disabled={!native || stopping.current || (!busy && !ownsSession.current)} onClick={() => void stop()}>停止 / 断开</button></div>
           {busy && <small className={styles.runProgress}>{progress}</small>}
         </section>
+        </div>
       </div>
       <div className={styles.right} data-testid="packet-sender-results">
-        <section className={styles.card + ' ' + styles.library} data-testid="packet-library-panel" data-empty={!library.packets.length} data-collapsed={libraryCollapsed}>
-          <header><h3>已保存报文 <span>{library.packets.length}</span></h3><button disabled={busy} onClick={() => importInput.current?.click()}>导入</button><button onClick={exportLibrary}>导出</button><button aria-label={libraryCollapsed ? '展开报文库' : '收起报文库'} aria-expanded={!libraryCollapsed} aria-controls="packet-library-content" onClick={() => setLibraryCollapsed((value) => !value)}>{libraryCollapsed ? '展开' : '收起'}</button></header>
-          <div className={styles.libraryBody} id="packet-library-content" hidden={libraryCollapsed}>
-            {!!library.packets.length && <input aria-label="搜索报文" placeholder="搜索名称、地址或端口…" value={search} onChange={(e) => setSearch(e.target.value)} />}
-            <div className={styles.packetList} data-testid="packet-library">{filtered.length ? filtered.map((packet) => <article key={packet.id} data-selected={packet.id === selectedId}><button className={styles.packetName} disabled={busy} onClick={() => load(packet)} title="载入编辑，不会自动发送"><strong>{packet.name}</strong><small>{modeName(packetNetworkMode(packet))} · {packetNetworkMode(packet) === 'tcp-server' ? packet.localAddress + ':' + packet.localPort : packet.host + ':' + packet.port}</small></button><button disabled={busy} onClick={() => load(packet)}>载入</button><button className={styles.delete} disabled={busy} aria-label={'删除报文 ' + packet.name} onClick={() => setDeleteTarget(packet)}>删除</button></article>) : <p className={styles.empty}>{library.packets.length ? '没有匹配的报文。' : '保存常用报文后，可在这里再次载入。'}</p>}</div>
-          </div>
-        </section>
         <section className={styles.card + ' ' + styles.logPanel} data-testid="network-receive">
           <header><h3>收发记录</h3><div className={styles.tabs} aria-label="日志显示格式">{([['text', '文本'], ['hex', 'HEX'], ['escaped', '转义']] as const).map(([value, label]) => <button key={value} aria-pressed={logMode === value} onClick={() => setLogMode(value)}>{label}</button>)}</div><label className={styles.follow}><input aria-label="显示时间" type="checkbox" checked={showTime} onChange={(e) => setShowTime(e.target.checked)} />时间</label><label className={styles.follow}><input type="checkbox" checked={follow} onChange={(e) => { followEnabled.current = e.target.checked; setFollow(e.target.checked); if (e.target.checked) showLatest(); }} />自动滚动</label><button disabled={!events.length} onClick={() => void copyLogs()}>复制</button><button onClick={() => { setEvents([]); setUnseen(false); followTail.current = true; }}>清空</button></header>
           <div className={styles.session}><span>{busy ? progress : ready(snapshot) ? modeName(snapshot!.mode) + ' 会话保留中' : '未连接'}</span><span>TX {snapshot?.txPackets ?? 0} 次 · {snapshot?.txBytes ?? 0} B</span><span>RX {snapshot?.rxPackets ?? 0} 次 · {snapshot?.rxBytes ?? 0} B</span></div>
@@ -397,8 +402,11 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
         </section>
       </div>
     </div>
-    <input ref={importInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void importLibrary(file); }} />
-    <input ref={payloadFile} type="file" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void loadFile(file); }} />
+    <PacketTemplateDialog open={templatesOpen} count={library.packets.length} search={search} busy={busy} feedback={templateFeedback} returnFocus={templateReturnFocus} searchRef={templateSearch} onSearch={setSearch} onImport={() => importInput.current?.click()} onExport={exportLibrary} onClose={() => setTemplatesOpen(false)}>
+      {filtered.length ? filtered.map((packet) => <article key={packet.id} data-selected={packet.id === selectedId}><button disabled={busy} onClick={() => load(packet)} title="载入编辑，不会自动发送"><strong>{packet.name}</strong><small>{modeName(packetNetworkMode(packet))} · {packetNetworkMode(packet) === 'tcp-server' ? packet.localAddress + ':' + packet.localPort : packet.host + ':' + packet.port}</small></button><button disabled={busy} onClick={() => load(packet)}>载入</button><button disabled={busy} aria-label={'删除模板 ' + packet.name} onClick={() => setDeleteTarget(packet)}>删除</button></article>) : <p>{library.packets.length ? '没有匹配的模板。' : '还没有报文模板。填写发送内容和模板名称，点击“保存模板”即可添加。'}</p>}
+      <input ref={importInput} type="file" aria-label="模板导入文件" accept=".json,application/json" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void importLibrary(file); }} />
+    </PacketTemplateDialog>
+    <input ref={payloadFile} type="file" aria-label="发送内容文件" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void loadFile(file); }} />
     <ConfirmDialog open={!!review} title="确认网络操作" confirmLabel={review?.action === 'join' ? '确认并加入' : review?.action === 'connect' ? '确认并连接' : '确认并发送'} tone="primary" onCancel={() => { reviewRef.current = null; setReview(null); }} onConfirm={() => {
       const pending = reviewRef.current; if (!pending) return; reviewRef.current = null; setReview(null); approvedKey.current = JSON.stringify(pending.options);
       if (pending.changedBinding) { setDraft(pending.packet); editRevision.current += 1; } void execute(pending);
@@ -412,6 +420,14 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
         <p>确认即允许本次配置使用所选网卡收发；停止或变更配置后需重新确认。不会修改防火墙。</p>
       </div>}
     </ConfirmDialog>
-    <ConfirmDialog open={!!deleteTarget} title="删除保存的报文？" confirmLabel="删除报文" onCancel={() => setDeleteTarget(null)} onConfirm={() => { if (!deleteTarget) return; try { persist({ schemaVersion: 1, packets: library.packets.filter((packet) => packet.id !== deleteTarget.id) }); if (selectedId === deleteTarget.id) setSelectedId(''); setDeleteTarget(null); setNotice('已删除保存条目，编辑区内容保留。'); } catch (e) { setError(errorText(e)); setDeleteTarget(null); } }}><p>删除“{deleteTarget?.name}”的本机保存条目。当前编辑内容不会被清空。</p></ConfirmDialog>
+    <ConfirmDialog open={!!deleteTarget} title="删除报文模板？" confirmLabel="删除模板" onCancel={() => setDeleteTarget(null)} onConfirm={() => {
+      if (!deleteTarget || locked.current) return;
+      try {
+        persist({ schemaVersion: 1, packets: library.packets.filter((packet) => packet.id !== deleteTarget.id) });
+        if (selectedId === deleteTarget.id) setSelectedId('');
+        setDeleteTarget(null); setNotice('已删除模板，编辑区内容保留。'); setTemplateFeedback({ text: '已删除模板，编辑区内容保留。', error: false }); setError('');
+        window.requestAnimationFrame(() => { if (alive.current) templateSearch.current?.focus({ preventScroll: true }); });
+      } catch (e) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); setDeleteTarget(null); }
+    }}><p>删除“{deleteTarget?.name}”的本机模板。当前编辑内容不会被清空。</p></ConfirmDialog>
   </section>;
 }

@@ -141,6 +141,41 @@ const { chromium } = require('playwright');
     await page.goto(process.env.PACKET_TEST_URL || 'http://127.0.0.1:18779/?mode=dashboard'); await openNetwork();
     assert.equal(await count('network.start'), 0, 'opening unified workbench is read-only');
 
+    // Protocol tabs visibly identify the active mode and are a single keyboard
+    // stop. Moving between tabs is still configuration, never a network action.
+    const protocolTabs = page.getByRole('tablist', { name: '网络模式', exact: true });
+    async function verifyProtocolTab(name) {
+      const selected = page.getByRole('tab', { name, exact: true });
+      assert.equal(await selected.getAttribute('aria-selected'), 'true');
+      assert.equal(await selected.getAttribute('tabindex'), '0');
+      assert.equal(await protocolTabs.locator('[role=tab][aria-selected=true]').count(), 1, 'one mode is selected');
+      assert.equal(await protocolTabs.locator('[role=tab][tabindex="0"]').count(), 1, 'tablist has one roving keyboard stop');
+      const colors = await protocolTabs.evaluate((element) => [...element.querySelectorAll('[role=tab]')].map((tab) => {
+        const style = getComputedStyle(tab);
+        return { selected: tab.getAttribute('aria-selected') === 'true', background: style.backgroundColor,
+          foreground: style.color, border: style.borderColor, shadow: style.boxShadow, height: tab.getBoundingClientRect().height };
+      }));
+      const active = colors.find((tab) => tab.selected);
+      assert.ok(active.height >= 38, 'mode switch retains a normal-sized hit area');
+      for (const inactive of colors.filter((tab) => !tab.selected)) {
+        assert.notEqual(active.background, inactive.background, 'selected mode has a distinct filled background');
+        assert.ok(active.foreground !== inactive.foreground || active.border !== inactive.border || active.shadow !== inactive.shadow,
+          'selected mode has a second visible distinction beyond background fill');
+      }
+    }
+    const keyboardSequence = [['ArrowRight', 'TCP 服务端'], ['ArrowRight', 'UDP'], ['ArrowRight', 'TCP 客户端'],
+      ['End', 'UDP'], ['ArrowLeft', 'TCP 服务端'], ['Home', 'TCP 客户端']];
+    const stopBeforeKeyboard = await count('network.stop');
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).focus();
+    for (const [key, name] of keyboardSequence) {
+      await page.keyboard.press(key); await verifyProtocolTab(name);
+      assert.equal(await page.getByRole('tab', { name, exact: true }).evaluate((element) => element === document.activeElement), true,
+        'keyboard mode switch keeps focus on the selected tab');
+    }
+    assert.equal(await count('network.start'), 0, 'keyboard mode switching never connects');
+    assert.equal(await count('network.send'), 0, 'keyboard mode switching never sends');
+    assert.equal(await count('network.stop'), stopBeforeKeyboard, 'keyboard mode switching does not stop an absent session');
+
     // Connecting/listening is independent from packet editing and sending.
     for (const mode of modes) {
       await page.getByRole('tab', { name: mode.name, exact: true }).click();
@@ -198,11 +233,13 @@ const { chromium } = require('playwright');
     // The merged library also preserves server mode and line endings, while
     // loading saved settings remains entirely free of socket operations.
     await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).click();
-    await field('报文名称').fill('Saved server fixture'); await field('报文内容').fill('saved server content');
+    await field('模板名称').fill('Saved server fixture'); await field('报文内容').fill('saved server content');
     await field('行尾').selectOption('crlf'); await field('发包本地端口').fill('6655');
     const savesStartBase = await count('network.start'), savesSendBase = await count('network.send');
-    await button('保存报文').click(); await button('新建').click();
+    await button('保存模板').click(); await button('新建').click(); await button('报文模板').click();
     await page.getByTestId('packet-library').getByRole('button', { name: '载入', exact: true }).click();
+    await page.getByRole('dialog', { name: '报文模板', exact: true }).waitFor({ state: 'hidden' });
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文内容');
     assert.equal(await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).getAttribute('aria-selected'), 'true');
     assert.equal(await field('行尾').inputValue(), 'crlf'); assert.equal(await field('发包本地端口').inputValue(), '6655');
     assert.equal(await field('报文内容').inputValue(), 'saved server content');
@@ -341,11 +378,18 @@ const { chromium } = require('playwright');
         await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
         for (const mode of modes) {
           await page.getByRole('tab', { name: mode.name, exact: true }).click();
+          await verifyProtocolTab(mode.name);
           const main = page.getByRole('main').last(); await main.evaluate((element) => { element.scrollTop = 0; });
           await page.getByTestId('network-operations').evaluate((element) => { element.scrollTop = 0; });
           const outer = await box(main), left = await box(page.getByTestId('packet-sender-editor')), right = await box(page.getByTestId('packet-sender-results'));
           assert.ok(outer.scrollWidth <= outer.clientWidth + 1, `${mode.name}/${width}/${size}: no horizontal page overflow`);
           assert.ok((await box(log())).contentHeight >= 319, `${mode.name}/${width}/${size}: log retains 320 usable pixels`);
+          assert.ok(await page.getByTestId('packet-library-panel').isHidden(), 'closed templates reserve no permanent results panel');
+          assert.equal(await page.getByTestId('packet-sender-results').getByTestId('packet-library-panel').count(), 0);
+          for (const control of [field('行尾'), field('重发间隔'), field('重发次数'), button('发送一次'), button('重复发送'), button('持续发送'), button('停止 / 断开')]) {
+            assert.ok(await control.evaluate((element) => !!element.closest('[data-testid="network-operations"]')),
+              'line ending, repeat settings and every send/stop action belong to the left scroll area');
+          }
           if (width > 900) assert.ok(right.x >= left.right + 8 && Math.abs(right.y - left.y) < 2, 'desktop aligns editing and results side by side');
           else assert.ok(right.y >= left.bottom, 'only narrow views stack');
           if (width === 1280 && height === 762 && size === 'comfortable' && mode.id !== 'tcp-server') {
@@ -365,7 +409,7 @@ const { chromium } = require('playwright');
       }
     }
     assert.deepEqual(errors, [], 'no uncaught application exceptions');
-    console.log('PASS: unified entry; TCP client/server/UDP receive-only startup; hidden server target fields; centered consent/cancel; UTF-8/CRLF and server template restore; frozen all/single/stale peers; disconnected-peer batch stops while other clients stay connected; late drained poll events retained; serial finite/continuous sends with stop-run preserving session; readable logs/time/manual scroll/focus/new-data jump; responsive split/stack layouts. All network bridge traffic is synthetic.');
+    console.log('PASS: unified entry; high-contrast roving TCP client/server/UDP tabs with arrows/Home/End and no automatic network effects; receive-only startup; hidden server target fields; centered consent/cancel; UTF-8/CRLF and server template restore/focus; frozen all/single/stale peers; disconnected-peer batch stops while other clients stay connected; late drained poll events retained; serial finite/continuous sends with stop-run preserving session; readable logs/time/manual scroll/focus/new-data jump; no permanent right template panel; all send options scroll inside the left operations; responsive split/stack layouts. All network bridge traffic is synthetic.');
   } catch (error) {
     await screenshot('failure').catch(() => {}); throw error;
   } finally { await context.close(); await browser.close(); }

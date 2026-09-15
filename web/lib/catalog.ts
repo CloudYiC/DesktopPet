@@ -247,6 +247,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.11-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Renamed saved packets to Packet Templates and moved management to an on-demand dialog beside the send editor, preserving existing templates and JSON compatibility' },
+      { kind: '~', text: 'Moved line endings, interval, repeat count and send/stop controls into the same left scrolling pane, leaving the right side dedicated to traffic history' },
+      { kind: '~', text: 'Strengthened TCP client, TCP server and UDP mode tabs with clear selected styling and keyboard navigation without changing connection or sending behavior' },
+    ],
+  },
+  {
     version: 'v0.13.10-desktop',
     date: '2026-09-15',
     items: [

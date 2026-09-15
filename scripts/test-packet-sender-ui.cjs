@@ -82,6 +82,16 @@ const { chromium } = require('playwright');
   const workspace = () => page.getByTestId('network-workspace');
   const field = (name) => page.getByLabel(name, { exact: true });
   const button = (name) => workspace().getByRole('button', { name, exact: true });
+  const templateDialog = () => page.getByRole('dialog', { name: '报文模板', exact: true });
+  const templateButton = (name) => templateDialog().getByRole('button', { name, exact: true });
+  const openTemplates = async () => {
+    await button('报文模板').click(); await templateDialog().waitFor();
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '搜索模板');
+  };
+  const closeTemplates = async () => {
+    await templateButton('关闭报文模板').click(); await templateDialog().waitFor({ state: 'hidden' });
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文模板');
+  };
   const log = () => page.getByRole('log', { name: '网络收发记录', exact: true });
   const count = (type) => page.evaluate((type) => window.__packetFixture.requests.filter((request) => request.type === type).length, type);
   const request = (type) => page.evaluate((type) => window.__packetFixture.requests.filter((entry) => entry.type === type).at(-1), type);
@@ -155,32 +165,46 @@ const { chromium } = require('playwright');
     if (await button('发送一次').isEnabled()) await button('发送一次').click();
     assert.equal(await count('network.start'), 0, 'empty content is rejected before native startup');
     await workspace().locator('[class*="payloadToolbar"]').getByRole('button', { name: 'HEX', exact: true }).click();
-    await field('报文内容').fill('00 ff 41'); await field('报文名称').fill('Fixture alpha');
-    await button('保存报文').click();
+    await field('报文内容').fill('00 ff 41'); await field('模板名称').fill('Fixture alpha');
+    await button('保存模板').click();
+    assert.ok(await page.getByTestId('packet-library-panel').isHidden(), 'saving never opens a permanent right-hand library');
+    assert.equal(await page.getByTestId('packet-sender-results').getByTestId('packet-library-panel').count(), 0);
+    await openTemplates();
     assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 1);
-    await button('新建').click(); await page.getByTestId('packet-library').getByRole('button', { name: '载入', exact: true }).click();
+    await closeTemplates(); await button('新建').click(); await openTemplates();
+    await templateButton('载入').click(); await templateDialog().waitFor({ state: 'hidden' });
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文内容');
     assert.equal(await field('报文内容').inputValue(), '00 ff 41', 'saved template loads without loss');
-    await button('删除报文 Fixture alpha').click();
-    const dialog = page.getByRole('dialog', { name: '删除保存的报文？' }); await dialog.waitFor();
+    await button('更新模板').click();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cloudyi.packet-sender.library.v1')).packets.length), 1,
+      'updating a loaded template replaces its ID instead of duplicating it');
+    await openTemplates(); await templateButton('删除模板 Fixture alpha').click();
+    const dialog = page.getByRole('dialog', { name: '删除报文模板？' }); await dialog.waitFor();
     const modal = await box(dialog), viewport = page.viewportSize();
     assert.ok(Math.abs((modal.x + modal.right) / 2 - viewport.width / 2) < 2, 'delete confirmation is centered in the entire client');
     await dialog.getByRole('button', { name: '取消', exact: true }).click();
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '删除模板 Fixture alpha');
     assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 1, 'cancel preserves the template');
-    await button('删除报文 Fixture alpha').click(); await dialog.getByRole('button', { name: '删除报文', exact: true }).click();
+    await templateButton('删除模板 Fixture alpha').click(); await dialog.getByRole('button', { name: '删除模板', exact: true }).click();
     assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 0);
-    await workspace().locator('input[type=file]').nth(0).setInputFiles({ name: 'packets.json', mimeType: 'application/json',
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '搜索模板');
+    await field('模板导入文件').setInputFiles({ name: 'packets.json', mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: [saved('Imported fixture', 'fixture-import')] })) });
     await page.getByTestId('packet-library').getByRole('article').first().waitFor();
-    await page.getByTestId('packet-library').getByRole('button', { name: '载入', exact: true }).click();
-    assert.equal(await field('报文名称').inputValue(), 'Imported fixture');
+    await templateButton('载入').click(); await templateDialog().waitFor({ state: 'hidden' });
+    assert.equal(await field('模板名称').inputValue(), 'Imported fixture');
     assert.equal(await field('发送网卡').inputValue(), '127.0.0.1', 'legacy 0.13.6 template retains its explicit local binding');
     const libraryBeforeInvalidImport = await page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1'));
-    await workspace().locator('input[type=file]').nth(0).setInputFiles({ name: 'invalid.json', mimeType: 'application/json',
+    await openTemplates();
+    await field('模板导入文件').setInputFiles({ name: 'invalid.json', mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: [{ ...saved('Invalid', 'invalid-import'), autoSend: true }] })) });
-    await page.getByRole('alert').waitFor();
+    await templateDialog().getByRole('alert').waitFor();
+    const errorRect = await box(templateDialog().getByRole('alert'));
+    assert.ok(errorRect.y >= 0 && errorRect.bottom <= page.viewportSize().height, 'import validation is visible in the open centered dialog');
     assert.equal(await page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1')), libraryBeforeInvalidImport,
       'unknown imported fields are rejected without overwriting saved templates');
-    await workspace().locator('input[type=file]').nth(1).setInputFiles({ name: 'fixture.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 255, 65]) });
+    await closeTemplates();
+    await field('发送内容文件').setInputFiles({ name: 'fixture.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 255, 65]) });
     await page.waitForTimeout(50); assert.equal(await field('报文内容').inputValue(), '00 ff 41');
     assert.equal(await count('network.start'), 0, 'save, load, delete, import and binary file load do not connect');
     assert.equal(await count('network.send'), 0, 'all template operations are side-effect free');
@@ -202,8 +226,12 @@ const { chromium } = require('playwright');
     await page.evaluate(() => { window.__packetFixture.holdTx = true; });
     await button('重复发送').click();
     await page.waitForFunction((expected) => window.__packetFixture.requests.filter((item) => item.type === 'network.send').length === expected, repeatBase + 1);
-    for (const name of ['报文名称', '目标地址', '目标端口', '报文内容', '重发间隔', '重发次数']) assert.ok(await field(name).isDisabled(), `${name} is frozen during a repeat run`);
-    assert.ok(await button('新建').isDisabled()); assert.ok(await button('载入').isDisabled());
+    for (const name of ['模板名称', '目标地址', '目标端口', '报文内容', '重发间隔', '重发次数']) assert.ok(await field(name).isDisabled(), `${name} is frozen during a repeat run`);
+    assert.ok(await button('新建').isDisabled());
+    await openTemplates();
+    for (const name of ['载入', '导入', '删除模板 Imported fixture']) assert.ok(await templateButton(name).isDisabled(), `${name} cannot alter a frozen repeat draft`);
+    assert.ok(await templateButton('导出').isEnabled(), 'read-only template export remains available during a run');
+    await closeTemplates();
     await page.waitForTimeout(350); assert.equal(await count('network.send'), repeatBase + 1, 'another packet is not queued before TX acknowledgment');
     await page.evaluate(() => { window.__packetFixture.holdTx = false; }); await waitEnabled();
     await page.waitForTimeout(350); assert.equal(await count('network.send'), repeatBase + 3, 'repeat sends exactly the requested count');
@@ -322,22 +350,21 @@ const { chromium } = require('playwright');
     // steal the console's minimum readable height. All state is fixture-only.
     const layoutStartBase = await count('network.start'), layoutSendBase = await count('network.send');
     const libraryPanel = page.getByTestId('packet-library-panel');
-    await button('删除报文 Imported fixture').click();
-    await dialog.getByRole('button', { name: '删除报文', exact: true }).click();
-    assert.equal(await libraryPanel.getAttribute('data-empty'), 'true');
-    assert.equal(await libraryPanel.locator('input:not([type=file]):visible').count(), 0, 'empty library does not reserve space for a pointless search box');
+    await openTemplates(); await templateButton('删除模板 Imported fixture').click();
+    await dialog.getByRole('button', { name: '删除模板', exact: true }).click();
+    assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 0);
+    await closeTemplates();
     for (const [width, height, size] of [[1280, 762, 'comfortable'], [1024, 640, 'large']]) {
       await page.setViewportSize({ width, height });
       await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
       await verifyReadableLayout(width, height, `active-empty-library-${width}-${size}`);
-      assert.ok((await box(libraryPanel)).height < 180, 'empty library stays compact rather than occupying half the results');
+      assert.ok(await libraryPanel.isHidden(), 'empty templates occupy no space above traffic');
       assert.ok((await page.getByTestId('packet-multicast-state').innerText()).includes('已加入 224.20.20.20'));
-      if (width === 1280) {
-        const sendDock = await box(button('停止 / 断开'));
-        assert.ok(sendDock.y >= 0 && sendDock.bottom <= height + 1,
-          'normal-size active empty-library view keeps the full send/stop dock visible without page scrolling');
-        const outer = await box(page.getByRole('main').last());
-        assert.ok(outer.scrollWidth <= outer.clientWidth + 1, 'extra unified controls allow vertical overflow, never horizontal clipping');
+      for (const control of [field('行尾'), field('重发间隔'), field('重发次数'), button('发送一次'), button('停止 / 断开')]) {
+        assert.ok(await control.evaluate((element) => !!element.closest('[data-testid="network-operations"]')),
+          'all send options and actions scroll together with the left editor');
+        await control.scrollIntoViewIfNeeded(); const rect = await box(control);
+        assert.ok(rect.y >= 0 && rect.bottom <= height + 1, 'scrolling the editor makes every send option reachable');
       }
       if (width === 1024) {
         const detailLines = await page.getByTestId('packet-multicast-state').locator('..').evaluate((element) => {
@@ -348,29 +375,53 @@ const { chromium } = require('playwright');
       }
       await page.screenshot({ path: path.join(directory, `active-empty-library-${width}-${size}.png`), fullPage: true });
     }
-    await workspace().locator('input[type=file]').nth(0).setInputFiles({ name: 'layout-packets.json', mimeType: 'application/json',
-      buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: Array.from({ length: 12 }, (_, index) => saved(`Layout fixture ${index + 1}`, `layout-${index}`)) })) });
-    await page.waitForFunction(() => document.querySelector('[data-testid="packet-library"]').querySelectorAll('article').length === 12);
-    assert.equal(await libraryPanel.getAttribute('data-empty'), 'false');
-    assert.equal(await libraryPanel.locator('input:not([type=file]):visible').count(), 1, 'saved packets retain search');
-    for (const [width, height, size] of [[1280, 762, 'comfortable'], [1024, 640, 'large']]) {
+    await openTemplates();
+    await field('模板导入文件').setInputFiles({ name: 'layout-packets.json', mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: Array.from({ length: 100 }, (_, index) => saved(`Layout fixture ${index + 1}`, `layout-${index}`)) })) });
+    await page.waitForFunction(() => document.querySelector('[data-testid="packet-library"]').querySelectorAll('article').length === 100);
+    const fullLibrary = await page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1'));
+    for (const invalid of [
+      { name: 'too-many.json', buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: [saved('Overflow', 'overflow')] })), expected: /100/ },
+      { name: 'too-large.json', buffer: Buffer.alloc(1024 * 1024 + 1, 32), expected: /1 MiB/ },
+    ]) {
+      await field('模板导入文件').setInputFiles({ name: invalid.name, buffer: invalid.buffer, mimeType: 'application/json' });
+      await templateDialog().getByRole('alert').filter({ hasText: invalid.expected }).waitFor();
+      assert.equal(await page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1')), fullLibrary,
+        '100-template / 1 MiB limits reject input without overwriting existing data');
+    }
+    const exported = page.waitForEvent('download'); await templateButton('导出').click();
+    const download = await exported;
+    const exportJSON = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+    assert.equal(exportJSON.schemaVersion, 1); assert.equal(exportJSON.packets.length, 100, 'export keeps compatible schema and all templates');
+    assert.equal(exportJSON.packets[0].payload, '00 ff 41');
+    await closeTemplates();
+    for (const [width, height, size] of [[1280, 762, 'comfortable'], [1920, 1040, 'large'], [1024, 640, 'large'], [760, 560, 'comfortable']]) {
       await page.setViewportSize({ width, height });
       await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
       await verifyReadableLayout(width, height, `active-populated-library-${width}-${size}`);
-      const expandedLibrary = await box(libraryPanel), packetList = await box(page.getByTestId('packet-library'));
-      assert.ok(expandedLibrary.height <= 220, 'many saved packets stay inside a compact capped library');
+      const logBeforeOpen = await box(log()); await openTemplates();
+      const modal = await box(libraryPanel), packetList = await box(page.getByTestId('packet-library'));
+      assert.ok(Math.abs((modal.x + modal.right) / 2 - width / 2) <= 2 && Math.abs((modal.y + modal.bottom) / 2 - height / 2) <= 2,
+        'template browser is centered in the whole client, not just the details column');
+      assert.ok(modal.y >= 0 && modal.bottom <= height + 1 && modal.x >= 0 && modal.right <= width + 1,
+        'the entire template dialog fits the viewport');
+      assert.ok(modal.scrollWidth <= modal.clientWidth + 1, 'templates do not horizontally overflow their dialog');
       assert.ok(packetList.scrollHeight > packetList.clientHeight && packetList.clientHeight > 0, 'saved entries scroll within their library');
-      await button('收起报文库').click();
-      assert.equal(await libraryPanel.getAttribute('data-collapsed'), 'true');
-      assert.equal(await button('展开报文库').getAttribute('aria-expanded'), 'false');
-      assert.ok(await page.locator('#packet-library-content').isHidden(), 'collapse hides library controls and list');
-      assert.ok((await box(libraryPanel)).height < expandedLibrary.height - 40, 'collapsing actually gives space back to the log');
-      await verifyReadableLayout(width, height, `active-collapsed-library-${width}-${size}`);
-      assert.ok((await box(log())).contentHeight >= 319, 'collapsing never trades away the minimum log height');
-      await page.screenshot({ path: path.join(directory, `active-collapsed-library-${width}-${size}.png`), fullPage: true });
-      await button('展开报文库').click();
-      assert.equal(await button('收起报文库').getAttribute('aria-expanded'), 'true');
-      assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 12, 'collapse and expand preserve every saved packet');
+      assert.equal((await box(log())).height, logBeforeOpen.height, 'opening 100 templates does not take height from traffic');
+      await field('搜索模板').fill('fixture 100');
+      assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 1, 'template name search narrows a large library');
+      await field('搜索模板').fill('9000');
+      assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 100, 'port search remains available');
+      await field('搜索模板').fill('');
+      for (let index = 0; index < 8; index++) {
+        await page.keyboard.press(index % 2 ? 'Shift+Tab' : 'Tab');
+        assert.ok(await templateDialog().evaluate((element) => element.contains(document.activeElement)), 'template dialog traps keyboard focus');
+      }
+      await page.screenshot({ path: path.join(directory, `template-modal-${width}-${size}.png`), fullPage: true });
+      await page.keyboard.press('Escape'); await templateDialog().waitFor({ state: 'hidden' });
+      await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文模板');
+      assert.ok(await libraryPanel.isHidden(), 'closing removes the template panel from layout');
+      assert.equal((await box(log())).height, logBeforeOpen.height, 'closing templates keeps the traffic viewport unchanged');
     }
     assert.equal(await count('network.start'), layoutStartBase, 'layout and library controls never restart the active session');
     assert.equal(await count('network.send'), layoutSendBase, 'layout and library controls never send');
@@ -452,7 +503,7 @@ const { chromium } = require('playwright');
     await page.waitForTimeout(400);
     assert.equal(await count('network.send'), sendsBeforeUnmount + 1, 'leaving during pending TX cancels remaining repeat sends');
     assert.deepEqual(errors, [], 'no uncaught application exceptions');
-    console.log('PASS: read-only adapters; no automatic effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; frozen repeat/stop; legacy template import/load/delete; external consent/cancel; multicast interface/TTL; receive-only join/RX/leave/error; separate ports and ephemeral-to-explicit joined-port reuse; compact/collapsible libraries; 5000-row bounded logs with 320px usable height; natural vertical overflow, no horizontal clipping; default/1024/maximized split and narrow stack. All traffic is synthetic.');
+    console.log('PASS: read-only adapters; no automatic effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; frozen repeat/stop; legacy template import/load/update/delete/export; centered 100-template browser/search/internal scrolling/focus; 100-template and 1 MiB import bounds; external consent/cancel; multicast interface/TTL; receive-only join/RX/leave/error; separate ports and ephemeral-to-explicit joined-port reuse; fully scrolling send options; 5000-row bounded logs with 320px usable height; natural vertical overflow, no horizontal clipping; default/1024/maximized split and narrow stack. All traffic is synthetic.');
   } catch (error) {
     await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error;
   } finally { await browser.close(); }

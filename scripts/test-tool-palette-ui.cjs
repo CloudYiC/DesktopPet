@@ -102,6 +102,36 @@ function geometry(source, file) {
             return values;
           });
           for (const item of contrast) assert.ok(item.ratio >= 4.5, `${theme}/${name}/${item.label}: white action text contrast ${item.ratio}`);
+          if (name === '网络调试助手') {
+            const modes = page.getByRole('tablist', { name: '网络模式', exact: true });
+            assert.equal(await modes.getByRole('tab').count(), 3, `${theme}: network modes retain explicit tab semantics`);
+            for (const mode of ['TCP 客户端', 'TCP 服务端', 'UDP']) {
+              await modes.getByRole('tab', { name: mode, exact: true }).click();
+              const tabs = await modes.getByRole('tab').evaluateAll((elements) => elements.map((el) => {
+                const style = getComputedStyle(el);
+                const canvas = document.createElement('canvas'); canvas.width = canvas.height = 1;
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.fillStyle = style.backgroundColor; ctx.fillRect(0, 0, 1, 1);
+                return { name: el.textContent.trim(), selected: el.getAttribute('aria-selected'), color: style.color,
+                  background: style.backgroundColor, fill: [...ctx.getImageData(0, 0, 1, 1).data], fontWeight: Number(style.fontWeight) };
+              }));
+              const selected = tabs.filter((tab) => tab.selected === 'true');
+              assert.equal(selected.length, 1, `${theme}/${mode}: exactly one mode is selected`);
+              assert.equal(selected[0].name, mode);
+              assert.equal(selected[0].color, 'rgb(255, 255, 255)', `${theme}/${mode}: selected mode uses clear white text`);
+              assert.ok(selected[0].fontWeight >= 650, `${theme}/${mode}: selected mode has a strong label`);
+              assert.equal(selected[0].fill[3], 255, `${theme}/${mode}: selected mode has an opaque fill`);
+              const channels = selected[0].fill.slice(0, 3).map((value) => value / 255)
+                .map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+              const luminance = channels.reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+              assert.ok(1.05 / (luminance + .05) >= 4.5, `${theme}/${mode}: selected mode remains readable against its solid fill`);
+              for (const inactive of tabs.filter((tab) => tab.selected !== 'true')) {
+                assert.notEqual(inactive.background, selected[0].background, `${theme}/${mode}: selected mode is distinct from ${inactive.name}`);
+                assert.notEqual(inactive.color, selected[0].color, `${theme}/${mode}: inactive modes do not mimic the selected label`);
+              }
+            }
+            await modes.getByRole('tab', { name: 'TCP 客户端', exact: true }).click();
+          }
           if (name === 'Base64') {
             const input = page.getByRole('region', { name: '输入区域' });
             const result = page.getByRole('region', { name: '输出区域' });
