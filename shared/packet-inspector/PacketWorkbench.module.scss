@@ -135,9 +135,11 @@ $mono: "Cascadia Mono", Consolas, "SFMono-Regular", monospace;
 }
 
 .pendingBadge { padding: 2px 7px; color: palette.$amber; background: palette.$amber-soft; border-radius: 4px; font-size: 0.75rem; }
-.inputError, .actionMessage, .pasteFallback { padding: 7px 10px; border-radius: 6px; font-size: 0.75rem; line-height: 1.55; overflow-wrap: anywhere; }
+.inputError, .pasteFallback { padding: 7px 10px; border-radius: 6px; font-size: 0.75rem; line-height: 1.55; overflow-wrap: anywhere; }
 .inputError { color: palette.$danger; background: palette.$danger-soft; }
-.actionMessage, .pasteFallback { color: $teal-dark; background: color-mix(in srgb, $teal 8%, $paper); }
+.pasteFallback { color: $teal-dark; background: color-mix(in srgb, $teal 8%, $paper); }
+.analysisWarning { color: palette.$amber; font-size: .75rem; }
+.fieldFootnote.storageError { color: palette.$danger; max-height: 64px; overflow: auto; overflow-wrap: anywhere; }
 
 .protocolSummary { display: flex; min-height: 37px; padding: 7px 14px; align-items: center; flex-wrap: wrap; gap: 6px 24px; }
 .protocolPath {

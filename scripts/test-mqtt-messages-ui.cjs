@@ -92,7 +92,7 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     });
     assert.ok(Math.abs(measurements.deltaY) <= 1 && Math.abs(measurements.deltaHeight) <= 1, `${label}: scrolling operations never moves or resizes messages`);
     if (measurements.scrollHeight > measurements.height + 1) assert.ok(measurements.scrollTop > 0, `${label}: left controls can scroll independently`);
-    // A long connection error follows the publish card, so locate the button rather than assuming it is the final child.
+    // Locate the action itself; operation feedback stays within its own card.
     await page.getByRole('region', { name: 'MQTT 发布', exact: true }).getByRole('button', { name: /^发布/ }).scrollIntoViewIfNeeded();
     const publishVisible = await page.getByRole('region', { name: 'MQTT 发布', exact: true }).getByRole('button', { name: /^发布/ }).evaluate((button) => {
       const box = button.getBoundingClientRect(); const column = button.closest('[data-testid="mqtt-controls"]').getBoundingClientRect();
@@ -126,6 +126,8 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
         await area().getByRole('button', { name: /认证与 TLS/ }).click();
         await page.evaluate(() => { window.__deviceFixture.mqtt.lastError = `布局回归模拟错误：${'BROKER_CONNECTION_ERROR_'.repeat(50)}`; });
         await page.getByRole('alert').filter({ hasText: '布局回归模拟错误' }).waitFor();
+        assert.equal(await page.getByRole('region', { name: 'MQTT 连接参数', exact: true }).getByRole('alert').count(), 1, 'native connection error is inside the connection card');
+        assert.equal(await page.getByTestId('mqtt-controls').locator(':scope > [role="alert"]').count(), 0, 'no generic error stack remains at the end of controls');
         await dimensions(`${label}-advanced-error`);
         await scrollIsolation(`${label}-advanced-error`, false);
         await area().getByRole('button', { name: /认证与 TLS/ }).click();
@@ -253,6 +255,17 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
         assert.ok((await payload().innerText()).endsWith('FULL_PAYLOAD_SEARCH_SUFFIX'), `${label}: full payload remains accessible with a long topic`);
         const detailOverflow = await detail().evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight }));
         assert.ok(detailOverflow.scroll <= detailOverflow.client + 1, `${label}: detail controls and payload fit without a second panel scrollbar`);
+        await page.evaluate(() => { window.__deviceFixture.clipboardFailure = true; });
+        await detail().getByRole('button', { name: '复制', exact: true }).click();
+        await page.getByTestId('mqtt-copy-feedback').waitFor();
+        await dimensions(`${label}-long-topic-copy-error`);
+        const errorOverflow = await detail().evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight }));
+        assert.ok(errorOverflow.scroll <= errorOverflow.client + 1, `${label}: local copy error preserves the bounded detail panel`);
+        await page.evaluate(() => { window.__deviceFixture.clipboardFailure = false; });
+        await detail().getByRole('button', { name: '复制', exact: true }).click();
+        await page.getByTestId('action-toast').filter({ hasText: '消息内容已复制' }).waitFor();
+        await dimensions(`${label}-copy-toast`, false);
+        await page.getByRole('button', { name: '关闭操作提示' }).click();
         await closeDetail(); await filter().fill(''); await waitRows(646);
       }
     }

@@ -1,0 +1,8 @@
+@use './toolPalette' as p;
+
+.anchor { position: fixed; z-index: 10000; top: max(12px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); max-width: calc(100vw - 32px); pointer-events: none; }
+.toast { display: flex; align-items: flex-start; gap: 9px; width: max-content; max-width: min(390px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px 14px; color: p.$ink; background: p.$paper; border: 1px solid #c2ded4; border-radius: 11px; box-shadow: 0 8px 30px #203d4526; font: 13px/1.6 system-ui, sans-serif; pointer-events: auto; }
+.toast > span[role=status] { min-width: 0; max-height: min(160px, 30dvh); overflow: auto; overflow-wrap: anywhere; }
+.icon { display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; color: p.$success; background: p.$success-soft; border-radius: 50%; font-weight: 700; }
+.toast button { padding: 0 2px; border: 0; background: transparent; color: p.$muted; cursor: pointer; flex-shrink: 0; font: 20px/20px system-ui, sans-serif; }
+.toast button:focus-visible { outline: 2px solid p.$primary; outline-offset: 3px; border-radius: 2px; }

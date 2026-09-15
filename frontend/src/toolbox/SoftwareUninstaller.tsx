@@ -11,6 +11,7 @@ import {
 import type { InstalledSoftware, SoftwareCleanupPlan, SoftwareResidual } from '../types';
 import type { ToolDefinition } from './catalog';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
+import { ActionToast, useActionToast } from '../../../shared/tool-workspace/ActionToast';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import styles from './SoftwareUninstaller.module.scss';
 
@@ -38,9 +39,13 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [uninstallConfirmOpen, setUninstallConfirmOpen] = useState(false);
   const [busy, setBusy] = useState<Busy>('');
-  const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
+  const [detailError, setDetailError] = useState('');
+  const [dialogError, setDialogError] = useState('');
   const [notice, setNotice] = useState('');
+  const { toast, notify, dismiss } = useActionToast();
   const lifecycle = useRef(0);
+  const selectionRevision = useRef(0);
   const pending = useRef<{ generation: number; action: Busy } | null>(null);
 
   const selected = entries.find((entry) => entry.id === selectedId) ?? (launchedSoftware?.id === selectedId ? launchedSoftware : null);
@@ -68,7 +73,11 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
     const generation = lifecycle.current;
     if (pending.current?.generation === generation) return null;
     pending.current = { generation, action };
-    setBusy(action); setError(''); setNotice('');
+    setBusy(action);
+    if (action === 'list') setListError('');
+    else if (action === 'uninstall' || action === 'cleanup') setDialogError('');
+    else setDetailError('');
+    if (action === 'scan' || action === 'uninstall' || action === 'cleanup') setNotice('');
     return generation;
   };
   const finish = (generation: number) => {
@@ -76,9 +85,10 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
     if (lifecycle.current === generation) setBusy('');
   };
   const resetPlan = () => {
+    selectionRevision.current += 1;
     setPlan(null); setSelectedPaths(new Set()); setFocusedPath(''); setTypedName('');
     setCategory('all'); setPage(0); setConfirmOpen(false); setUninstallConfirmOpen(false);
-    setLaunchedSoftware(null);
+    setLaunchedSoftware(null); setDetailError(''); setDialogError(''); setNotice(''); dismiss();
   };
   const acceptPlan = (next: SoftwareCleanupPlan) => {
     setPlan(next);
@@ -98,7 +108,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
         setSelectedId((current) => next.some((entry) => entry.id === current) ? current : (next[0]?.id ?? ''));
         resetPlan();
       }
-    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法读取已安装软件。')); }
+    } catch (reason) { if (lifecycle.current === generation) setListError(messageFrom(reason, '无法读取已安装软件。')); }
     finally { finish(generation); }
   };
   useEffect(() => {
@@ -119,13 +129,13 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
     const generation = begin('cancel');
     if (generation === null) return;
     try { await requestSoftwareScanCancel(); }
-    catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '未能取消扫描。')); }
+    catch (reason) { if (lifecycle.current === generation) setDetailError(messageFrom(reason, '未能取消扫描。')); }
     finally { finish(generation); }
   };
   const chooseSoftware = (entry: InstalledSoftware) => {
     if ((busy && busy !== 'scan') || selectedId === entry.id) return;
     if (busy === 'scan') void cancelScan();
-    setSelectedId(entry.id); resetPlan(); setTab('related'); setError(''); setNotice('');
+    setSelectedId(entry.id); resetPlan(); setTab('related');
   };
   const scanResiduals = async () => {
     if (!selected) return;
@@ -134,7 +144,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
     try {
       const next = launchedSoftware && plan ? await requestSoftwareResidualRefresh(plan) : await requestSoftwareResidualScan(selected);
       if (lifecycle.current === generation) acceptPlan(next);
-    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '关联项目扫描失败。')); }
+    } catch (reason) { if (lifecycle.current === generation) setDetailError(messageFrom(reason, '关联项目扫描失败。')); }
     finally { finish(generation); }
   };
   const launchUninstaller = async () => {
@@ -150,9 +160,9 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
       const result = await requestSoftwareUninstall(selected);
       if (lifecycle.current === generation) {
         if (result.succeeded) { setUninstallConfirmOpen(false); setLaunchedSoftware(selected); setNotice('卸载程序已启动；完成其中的操作后，可复查残留。'); }
-        else setError(result.message || '卸载程序未成功启动。');
+        else setDialogError(result.message || '卸载程序未成功启动。');
       }
-    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法启动注册卸载程序。')); }
+    } catch (reason) { if (lifecycle.current === generation) setDialogError(messageFrom(reason, '无法启动注册卸载程序。')); }
     finally { finish(generation); }
   };
   const cleanupResiduals = async () => {
@@ -168,8 +178,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
         const removed = new Set(result.removedPaths);
         setPlan({ ...plan, residuals: plan.residuals.filter((item) => !removed.has(item.path)) });
         setSelectedPaths(new Set(result.failedPaths.filter((path) => plan.residuals.some((item) => item.path === path))));
-        setError(result.message || '部分项目未能移入回收站，请重新审核。');
-        setConfirmOpen(false);
+        setDialogError(result.message || '部分项目未能移入回收站，请重新审核。');
       } else {
         // Keep unselected candidates after uninstall: the registration may be
         // gone, so discarding this native plan would make them unreachable.
@@ -180,7 +189,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
         setConfirmOpen(false); setPage(0);
         setNotice(result.message || '所选项目已移入回收站。');
       }
-    } catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '关联项目清理未完成。')); }
+    } catch (reason) { if (lifecycle.current === generation) setDialogError(messageFrom(reason, '关联项目清理未完成。')); }
     finally { finish(generation); }
   };
   const revealFocused = async () => {
@@ -188,16 +197,19 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
     const generation = begin('reveal');
     if (generation === null) return;
     try { await requestSoftwareReveal(plan.token, focused.path); }
-    catch (reason) { if (lifecycle.current === generation) setError(messageFrom(reason, '无法打开文件位置。')); }
+    catch (reason) { if (lifecycle.current === generation) setDetailError(messageFrom(reason, '无法打开文件位置。')); }
     finally { finish(generation); }
   };
   const copyPath = async () => {
     if (!focused) return;
     const generation = lifecycle.current;
+    const revision = selectionRevision.current;
+    const isCurrent = () => lifecycle.current === generation && selectionRevision.current === revision;
+    setDetailError('');
     try {
       await navigator.clipboard.writeText(focused.path);
-      if (lifecycle.current === generation) setNotice('路径已复制。');
-    } catch { if (lifecycle.current === generation) setError('复制失败，请检查剪贴板权限。'); }
+      if (isCurrent()) notify('路径已复制。');
+    } catch { if (isCurrent()) setDetailError('复制路径失败，请检查剪贴板权限。'); }
   };
   const togglePath = (path: string) => {
     if (busy) return;
@@ -217,10 +229,10 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
 
   return <section className={styles.workspace} data-testid="software-uninstaller-workspace">
     <div className={styles.topbar}><ToolWorkspaceHeader title={tool.name} onBack={onBack} /><button type="button" disabled={!!busy} onClick={() => void loadEntries()} aria-label="刷新软件列表">↻ {busy === 'list' ? '读取中…' : '刷新列表'}</button></div>
-    {(error || notice) && !confirmOpen && !uninstallConfirmOpen && <p className={error ? styles.error : styles.notice} role={error ? 'alert' : 'status'}>{error || notice}<button type="button" aria-label="关闭提示" onClick={() => { setError(''); setNotice(''); }}>×</button></p>}
     <div className={styles.contentGrid}>
       <aside className={styles.inventory} aria-label="已安装软件">
         <header><div><h3>已安装软件</h3><span>{entries.length}</span></div><input aria-label="搜索已安装软件" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索软件、厂商…" /></header>
+        {listError && <div className={styles.listFeedback} data-testid="software-list-feedback"><LocalFeedback message={listError} error onDismiss={() => setListError('')} /></div>}
         <div className={styles.softwareList} role="listbox" aria-label="软件列表">
           {visibleEntries.map((entry) => <button key={entry.id} type="button" role="option" aria-selected={entry.id === selectedId} disabled={!!busy && busy !== 'scan'} onClick={() => chooseSoftware(entry)}><i aria-hidden="true">{initial(entry.displayName)}</i><span><strong title={entry.displayName}>{entry.displayName}</strong><small title={entry.publisher}>{entry.publisher || '未提供厂商'}</small></span></button>)}
           {!visibleEntries.length && <p>{busy === 'list' ? '正在读取软件…' : '没有匹配的软件。'}</p>}
@@ -229,7 +241,7 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
       <section className={styles.detail} aria-label="软件详情">
         {!selected && <div className={styles.empty}>请选择软件。</div>}
         {selected && <>
-          <div className={styles.softwareSummary}><i aria-hidden="true">{initial(selected.displayName)}</i><div><h3 title={selected.displayName}>{selected.displayName}</h3><p title={joinPresent(selected.publisher, selected.displayVersion)}>{joinPresent(selected.publisher, selected.currentUser ? '当前用户' : '所有用户')}</p></div><div className={styles.summaryActions}><button type="button" disabled={!!busy && busy !== 'scan'} onClick={() => void (busy === 'scan' ? cancelScan() : scanResiduals())}>{busy === 'scan' ? '取消扫描' : launchedSoftware && plan ? '复查残留' : plan ? '重新扫描' : '扫描关联项目'}</button><button className={styles.danger} type="button" disabled={!!busy || selected.noRemove} title={selected.noRemove ? '该注册项禁止卸载' : undefined} onClick={() => { setError(''); setUninstallConfirmOpen(true); }}>{busy === 'uninstall' ? '准备中…' : '卸载软件'}</button></div></div>
+          <div className={styles.softwareSummary}><i aria-hidden="true">{initial(selected.displayName)}</i><div><h3 title={selected.displayName}>{selected.displayName}</h3><p title={joinPresent(selected.publisher, selected.displayVersion)}>{joinPresent(selected.publisher, selected.currentUser ? '当前用户' : '所有用户')}</p></div><div className={styles.summaryActions}><button type="button" disabled={!!busy && busy !== 'scan'} onClick={() => void (busy === 'scan' ? cancelScan() : scanResiduals())}>{busy === 'scan' ? '取消扫描' : launchedSoftware && plan ? '复查残留' : plan ? '重新扫描' : '扫描关联项目'}</button><button className={styles.danger} type="button" disabled={!!busy || selected.noRemove} title={selected.noRemove ? '该注册项禁止卸载' : undefined} onClick={() => { setDialogError(''); setUninstallConfirmOpen(true); }}>{busy === 'uninstall' ? '准备中…' : '卸载软件'}</button></div></div>
           <div className={styles.installPath}><span>安装位置</span><code title={selected.installLocation}>{selected.installLocation || '注册信息未提供'}</code><button type="button" onClick={() => setTab('info')}>查看详情 ›</button></div>
           <div className={styles.tabs} role="tablist" aria-label="软件详情分类"><button id="software-related-tab" type="button" role="tab" aria-selected={tab === 'related'} aria-controls="software-related-panel" tabIndex={tab === 'related' ? 0 : -1} onClick={() => setTab('related')} onKeyDown={(event) => { if (event.key === 'ArrowRight') { setTab('info'); document.getElementById('software-info-tab')?.focus(); } }}>关联项目 {plan ? residuals.length : ''}</button><button id="software-info-tab" type="button" role="tab" aria-selected={tab === 'info'} aria-controls="software-info-panel" tabIndex={tab === 'info' ? 0 : -1} onClick={() => setTab('info')} onKeyDown={(event) => { if (event.key === 'ArrowLeft') { setTab('related'); document.getElementById('software-related-tab')?.focus(); } }}>软件信息</button><span role="status" title={plan?.scanWarnings?.join('\n')}>{scanStatus}</span></div>
           {tab === 'info' ? <section className={styles.infoPanel} id="software-info-panel" role="tabpanel" aria-labelledby="software-info-tab"><dl className={styles.metadata}>
@@ -255,21 +267,36 @@ export function SoftwareUninstaller({ tool, onBack }: { tool: ToolDefinition; on
             <div className={styles.pagination}><span>共 {filtered.length} 项</span><span>每页 5 项</span><button type="button" aria-label="上一页关联项目" disabled={currentPage === 0} onClick={() => changePage(currentPage - 1)}>‹</button><span aria-live="polite">{currentPage + 1} / {pages}</span><button type="button" aria-label="下一页关联项目" disabled={currentPage + 1 >= pages} onClick={() => changePage(currentPage + 1)}>›</button></div>
             <section className={styles.pathDetail} aria-label="关联项目详情"><header><h4>{focused ? focused.kind === 'shortcut' ? '快捷方式详情' : '关联项目详情' : '项目详情'}</h4><span>{focused ? focused.confidence === 'high' ? '高可信' : '需要复核' : ''}</span><div><button type="button" disabled={!focused} onClick={() => void copyPath()}>复制路径</button><button type="button" disabled={!focused || !!busy || !plan} onClick={() => void revealFocused()}>打开位置</button></div></header><dl><dt>位置</dt><dd title={focused?.path}>{focused?.path || '选择上方项目查看完整位置'}</dd>{focused?.kind === 'shortcut' ? <><dt>目标</dt><dd title={focused.targetPath}>{focused.targetPath || '未提供可确认的目标'}</dd></> : <><dt>依据</dt><dd title={focused?.evidence}>{focused?.evidence || '—'}</dd></>}</dl></section>
           </section>}
-          <footer className={styles.cleanupBar}><span>已选 <strong>{checked.length}</strong> 项 · {sizeIncomplete ? '至少 ' : ''}{formatBytes(selectedBytes)}</span><button type="button" disabled={!checked.length || !!busy} onClick={() => setSelectedPaths(new Set())}>取消选择</button><button type="button" className={styles.danger} disabled={!plan || !checked.length || !!busy} onClick={() => { setTypedName(''); setError(''); setConfirmOpen(true); }}>清理所选…</button></footer>
+          <footer className={styles.cleanupBar}>
+            <span>已选 <strong>{checked.length}</strong> 项 · {sizeIncomplete ? '至少 ' : ''}{formatBytes(selectedBytes)}</span>
+            <button type="button" disabled={!checked.length || !!busy} onClick={() => setSelectedPaths(new Set())}>取消选择</button>
+            <div className={styles.detailFeedback} data-testid="software-detail-feedback">
+              {!confirmOpen && !uninstallConfirmOpen && (detailError || notice) && <LocalFeedback message={detailError || notice} error={!!detailError} onDismiss={() => { if (detailError) setDetailError(''); else setNotice(''); }} />}
+            </div>
+            <button type="button" className={styles.danger} disabled={!plan || !checked.length || !!busy} onClick={() => { setTypedName(''); setDialogError(''); setConfirmOpen(true); }}>清理所选…</button>
+          </footer>
         </>}
       </section>
     </div>
-    <ConfirmDialog open={uninstallConfirmOpen} title="确认卸载软件" confirmLabel="启动卸载" busy={busy === 'uninstall'} error={error} tone="danger" onCancel={() => { if (busy !== 'uninstall') { setUninstallConfirmOpen(false); setError(''); } }} onConfirm={() => void launchUninstaller()}>
+    <ActionToast toast={toast} onDismiss={dismiss} />
+    <ConfirmDialog open={uninstallConfirmOpen} title="确认卸载软件" confirmLabel="启动卸载" busy={busy === 'uninstall'} error={dialogError} tone="danger" onCancel={() => { if (busy !== 'uninstall') { setUninstallConfirmOpen(false); setDialogError(''); } }} onConfirm={() => void launchUninstaller()}>
       <div className={styles.uninstallIdentity}><i aria-hidden="true">{initial(selected?.displayName || '')}</i><div><strong>{selected?.displayName}</strong><span>{selected?.publisher || '未提供厂商'}{selected?.displayVersion ? ` · ${selected.displayVersion}` : ''}</span></div></div>
       <p>将打开软件自带的卸载程序，由你在其中确认卸载。完成后可返回这里复查并清理残留项目。</p>
     </ConfirmDialog>
-    <ConfirmDialog open={confirmOpen} title="确认清理关联项目" confirmLabel="确认移入回收站" busy={busy === 'cleanup'} confirmDisabled={!!busy || !plan || typedName !== plan.displayName || !checked.length} error={error} size="wide" onCancel={() => { if (busy !== 'cleanup') setConfirmOpen(false); }} onConfirm={() => void cleanupResiduals()}>
+    <ConfirmDialog open={confirmOpen} title="确认清理关联项目" confirmLabel="确认移入回收站" busy={busy === 'cleanup'} confirmDisabled={!!busy || !plan || typedName !== plan.displayName || !checked.length} error={dialogError} size="wide" onCancel={() => { if (busy !== 'cleanup') { setConfirmOpen(false); setDialogError(''); } }} onConfirm={() => void cleanupResiduals()}>
       <p>将把“<strong>{plan?.displayName}</strong>”的 {checked.length} 个已审核位置移入回收站。请先完成软件卸载；仍注册的软件不会被清理。</p>
       {personalCount > 0 && <p className={styles.personalWarning}>其中 {personalCount} 项包含个人数据，可能包括设置、缓存或插件。请确认这些内容不再需要。</p>}
       <ul className={styles.confirmPaths}>{checked.map((item) => <li key={item.path}>{item.path}{item.personalData && <b>个人数据</b>}</li>)}</ul>
       <label>输入完整软件名称以确认<input aria-label="确认清理的软件名称" value={typedName} disabled={busy === 'cleanup'} onChange={(event) => setTypedName(event.target.value)} placeholder={plan?.displayName} autoComplete="off" spellCheck={false} /></label>
     </ConfirmDialog>
   </section>;
+}
+
+function LocalFeedback({ message, error = false, onDismiss }: { message: string; error?: boolean; onDismiss(): void }) {
+  return <div className={error ? styles.error : styles.notice}>
+    <p role={error ? 'alert' : 'status'} tabIndex={0}>{message}</p>
+    <button type="button" aria-label="关闭局部提示" onClick={onDismiss}>×</button>
+  </div>;
 }
 
 function ResidualIcon({ category }: { category: Exclude<Category, 'all'> }) {

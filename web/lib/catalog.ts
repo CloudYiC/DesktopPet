@@ -247,6 +247,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.14-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Separated packet-template creation and editing from live send drafts; templates are managed in their dialog and explicitly applied without connecting or sending' },
+      { kind: '~', text: 'Replaced layout-shifting success banners with transient acknowledgements and placed actionable errors beside network, serial, MQTT, uninstall and packet-inspector operations' },
+    ],
+  },
+  {
     version: 'v0.13.13-desktop',
     date: '2026-09-15',
     items: [

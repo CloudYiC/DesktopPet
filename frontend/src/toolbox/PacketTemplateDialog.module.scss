@@ -8,7 +8,7 @@
   &::backdrop { background: #10253666; backdrop-filter: blur(2px); }
   button { min-height: 36px; padding: 6px 13px; font: inherit; font-weight: 650; color: p.$deep; background: white; border: 1px solid p.$line; border-radius: 8px; cursor: pointer; white-space: nowrap; }
   button:hover:not(:disabled) { background: p.$teal-soft; border-color: #9dc8c4; }
-  :is(button, input):focus-visible { outline: 2px solid p.$primary; outline-offset: 2px; }
+  :is(button, input, textarea, select, summary):focus-visible { outline: 2px solid p.$primary; outline-offset: 2px; }
   button:disabled { opacity: .55; cursor: default; }
 }
 .header { display: flex; align-items: center; gap: 12px; padding: 20px 22px 16px; flex-shrink: 0; background: linear-gradient(110deg,p.$violet-soft,p.$paper); }
@@ -35,5 +35,22 @@
 .notice, .error { margin: 0 22px 10px; padding: 8px 10px; border-radius: 7px; line-height: 1.5; overflow: auto; overflow-wrap: anywhere; max-height: 80px; flex-shrink: 0; }
 .notice { color: p.$teal; background: p.$teal-soft; }
 .error { color: p.$danger; background: p.$danger-soft; }
+.dialog .newButton { color: white; background: p.$primary; border-color: p.$primary; }
+.dialog .newButton:hover:not(:disabled) { color: white; background: p.$deep; }
+.editor { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.editorScroll { padding: 0 22px 18px; overflow: auto; min-height: 0; overscroll-behavior: contain; }
+.editor h3 { margin: 0 0 14px; font-size: 1rem; }
+.editor label { display: grid; gap: 5px; color: p.$muted; font-size: .8125rem; min-width: 0; }
+.editor :is(input,select,textarea) { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid p.$line; border-radius: 7px; padding: 8px 10px; color: p.$ink; background: p.$surface; font: inherit; }
+.editor textarea { min-height: 130px; resize: vertical; font: 13px/1.6 Consolas,monospace; }
+.editorGrid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-top: 12px; }
+.editorPayloadToolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 12px 0 8px; }
+.editorPayloadToolbar span { color: p.$muted; font-size: .8125rem; }
+.editorError { padding: 8px 10px; color: p.$danger; background: p.$danger-soft; border-radius: 7px; overflow-wrap: anywhere; }
+.advanced { margin-top: 12px; }
+.advanced summary { cursor: pointer; color: p.$deep; padding: 8px 0; font-size: .8125rem; }
+.editorFooter { display: flex; align-items: center; gap: 8px; padding: 14px 22px; flex-shrink: 0; border-top: 1px solid p.$line; background: p.$surface; }
+.editorFooter span { margin-right: auto; color: p.$muted; font-size: .75rem; line-height: 1.5; }
+@media (max-width:560px) { .toolbar { flex-wrap: wrap; } .toolbar input { flex-basis: 100%; } .list article { flex-wrap: wrap; } .list article > button:first-child { flex-basis: 100%; } .editorFooter { flex-wrap: wrap; } .editorFooter span { flex-basis: 100%; } }
 @media (max-height: 520px) { .header { padding: 12px 16px; } .toolbar { padding: 10px 16px; } .list { min-height: 80px; margin: 0 16px 10px; } .footer { padding: 10px 16px; } }
 @media (prefers-reduced-motion: reduce) { .dialog::backdrop { backdrop-filter: none; } }

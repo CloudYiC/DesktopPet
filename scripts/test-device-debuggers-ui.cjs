@@ -11,7 +11,10 @@ async function addFixture(context) {
     const mqtt = { state: 'stopped', brokerHost: '127.0.0.1', brokerPort: 1883, clientId: 'cloudyi-01', tls: false, sessionPresent: false, subscriptions: [], rxMessages: 0, rxBytes: 0, txMessages: 0, txBytes: 0, lastError: '' };
     const modbus = { state: 'stopped', transport: 'tcp', pending: false, error: '', result: null };
     const f = window.__deviceFixture = { requests: [], clipboard: [], serial, mqtt, modbus, serialEvents: [], mqttEvents: [], modbusLogs: [], sequence: 0, fail: '' };
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => f.clipboard.push(text) } });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => {
+      if (f.clipboardFailure) throw new Error('Synthetic clipboard denied');
+      f.clipboard.push(text);
+    } } });
     if (!window.chrome) window.chrome = {};
     window.chrome.webview = {
       addEventListener: (_name, listener) => listeners.add(listener),
@@ -123,6 +126,14 @@ if (require.main === module) (async () => {
     await open('串口调试助手');
     const serial = page.getByTestId('serial-workspace');
     await page.getByLabel('串口', { exact: true }).selectOption('COM3');
+    await page.evaluate(() => { window.__deviceFixture.fail = '模拟串口打开失败'; });
+    await serial.getByRole('button', { name: '打开串口', exact: true }).click();
+    await page.getByTestId('serial-connection-feedback').filter({ hasText: '模拟串口打开失败' }).waitFor();
+    assert.equal(await page.getByRole('region', { name: '串口连接参数', exact: true }).getByRole('alert').count(), 1, 'serial connection errors stay in connection card');
+    assert.equal(await page.getByTestId('serial-send-feedback').count(), 0, 'connection failure is not dumped into send controls');
+    await page.getByLabel('波特率', { exact: true }).selectOption('57600');
+    assert.ok((await page.getByTestId('serial-connection-feedback').innerText()).includes('模拟串口打开失败'), 'native serial error stays readable while correcting settings');
+    await page.getByLabel('波特率', { exact: true }).selectOption('115200');
     await serial.getByRole('button', { name: '打开串口', exact: true }).click();
     await serial.getByRole('button', { name: '关闭串口', exact: true }).waitFor();
     assert.equal(await page.getByLabel('波特率', { exact: true }).isDisabled(), true);
@@ -134,6 +145,7 @@ if (require.main === module) (async () => {
     const beforeInvalid = await count('serial.send');
     await sendArea.getByRole('button', { name: 'HEX', exact: true }).click();
     await page.getByLabel('串口发送内容').fill('0G');
+    assert.equal(await sendArea.getByRole('alert').count(), 1, 'serial HEX validation stays beside sending controls');
     assert.equal(await sendArea.getByRole('button', { name: /^发送/ }).isDisabled(), true);
     assert.equal(await count('serial.send'), beforeInvalid);
     await page.getByLabel('串口发送内容').fill('00 ff 0a');
@@ -144,6 +156,16 @@ if (require.main === module) (async () => {
     await page.evaluate(() => { const f = window.__deviceFixture; for (let i = 0; i < 500; ++i) f.serialEvents.push({ id: ++f.sequence, timestamp: Date.now(), kind: 'rx', dataHex: '4f4b', byteLength: 2, message: '' }); });
     await page.waitForFunction(() => document.querySelector('[aria-label="串口收发记录"]').scrollHeight > document.querySelector('[aria-label="串口收发记录"]').clientHeight);
     assert.ok(Math.abs((await serialLog.boundingBox()).height - serialHeight) <= 1, 'serial log stays fixed after 500 records');
+    await page.evaluate(() => { window.__deviceFixture.clipboardFailure = true; });
+    await page.getByTestId('serial-log-panel').getByRole('button', { name: '复制', exact: true }).click();
+    await page.getByTestId('serial-record-feedback').waitFor();
+    assert.equal(await page.getByTestId('serial-log-panel').getByRole('alert').count(), 1, 'serial clipboard failures appear beside records, not send controls');
+    await page.evaluate(() => { window.__deviceFixture.clipboardFailure = false; });
+    await page.getByTestId('serial-log-panel').getByRole('button', { name: '复制', exact: true }).click();
+    await page.getByTestId('action-toast').filter({ hasText: '收发记录已复制' }).waitFor();
+    assert.equal(await page.getByTestId('serial-record-feedback').count(), 0);
+    assert.ok(Math.abs((await serialLog.boundingBox()).height - serialHeight) <= 1, 'serial successful copy uses an overlay without changing log height');
+    await page.getByRole('button', { name: '关闭操作提示' }).click();
     await fit('serial-workspace', '1280-connected');
     for (const size of [{ width: 1920, height: 1040 }, { width: 1280, height: 762 }, { width: 1024, height: 640 }, { width: 920, height: 762 }, { width: 760, height: 650 }]) {
       await page.setViewportSize(size);
@@ -196,12 +218,19 @@ if (require.main === module) (async () => {
     const publishArea = page.getByRole('region', { name: 'MQTT 发布', exact: true });
     await page.getByLabel('MQTT 发布内容').press('Control+Enter');
     assert.equal(await count('mqtt.publish'), 0, 'keyboard shortcut cannot publish before connection');
+    await page.getByLabel('MQTT Broker 地址', { exact: true }).fill('');
+    await mqtt.getByRole('button', { name: '连接 Broker', exact: true }).click();
+    await page.getByTestId('mqtt-connection-feedback').waitFor();
+    assert.equal(await page.getByRole('region', { name: 'MQTT 连接参数', exact: true }).getByRole('alert').count(), 1, 'local broker validation has a real scoped error style');
+    await page.getByLabel('MQTT Broker 地址', { exact: true }).fill('127.0.0.1');
     await mqtt.getByRole('button', { name: '连接 Broker', exact: true }).click();
     await mqtt.getByRole('button', { name: '断开连接', exact: true }).waitFor();
     assert.equal(await page.getByLabel('MQTT Broker 地址', { exact: true }).isDisabled(), true);
     await page.getByLabel('MQTT 订阅主题').fill('devices/#/state');
     await mqtt.getByRole('button', { name: '订阅', exact: true }).click();
     assert.equal(await count('mqtt.subscribe'), 0, 'invalid wildcard filter never reaches native host');
+    assert.equal(await page.getByRole('region', { name: 'MQTT 订阅', exact: true }).getByRole('alert').count(), 1, 'local MQTT subscription validation is a scoped error, not green status');
+    assert.equal(await page.getByTestId('mqtt-connection-feedback').count(), 0, 'subscription validation does not masquerade as connection failure');
     await page.getByLabel('MQTT 订阅主题').fill('devices/+/state');
     await page.getByLabel('订阅 QoS', { exact: true }).selectOption('2');
     await mqtt.getByRole('button', { name: '订阅', exact: true }).click();
@@ -209,6 +238,7 @@ if (require.main === module) (async () => {
     await page.getByLabel('MQTT 发布主题').fill('devices/+/set');
     await publishArea.getByRole('button', { name: /^发布/ }).click();
     assert.equal(await count('mqtt.publish'), 0, 'wildcards are not legal publish topics');
+    assert.equal(await publishArea.getByRole('alert').count(), 1, 'publish-topic validation is adjacent to publishing');
     await page.getByLabel('MQTT 发布主题').fill('devices/demo/set');
     await page.getByLabel('发布 QoS', { exact: true }).selectOption('2');
     await publishArea.getByLabel('Retain', { exact: true }).check();
@@ -247,7 +277,37 @@ if (require.main === module) (async () => {
     await page.getByLabel('取消订阅 devices/+/state').click();
     await page.waitForFunction(() => window.__deviceFixture.mqtt.subscriptions.length === 0);
     await fit('mqtt-workspace', '1280-connected');
+    // Feedback is partitioned by operation: ongoing polls/other commands cannot
+    // erase it. None of these synthetic failures changes message layout or IO.
+    await page.getByLabel('MQTT 订阅主题').fill('invalid/#/filter');
+    await mqtt.getByRole('button', { name: '订阅', exact: true }).click();
+    await page.getByTestId('mqtt-subscription-feedback').waitFor();
+    await page.getByLabel('MQTT 发布主题').fill('bad/+/publish');
+    await publishArea.getByRole('button', { name: /^发布/ }).click();
+    await page.getByTestId('mqtt-publish-feedback').waitFor();
+    await page.evaluate(() => { window.__deviceFixture.mqtt.lastError = '模拟持续连接错误'; });
+    await page.getByTestId('mqtt-connection-feedback').filter({ hasText: '模拟持续连接错误' }).waitFor();
+    const scopedErrorCount = await mqtt.getByRole('alert').count();
+    assert.equal(scopedErrorCount, 3, 'polling errors preserve the independent subscription and publish errors');
+    await page.getByLabel('筛选 MQTT 消息').fill('unit499');
+    await messages.getByRole('option').first().click();
+    await page.evaluate(() => { window.__deviceFixture.clipboardFailure = true; });
+    await page.getByTestId('mqtt-detail').getByRole('button', { name: '复制', exact: true }).click();
+    await page.getByTestId('mqtt-copy-feedback').waitFor();
+    assert.equal(await page.getByTestId('mqtt-detail').getByRole('alert').count(), 1, 'MQTT copy failures are local to selected details');
+    assert.equal(await page.getByTestId('mqtt-controls').getByRole('alert').count(), 3, 'copy failures do not overwrite left-card errors');
+    await page.evaluate(() => { window.__deviceFixture.clipboardFailure = false; });
+    await page.getByTestId('mqtt-detail').getByRole('button', { name: '复制', exact: true }).click();
+    await page.getByTestId('action-toast').filter({ hasText: '消息内容已复制' }).waitFor();
+    assert.equal(await page.getByTestId('mqtt-copy-feedback').count(), 0);
+    const pollBeforeFeedbackCheck = await count('mqtt.poll');
+    await page.getByLabel('筛选 MQTT 消息').focus();
+    await page.waitForFunction((before) => window.__deviceFixture.requests.filter((request) => request.type === 'mqtt.poll').length > before + 2, pollBeforeFeedbackCheck);
+    assert.equal(await page.getByLabel('筛选 MQTT 消息').evaluate((el) => document.activeElement === el), true, 'polling an existing error never steals keyboard focus');
+    assert.equal(await page.getByTestId('mqtt-controls').getByRole('alert').count(), 3, 'subsequent poll does not remove another operation error');
+    await fit('mqtt-workspace', 'scoped-errors-and-toast');
     await back(); await page.waitForFunction(() => window.__deviceFixture.mqtt.state === 'stopped');
+    await page.evaluate(() => { window.__deviceFixture.mqtt.lastError = ''; });
     for (const size of [{ width: 1280, height: 800 }, { width: 1024, height: 768 }, { width: 760, height: 700 }]) {
       await page.setViewportSize(size);
       for (const [name, id] of [['串口调试助手', 'serial-workspace'], ['MQTT 调试助手', 'mqtt-workspace'], ['Modbus 调试助手', 'modbus-workspace']]) {

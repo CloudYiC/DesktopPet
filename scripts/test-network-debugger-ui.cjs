@@ -12,12 +12,14 @@ const { chromium } = require('playwright');
     const listeners = new Set();
     const stopped = { mode: 'tcp-client', state: 'stopped', localHost: '127.0.0.1', localPort: 0,
       remoteHost: '127.0.0.1', remotePort: 9000, peers: [], rxPackets: 0, rxBytes: 0, txPackets: 0, txBytes: 0, multicastJoined: false };
-    const state = window.__networkFixture = { requests: [], clipboard: [], snapshot: { ...stopped }, queue: [], pending: [],
+    const state = window.__networkFixture = { requests: [], clipboard: [], holdClipboard: false, clipboardWaiters: [], snapshot: { ...stopped }, queue: [], pending: [],
       failNextStart: '', failNextSend: '', sequence: 0, holdReady: false, holdTx: false, readyRemaining: 0,
       holdNextPollResponse: false, deferredPolls: [],
       peers: [{ id: 'synthetic-peer-a', address: '192.0.2.20', port: 52345 }, { id: 'synthetic-peer-b', address: '192.0.2.21', port: 52346 }] };
     state.releasePollResponses = () => state.deferredPolls.splice(0).forEach((event) => listeners.forEach((callback) => callback(event)));
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => state.clipboard.push(String(text)) } });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { state.clipboard.push(String(text)); if (state.holdClipboard) await new Promise((resolve) => state.clipboardWaiters.push(resolve)); } } });
+    const originalArrayBuffer = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () { return this.name === 'synthetic-delayed-read.bin' ? new Promise((_resolve, reject) => { state.rejectFileRead = reject; }) : originalArrayBuffer.call(this); };
     if (!window.chrome) window.chrome = {};
     window.chrome.webview = {
       addEventListener: (_type, callback) => listeners.add(callback),
@@ -233,11 +235,14 @@ const { chromium } = require('playwright');
     // The merged library also preserves server mode and line endings, while
     // loading saved settings remains entirely free of socket operations.
     await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).click();
-    await field('模板名称').fill('Saved server fixture'); await field('报文内容').fill('saved server content');
+    await field('报文内容').fill('saved server content');
     await field('行尾').selectOption('crlf'); await field('发包本地端口').fill('6655');
     const savesStartBase = await count('network.start'), savesSendBase = await count('network.send');
-    await button('保存模板').click(); await button('新建').click(); await button('报文模板').click();
-    await page.getByTestId('packet-library').getByRole('button', { name: '载入', exact: true }).click();
+    await button('另存为模板').click(); await field('模板名称').fill('Saved server fixture');
+    await page.getByRole('dialog', { name: '报文模板', exact: true }).getByRole('button', { name: '保存模板', exact: true }).click();
+    await page.getByRole('dialog', { name: '报文模板', exact: true }).getByRole('button', { name: '完成', exact: true }).click();
+    await button('清空内容').click(); await button('报文模板').click();
+    await page.getByTestId('packet-library').getByRole('button', { name: '应用到发送区', exact: true }).click();
     await page.getByRole('dialog', { name: '报文模板', exact: true }).waitFor({ state: 'hidden' });
     await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文内容');
     assert.equal(await page.getByRole('tab', { name: 'TCP 服务端', exact: true }).getAttribute('aria-selected'), 'true');
@@ -300,6 +305,36 @@ const { chromium } = require('playwright');
     await page.getByRole('alert').filter({ hasText: 'Synthetic connection denied' }).waitFor();
     assert.equal(await count('network.send'), sendsBeforeStartFailure);
     assert.notEqual(await page.evaluate(() => window.__networkFixture.snapshot.state), 'connected');
+    const connectionError = () => workspace().getByRole('alert').filter({ hasText: 'Synthetic connection denied' });
+    await field('报文内容').fill('editing must not hide connection failure');
+    assert.ok(await connectionError().isVisible(), 'editing payload preserves the unrelated connection error');
+    await button('清空内容').click(); assert.ok(await connectionError().isVisible(), 'clearing payload preserves connection failure');
+    await workspace().locator('[class*="payloadToolbar"]').getByRole('button', { name: 'HEX', exact: true }).click();
+    assert.ok(await connectionError().isVisible(), 'changing payload encoding preserves connection failure');
+    await field('发送内容文件').setInputFiles({ name: 'local-fixture.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([65, 66]) });
+    await page.waitForFunction(() => document.querySelector('[aria-label="报文内容"]')?.value === '41 42');
+    assert.ok(await connectionError().isVisible(), 'loading local payload bytes preserves connection failure');
+    await field('发送内容文件').setInputFiles({ name: 'synthetic-delayed-read.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([65]) });
+    await page.waitForFunction(() => typeof window.__networkFixture.rejectFileRead === 'function');
+    await field('报文内容').fill('43 44');
+    await page.evaluate(() => { window.__networkFixture.rejectFileRead(new Error('stale file read failure')); });
+    await page.waitForTimeout(50);
+    assert.equal(await field('报文内容').inputValue(), '43 44', 'old file reads cannot replace a newly edited payload');
+    assert.equal(await workspace().getByRole('alert').filter({ hasText: 'stale file read failure' }).count(), 0, 'late file failures cannot overwrite a newer draft error state');
+    const copyButton = page.getByTestId('packet-sender-results').getByRole('button', { name: '复制', exact: true });
+    await copyButton.click();
+    assert.ok(await connectionError().isVisible(), 'successful copy feedback does not clear connection failure');
+    // A clipboard request may resolve after a different connection attempt fails.
+    // Its completion may only clear its own log-copy error, never the new failure.
+    await page.evaluate(() => { window.__networkFixture.holdClipboard = true; }); await copyButton.click();
+    await page.waitForFunction(() => window.__networkFixture.clipboardWaiters.length === 1);
+    await page.evaluate(() => { window.__networkFixture.failNextStart = 'Synthetic later connection denied'; });
+    await button('连接服务').click();
+    await workspace().getByRole('alert').filter({ hasText: 'Synthetic later connection denied' }).waitFor();
+    await page.evaluate(() => { const state = window.__networkFixture; state.holdClipboard = false; state.clipboardWaiters.splice(0).forEach((resolve) => resolve()); });
+    await page.waitForTimeout(60);
+    assert.ok(await workspace().getByRole('alert').filter({ hasText: 'Synthetic later connection denied' }).isVisible(), 'late clipboard completion cannot erase a newer connection error');
+    await workspace().locator('[class*="payloadToolbar"]').getByRole('button', { name: '文本', exact: true }).click();
 
     // Finite and continuous repeat modes never queue ahead of actual TX. Stopping
     // just a run keeps its socket alive for ongoing receives and another send.

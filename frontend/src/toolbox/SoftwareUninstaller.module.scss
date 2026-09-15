@@ -100,7 +100,11 @@ $line: #dfe6ed;
 .infoPanel { min-width: 0; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
 .metadata { display: grid; min-width: 0; margin: 0; padding: 12px 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; font-size: .8125rem; line-height: 1.65; }
 .metadata > div { min-width: 0; padding: 7px 10px; border: 1px solid #e7ecf1; border-radius: 7px; background: #f6f8fa; }.metadata dt { color: $muted; }.metadata dd { margin: 3px 0 0; color: $ink; overflow-wrap: anywhere; }.metadata dd p { margin: 3px 0; }.metadataWide { grid-column: 1 / -1; }
-.error, .notice { display: flex; max-height: 58px; margin: 0; padding: 6px 10px; align-items: flex-start; gap: 12px; flex-shrink: 0; overflow: auto; border-radius: 6px; color: $deep; background: #edf6f3; font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.detailFeedback { height: 44px; min-width: 0; flex: 1; }
+.listFeedback { min-width: 0; height: 76px; margin-bottom: 8px; flex-shrink: 0; }
+.error, .notice { display: flex; height: 100%; min-width: 0; margin: 0; padding: 6px 8px; align-items: flex-start; gap: 8px; border-radius: 6px; color: $deep; background: #edf6f3; font-size: .8125rem; line-height: 1.5; }
+.error > p, .notice > p { min-width: 0; max-height: 100%; flex: 1; margin: 0; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: contain; }
+.error > p:focus-visible, .notice > p:focus-visible { outline: 2px solid $teal; outline-offset: 1px; }
 .error { color: #a44335; background: #fff0eb; }
 .error > button, .notice > button { flex-shrink: 0; min-height: 22px; margin-left: auto; padding: 0 4px; border: 0; background: transparent; color: inherit; }
 .personalWarning { padding: 9px 12px; color: #966522; background: #fff3d9; border: 1px solid #f0dbae; border-radius: 7px; }
@@ -120,6 +124,7 @@ $line: #dfe6ed;
   .contentGrid { grid-template-columns: 180px minmax(0, 1fr); }.softwareSummary { flex-wrap: wrap; }.summaryActions { width: 100%; justify-content: flex-end; margin: 3px 0; }.installPath { gap: 6px; }
   .tableHeader, .residualRow, .focusedRow { grid-template-columns: 20px minmax(0, 1fr) 70px; }.tableHeader > span:nth-child(3), .residualRow > span:nth-child(3), .focusedRow > span:nth-child(3) { display: none; }
   .filters { gap: 5px; padding: 6px 0; }.filters > button { padding: 4px 7px; }.pathDetail header { flex-wrap: wrap; }.pathDetail header > div { gap: 10px; }.cleanupBar { flex-wrap: wrap; padding: 8px 0; gap: 7px 10px; }
+  .detailFeedback { order: 1; flex-basis: 100%; }
 }
 @media (max-width: 690px) {
   .contentGrid { grid-template-columns: minmax(0, 1fr); }.inventory { max-height: 280px; }.detail { min-height: 730px; }.metadata { grid-template-columns: minmax(0, 1fr); }.metadataWide { grid-column: auto; }

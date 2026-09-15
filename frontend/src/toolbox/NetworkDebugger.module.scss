@@ -64,6 +64,9 @@
 .notice, .error { flex-shrink: 0; max-height: 80px; overflow: auto; }
 .notice { color: p.$teal; background: p.$teal-soft; }
 .error { color: p.$danger; background: p.$danger-soft; }
+.card > .error { margin-top: 8px; }
+.logError { position: absolute; right: 12px; bottom: 36px; left: 12px; display: flex; align-items: start; gap: 8px; margin: 0; max-height: 100px; overflow: auto; padding: 9px 12px; color: p.$danger; background: p.$danger-soft; border: 1px solid p.$line; border-radius: 8px; overflow-wrap: anywhere; }
+.logError button { margin-left: auto; }
 .warning { margin-top: 8px; color: p.$amber; background: p.$amber-soft; }
 .logPanel { display: flex; flex-direction: column; flex: 1; min-height: min-content; background: linear-gradient(180deg,p.$blue-soft,p.$paper 60px); }
 .logPanel .follow { display: flex; align-items: center; gap: 5px; color: p.$muted; white-space: nowrap; font-size: .75rem; }

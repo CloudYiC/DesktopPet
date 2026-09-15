@@ -56,7 +56,10 @@ $teal: palette.$primary;
 .publish > button { width: 100%; margin-top: 9px; display: flex; align-items: center; justify-content: space-between; }
 .publish kbd { font-family: inherit; font-size: .6875rem; opacity: .8; }
 .invalid { color: palette.$danger !important; }.notice, .error { flex-shrink: 0; margin: 0; padding: 9px 11px; border-radius: 6px; color: palette.$deep; background: palette.$teal-soft; font-size: .75rem; line-height: 1.6; overflow-wrap: anywhere; }
-.error { color: palette.$danger; background: palette.$danger-soft; }.publish .error { margin-top: 6px; padding: 5px; }
+.error { color: palette.$danger; background: palette.$danger-soft; }
+.controls .error, .controls .notice { max-height: 96px; margin-top: 8px; overflow: auto; overscroll-behavior: contain; }
+.publish .error { margin-top: 6px; padding: 5px; }
+.copyError { max-height: 54px; overflow: auto; padding: 5px 8px; }
 
 .messages { display: flex; min-width: 0; min-height: 0; flex-direction: column; padding: 12px; border: 1px solid $line; border-radius: 10px; background: linear-gradient(180deg, palette.$blue-soft, $paper 80px); container-type: inline-size; }
 .messageHeader { display: flex; flex-shrink: 0; min-width: 0; align-items: center; gap: 9px; min-height: 30px; flex-wrap: wrap; }

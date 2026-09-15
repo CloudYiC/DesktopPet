@@ -9,6 +9,7 @@ import {
 } from './workbenchModel';
 import styles from './PacketWorkbench.module.scss';
 import { ToolWorkspaceHeader } from '../tool-workspace/ToolWorkspaceHeader';
+import { ActionToast, useActionToast } from '../tool-workspace/ActionToast';
 
 export interface PacketWorkbenchProps {
   title?: string;
@@ -35,7 +36,11 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
   const [collapsed, setCollapsed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const { toast, notify, dismiss } = useActionToast();
+  const [inputHint, setInputHint] = useState('');
+  const [analysisWarning, setAnalysisWarning] = useState('');
+  const [selectionError, setSelectionError] = useState('');
+  const [storageError, setStorageError] = useState('');
   const [range, setRange] = useState<ByteRange>(first.range);
   const [selectedKey, setSelectedKey] = useState(first.key);
   const [activeLayer, setActiveLayer] = useState(first.layer);
@@ -133,6 +138,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     selectionRevision.current += 1;
     setRange(next);
     setSelectedKey(key);
+    setSelectionError('');
     setOffsetInput(hexOffset(next.offset));
     setLocateError('');
     if (anchor) selectionAnchor.current = next.offset;
@@ -142,6 +148,8 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
   };
 
   const resetSelection = (result: PacketAnalysis) => {
+    selectionRevision.current += 1;
+    setSelectionError('');
     const next = initialSelection(result);
     setRange(next.range);
     setSelectedKey(next.key);
@@ -176,7 +184,8 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     setBusy(false);
     setInput(value);
     setError('');
-    setMessage('');
+    setInputHint('');
+    dismiss();
   };
 
   const runAnalysis = async () => {
@@ -189,12 +198,13 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     catch (e) { setError(e instanceof Error ? e.message : '请检查报文。'); setCollapsed(false); return; }
     setBusy(true);
     setError('');
-    setMessage('');
+    setInputHint('');
+    setAnalysisWarning('');
     let result = inspectPacket(normalized.bytes, requestedMode);
     try {
       if (analyze) result = await analyze(normalized.hex, normalized.bytes, requestedMode);
     } catch {
-      if (request === generation.current) setMessage('解析暂不可用，已显示备用解析结果。');
+      if (request === generation.current) setAnalysisWarning('解析暂不可用，已显示备用解析结果。');
     }
     if (request !== generation.current) return;
     setAnalysis(result);
@@ -206,6 +216,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
 
   const clearInput = () => {
     changeInput('');
+    setAnalysisWarning('');
     setAnalyzedInput('');
     setAnalyzedMode(mode);
     setAnalysis(EMPTY_ANALYSIS);
@@ -218,17 +229,20 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     setCollapsed(false);
     try { changeInput(await navigator.clipboard.readText()); }
     catch {
-      setMessage('无法直接读取剪贴板，请在报文输入框按 Ctrl+V 粘贴。');
+      setInputHint('无法直接读取剪贴板，请在报文输入框按 Ctrl+V 粘贴。');
       inputRef.current?.focus({ preventScroll: true });
     }
   };
 
   const copySelection = async () => {
     if (!rangeInPacket(range, analysis.bytes.length)) return;
+    setSelectionError('');
+    const copyRevision = selectionRevision.current;
+    const copiedLength = range.length;
     try {
       await navigator.clipboard.writeText(hexBytes(analysis.bytes.slice(range.offset, range.offset + range.length)));
-      setMessage(`已复制 ${range.length} 字节。`);
-    } catch { setMessage('复制失败，请允许剪贴板访问后重试。'); }
+      notify(`已复制 ${copiedLength} 字节。`);
+    } catch { if (copyRevision === selectionRevision.current) setSelectionError('复制失败，请允许剪贴板访问后重试。'); }
   };
 
   const selectByte = (index: number, extend: boolean) => {
@@ -262,8 +276,8 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
 
   const persistFields = (next: CustomField[]) => {
     setCustomFields(next);
-    try { window.localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(next)); return true; }
-    catch { setMessage('字段已在本次会话生效；当前环境禁止保存到本机。'); return false; }
+    try { window.localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(next)); setStorageError(''); return true; }
+    catch { setStorageError('字段已在本次会话生效，但未保存到本机；请检查存储权限。'); return false; }
   };
 
   const saveField = (event: FormEvent) => {
@@ -279,7 +293,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
     const field: CustomField = { ...target, id: editingId ?? `field-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name: draftName.trim(), type: draftType, endian: draftEndian };
     const next = editingId ? customFields.map((item) => item.id === editingId ? field : item) : [...customFields, field];
-    if (persistFields(next)) setMessage(`“${field.name}”已保存到本机。`);
+    if (persistFields(next)) notify(`“${field.name}”已保存到本机。`);
     setEditorOpen(false);
     setCustomError('');
     selectRange(field, `custom:${field.id}`);
@@ -349,7 +363,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
           <button className={styles.primaryButton} type="button" disabled={busy || !inputStatus.normalized} onClick={() => void runAnalysis()}>{busy ? '分析中…' : '分析报文'}<kbd>Ctrl Enter</kbd></button>
         </div>
         {(error || inputStatus.error) && <p className={styles.inputError} role="alert">{error || inputStatus.error}</p>}
-        {message && <p className={styles.actionMessage} role="status">{message}</p>}
+        {inputHint && <p className={styles.pasteFallback} role="alert">{inputHint}</p>}
       </section>
 
       <div className={styles.protocolSummary}>
@@ -359,6 +373,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
           </span>) : <span>粘贴报文后开始分析</span>}
         </nav>
         {!!analysis.bytes.length && <span className={styles.summaryFacts}>首部 {headerBytes} B · 载荷 {payloadBytes} B{dirty ? ' · 当前显示上次结果' : ''}</span>}
+        {analysisWarning && <span className={styles.analysisWarning} role="status">{analysisWarning}</span>}
       </div>
 
       <div className={styles.inspectorGrid} data-testid="packet-inspector-grid">
@@ -398,6 +413,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
               <button type="button" disabled={!validRange} aria-label="复制选中字节" title="复制选中字节" onClick={() => void copySelection()}>复制字节</button>
               <button type="button" disabled={!validRange} aria-label="将选区定义为字段" title="将选区定义为字段" className={styles.outlineButton} onClick={() => openEditor()}>定义为字段</button>
             </div>
+            {selectionError && <p className={styles.inputError} role="alert">{selectionError}</p>}
           </section>
           {unknownLayers.length > 0 && <p className={styles.unknownNote}>ⓘ 未知载荷需按协议文档定义</p>}
         </aside>
@@ -498,7 +514,7 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
                         <td><button type="button" disabled={!valid} onClick={() => selectRange(field, `custom:${field.id}`)}>{field.name}</button><small>{field.type.toUpperCase()}{['int', 'uint'].includes(field.type) ? ` · ${field.endian === 'big' ? '大端' : '小端'}` : ''}</small></td>
                         <td><code>{hexOffset(field.offset)} / {field.length} B</code></td><td>{customPreviews.get(field.id)}</td>
                         <td><button type="button" onClick={() => { selectRange(field, `custom:${field.id}`); openEditor(field, field); }}>编辑</button><button type="button" className={styles.deleteField} aria-label={`删除字段 ${field.name}`} onClick={() => {
-                          persistFields(customFields.filter((item) => item.id !== field.id));
+                          if (persistFields(customFields.filter((item) => item.id !== field.id))) notify(`已删除字段“${field.name}”。`);
                           if (selectedKey === `custom:${field.id}`) setSelectedKey('bytes');
                           if (editingId === field.id) setEditorOpen(false);
                         }}>删除</button></td>
@@ -507,11 +523,12 @@ export function PacketWorkbench({ title = '十六进制报文分析器', onBack,
                   </table> : !editorOpen && <div className={styles.emptyState}>在字节视图中选中范围，然后点击“将选区定义为字段”。<br />已保存字段会保留在本机，可用于后续报文。</div>}
                 </>}
             </div>
-            <footer className={styles.fieldFootnote}>{tab === 'custom' ? `${customFields.length} 个本机字段 · 字段含义以你的协议文档为准` : currentLayer
+            <footer className={`${styles.fieldFootnote} ${tab === 'custom' && storageError ? styles.storageError : ''}`} role={tab === 'custom' && storageError ? 'alert' : undefined}>{tab === 'custom' ? storageError || `${customFields.length} 个本机字段 · 字段含义以你的协议文档为准` : currentLayer
               ? `${layerLabel(currentLayer)}${isPayload(currentLayer) ? '' : ' 首部'} ${currentLayer.length} 字节${currentLayer.id === 'udp' ? `，载荷 ${payloadBytes} 字节` : ''}` : '选择协议层查看字段'}</footer>
           </section>
         </div>
       </div>
+      <ActionToast toast={toast} onDismiss={dismiss} />
     </section>
   );
 }

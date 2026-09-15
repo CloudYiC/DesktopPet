@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
+import { ActionToast, useActionToast } from '../../../shared/tool-workspace/ActionToast';
 import {
   isNativeHost,
   requestMqttPoll,
@@ -31,6 +32,7 @@ const stateText: Record<string, string> = {
 const errorText = (reason: unknown) => reason instanceof Error ? reason.message : '操作失败，请重试。';
 const timeText = (value: number) => `${new Date(value).toLocaleTimeString('zh-CN', { hour12: false })}.${String(value % 1000).padStart(3, '0')}`;
 const spacedHex = (hex: string) => hex.match(/../g)?.join(' ').toUpperCase() ?? '';
+type FeedbackScope = 'connection' | 'subscription' | 'publish';
 
 function textFromHex(hex: string) {
   const bytes = Uint8Array.from(hex.match(/../g) ?? [], (value) => Number.parseInt(value, 16));
@@ -144,11 +146,25 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
   const [payload, setPayload] = useState('{"enabled":true}');
   const [contentMode, setContentMode] = useState<MqttPayloadMode>('text');
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState(isNativeHost ? '' : 'MQTT 连接仅在 Windows 桌面客户端可用；浏览器不会模拟连接。');
+  const [errors, setErrors] = useState<Record<FeedbackScope, string>>({ connection: '', subscription: '', publish: '' });
+  const [copyError, setCopyError] = useState('');
+  const { toast, notify, dismiss } = useActionToast();
+  const lastNativeError = useRef('');
   const mounted = useRef(true);
   const commandPending = useRef(false);
   const activeRef = useRef(false);
   const sessionRequestedRef = useRef(false);
+  const setFeedback = useCallback((scope: FeedbackScope, message: string) => {
+    setErrors((current) => current[scope] === message ? current : { ...current, [scope]: message });
+  }, []);
+  const applyNativeError = useCallback((message: string) => {
+    // Polling a persistent native error must not reannounce it or replace a newer
+    // validation message. Unrelated actions never clear another card's error.
+    if (message && message !== lastNativeError.current) {
+      setFeedback(/订阅|SUBACK|UNSUBACK/i.test(message) ? 'subscription' : 'connection', message);
+    }
+    lastNativeError.current = message;
+  }, [setFeedback]);
 
   const state = snapshot?.state ?? 'stopped';
   const active = state === 'connecting' || state === 'connected' || state === 'stopping';
@@ -194,6 +210,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
     followLatest(false);
     setSelectedId(id);
     setDetailOpen(true);
+    setCopyError('');
   }, [followLatest]);
 
   const clearMessages = useCallback(() => {
@@ -201,6 +218,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
     setEvents([]);
     setSelectedId(null);
     setDetailOpen(false);
+    setCopyError('');
     setNewMessages(0);
     setDiscarded(0);
     readingAnchor.current = null;
@@ -211,7 +229,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
     // An older in-flight poll must not roll back a command's current snapshot.
     if (acceptSnapshot) {
       setSnapshot(next.snapshot);
-      if (next.snapshot.lastError) setFeedback(next.snapshot.lastError);
+      applyNativeError(next.snapshot.lastError);
     }
     const incoming = next.events.filter((event) => event.kind === 'message' || event.kind === 'published').map(prepareMessage);
     if (!incoming.length) return;
@@ -222,7 +240,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
     setEvents(retained);
     setDiscarded((current) => current + combined.length - retained.length);
     if (!followingRef.current) setNewMessages((current) => current + incoming.length);
-  }, [captureReadingAnchor]);
+  }, [captureReadingAnchor, applyNativeError]);
 
   useEffect(() => {
     if (selectedId !== null && !visibleMessages.some((event) => event.id === selectedId)) {
@@ -255,7 +273,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
         try {
           const result = await requestMqttPoll();
           if (!disposed && token === generation.current) applyPoll(result, revision === commandRevision.current && !commandPending.current);
-        } catch (reason) { if (!disposed && token === generation.current && revision === commandRevision.current) setFeedback(errorText(reason)); }
+        } catch (reason) { if (!disposed && token === generation.current && revision === commandRevision.current) setFeedback('connection', errorText(reason)); }
       }
       if (!disposed) timer = window.setTimeout(poll, activeRef.current ? 200 : 800);
     };
@@ -266,59 +284,62 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
       window.clearTimeout(timer);
       if (isNativeHost && (activeRef.current || sessionRequestedRef.current)) void requestMqttStop().catch(() => undefined);
     };
-  }, [applyPoll]);
+  }, [applyPoll, setFeedback]);
 
-  const run = async (operation: () => Promise<MqttSessionSnapshot>, success = '') => {
+  const run = async (scope: FeedbackScope, operation: () => Promise<MqttSessionSnapshot>, success = '') => {
     if (commandPending.current) return;
     commandPending.current = true;
     commandRevision.current += 1;
     const token = generation.current;
     setBusy(true);
-    setFeedback('');
+    setFeedback(scope, '');
     try {
       const next = await operation();
       if (operation === requestMqttStop) sessionRequestedRef.current = false;
-      if (mounted.current && token === generation.current) { setSnapshot(next); if (success) setFeedback(success); }
-    } catch (reason) { if (mounted.current) setFeedback(errorText(reason)); }
+      if (mounted.current && token === generation.current) {
+        setSnapshot(next);
+        applyNativeError(next.lastError);
+        if (success && !next.lastError) notify(success);
+      }
+    } catch (reason) { if (mounted.current) setFeedback(scope, errorText(reason)); }
     finally { commandPending.current = false; if (mounted.current) setBusy(false); }
   };
 
   const toggleConnection = () => {
     if (!isNativeHost || commandPending.current) return;
-    if (active) { void run(requestMqttStop, '已请求断开 MQTT 会话。'); return; }
+    if (active) { void run('connection', requestMqttStop); return; }
     const host = options.host.trim();
     const clientId = options.clientId.trim();
-    if (!host || host.length > 253) { setFeedback('请填写有效的 Broker 地址。'); return; }
-    if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535) { setFeedback('端口必须是 1–65535 的整数。'); return; }
-    if (!clientId || new TextEncoder().encode(clientId).length > 128) { setFeedback('客户端 ID 不能为空且不能超过 128 字节。'); return; }
-    if (!Number.isInteger(options.keepAlive) || options.keepAlive < 5 || options.keepAlive > 3600) { setFeedback('Keep Alive 必须是 5–3600 秒。'); return; }
+    if (!host || host.length > 253) { setFeedback('connection', '请填写有效的 Broker 地址。'); return; }
+    if (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535) { setFeedback('connection', '端口必须是 1–65535 的整数。'); return; }
+    if (!clientId || new TextEncoder().encode(clientId).length > 128) { setFeedback('connection', '客户端 ID 不能为空且不能超过 128 字节。'); return; }
+    if (!Number.isInteger(options.keepAlive) || options.keepAlive < 5 || options.keepAlive > 3600) { setFeedback('connection', 'Keep Alive 必须是 5–3600 秒。'); return; }
     const requestOptions = { ...options, host, clientId, cleanSession: true };
     setOptions((current) => ({ ...current, password: '' }));
     generation.current += 1;
     sessionRequestedRef.current = true;
     clearMessages();
-    void run(() => requestMqttStart(requestOptions), '已提交连接请求，正在等待 Broker 响应。');
+    void run('connection', () => requestMqttStart(requestOptions));
   };
 
   const subscribe = () => {
     if (!isNativeHost || !connected || commandPending.current) return;
     const topic = subscriptionTopic.trim();
-    if (!validTopicFilter(topic)) { setFeedback('订阅主题过滤器不正确；+ 必须独占一层，# 只能位于末尾。'); return; }
-    void run(() => requestMqttSubscribe(topic, subscriptionQos), `已提交订阅：${topic}`);
+    if (!validTopicFilter(topic)) { setFeedback('subscription', '订阅主题过滤器不正确；+ 必须独占一层，# 只能位于末尾。'); return; }
+    void run('subscription', () => requestMqttSubscribe(topic, subscriptionQos), `已提交订阅：${topic}`);
   };
-  const unsubscribe = (topic: string) => void run(() => requestMqttUnsubscribe(topic), `已提交取消订阅：${topic}`);
+  const unsubscribe = (topic: string) => void run('subscription', () => requestMqttUnsubscribe(topic), `已提交取消订阅：${topic}`);
 
   const publish = () => {
     if (!isNativeHost || !connected || commandPending.current) return;
     const topic = publishTopic.trim();
-    if (!validTopicName(topic)) { setFeedback('发布主题不能为空，也不能包含 + 或 # 通配符。'); return; }
-    if (encoded.error) { setFeedback(encoded.error); return; }
-    void run(() => requestMqttPublish(topic, encoded.hex, publishQos, retain), `已提交发布：${topic}`);
+    if (!validTopicName(topic)) { setFeedback('publish', '发布主题不能为空，也不能包含 + 或 # 通配符。'); return; }
+    if (encoded.error) { setFeedback('publish', encoded.error); return; }
+    void run('publish', () => requestMqttPublish(topic, encoded.hex, publishQos, retain), `已提交发布：${topic}`);
   };
 
   const updateOption = <K extends keyof MqttStartOptions>(key: K, value: MqttStartOptions[K]) => {
     setOptions((current) => ({ ...current, [key]: value }));
-    setFeedback('');
   };
   const handlePublishKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.repeat) { event.preventDefault(); publish(); }
@@ -335,6 +356,12 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
     else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
   };
   const selectedIndex = selected ? visibleMessages.findIndex((entry) => entry.id === selected.id) : -1;
+  const copyMessage = async () => {
+    try {
+      await navigator.clipboard.writeText(selectedContent);
+      if (mounted.current) { setCopyError(''); notify('消息内容已复制。'); }
+    } catch { if (mounted.current) setCopyError('复制失败，请检查剪贴板权限。'); }
+  };
 
 
   return <section className={styles.workspace} data-testid="mqtt-workspace">
@@ -361,6 +388,8 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
             <label className={styles.check}><input type="checkbox" checked={options.tls} disabled={connectionLocked} onChange={(event) => { updateOption('tls', event.target.checked); if (event.target.checked && options.port === 1883) updateOption('port', 8883); }} />TLS（系统证书校验）</label>
             <small>TLS 校验证书链与主机名，不跳过验证。</small>
           </div>}
+          {errors.connection && <p role="alert" className={styles.error} data-testid="mqtt-connection-feedback">{errors.connection}</p>}
+          {!isNativeHost && <p role="status" className={styles.notice}>MQTT 连接仅在 Windows 桌面客户端可用；浏览器不会模拟连接。</p>}
         </section>
 
         <section className={styles.subscriptions} aria-label="MQTT 订阅">
@@ -368,6 +397,7 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
           <label>主题过滤器<input aria-label="MQTT 订阅主题" value={subscriptionTopic} spellCheck={false} onChange={(event) => setSubscriptionTopic(event.target.value)} /></label>
           <div className={styles.subscribeActions}><label>QoS<select aria-label="订阅 QoS" value={subscriptionQos} onChange={(event) => setSubscriptionQos(Number(event.target.value) as MqttQos)}><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label><button className={styles.primary} disabled={!connected || busy} onClick={subscribe}>订阅</button></div>
           <div className={styles.subscriptionList}>{snapshot?.subscriptions.length ? snapshot.subscriptions.map((entry) => <div key={entry.topic}><span title={entry.topic}>{entry.topic}</span><small>QoS {entry.qos}</small><button aria-label={`取消订阅 ${entry.topic}`} disabled={!connected || busy} onClick={() => unsubscribe(entry.topic)}>×</button></div>) : <p>支持 <code>+</code> 单层 / <code>#</code> 多层通配符</p>}</div>
+          {errors.subscription && <p role="alert" className={styles.error} data-testid="mqtt-subscription-feedback">{errors.subscription}</p>}
         </section>
 
         <section className={styles.publish} aria-label="MQTT 发布">
@@ -378,14 +408,13 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
             <div className={styles.segmented}><button aria-pressed={payloadMode === 'text'} onClick={() => setPayloadMode('text')}>文本</button><button aria-pressed={payloadMode === 'hex'} onClick={() => setPayloadMode('hex')}>HEX</button></div>
             <textarea aria-label="MQTT 发布内容" value={payload} spellCheck={false} onChange={(event) => setPayload(event.target.value)} onKeyDown={handlePublishKey} />
           </div>
-          {encoded.error && <p role="alert" className={styles.error}>{encoded.error}</p>}
+          {(encoded.error || errors.publish) && <p role="alert" className={styles.error} data-testid="mqtt-publish-feedback">{encoded.error || errors.publish}</p>}
           <button className={styles.primary} disabled={!connected || busy || !!encoded.error} onClick={publish}>发布 <kbd>Ctrl Enter</kbd></button>
         </section>
-        {feedback && <p role={snapshot?.lastError ? 'alert' : 'status'} className={snapshot?.lastError ? styles.error : styles.notice}>{feedback}</p>}
       </aside>
 
       <section className={styles.messages} aria-label="MQTT 消息" data-testid="mqtt-messages">
-        <header className={styles.messageHeader}><h3>消息记录 <span>{visibleMessages.length}{visibleMessages.length !== events.length ? ` / ${events.length}` : ''}</span></h3><div className={styles.counters}><span className={styles.rx}>RX {snapshot?.rxMessages ?? 0}<small>{snapshot?.rxBytes ?? 0} B</small></span><span className={styles.tx}>TX {snapshot?.txMessages ?? 0}<small>{snapshot?.txBytes ?? 0} B</small></span></div><button disabled={!events.length} onClick={clearMessages}>清空</button></header>
+        <header className={styles.messageHeader}><h3>消息记录 <span>{visibleMessages.length}{visibleMessages.length !== events.length ? ` / ${events.length}` : ''}</span></h3><div className={styles.counters}><span className={styles.rx}>RX {snapshot?.rxMessages ?? 0}<small>{snapshot?.rxBytes ?? 0} B</small></span><span className={styles.tx}>TX {snapshot?.txMessages ?? 0}<small>{snapshot?.txBytes ?? 0} B</small></span></div><button disabled={!events.length} onClick={() => { clearMessages(); notify('消息记录已清空，收发统计继续累计。'); }}>清空</button></header>
         <div className={styles.filters}>
           <input aria-label="筛选 MQTT 消息" placeholder="搜索主题或消息内容…" value={filter} onChange={(event) => { readingAnchor.current = null; setFilter(event.target.value); }} />
           <select aria-label="MQTT 消息方向" value={direction} onChange={(event) => { readingAnchor.current = null; setDirection(event.target.value as typeof direction); }}><option value="all">全部消息</option><option value="rx">RX 接收</option><option value="tx">TX 发布</option></select>
@@ -415,12 +444,14 @@ export function MqttDebugger({ tool, onBack }: { tool: ToolDefinition; onBack():
             <nav className={styles.detailNavigation} aria-label="浏览 MQTT 消息"><button aria-label="上一条 MQTT 消息" disabled={selectedIndex <= 0} onClick={() => showMessage(selectedIndex - 1)}>← 上一条</button><span>{selectedIndex + 1} / {visibleMessages.length}</span><button aria-label="下一条 MQTT 消息" disabled={selectedIndex >= visibleMessages.length - 1} onClick={() => showMessage(selectedIndex + 1)}>下一条 →</button></nav>
             <div className={styles.detailMeta}><span className={selected.kind === 'message' ? styles.rx : styles.tx}>{selected.kind === 'message' ? 'RX 接收' : 'TX 发布'}</span><time>{selected.clock}</time><span>QoS {selected.qos ?? 0}</span>{selected.retain && <span className={styles.retainBadge}>Retain</span>}<span>{selected.byteLength ?? (selected.payloadHex?.length ?? 0) / 2} B</span></div>
             <strong className={styles.detailTopic}>{selected.topic}</strong>
-            <div className={styles.contentToolbar}><div className={styles.segmented}><button aria-pressed={contentMode === 'text'} onClick={() => setContentMode('text')}>文本</button><button aria-pressed={contentMode === 'hex'} onClick={() => setContentMode('hex')}>HEX</button></div><button onClick={() => void navigator.clipboard.writeText(selectedContent).catch(() => setFeedback('复制失败，请检查剪贴板权限。'))}>复制</button></div>
+            <div className={styles.contentToolbar}><div className={styles.segmented}><button aria-pressed={contentMode === 'text'} onClick={() => setContentMode('text')}>文本</button><button aria-pressed={contentMode === 'hex'} onClick={() => setContentMode('hex')}>HEX</button></div><button onClick={() => void copyMessage()}>复制</button></div>
+            {copyError && <p role="alert" className={`${styles.error} ${styles.copyError}`} data-testid="mqtt-copy-feedback">{copyError}</p>}
             <pre aria-label="消息内容">{selected.payloadHex ? selectedContent || '不可见字符，请切换 HEX 查看字节。' : '空载荷（0 字节）'}</pre>
           </aside>}
         </div>
         <footer className={styles.messageFooter}>{!following && newMessages > 0 && <button type="button" className={styles.newMessages} onClick={() => followLatest(true)}>查看新消息（{newMessages}） ↓</button>}<span>{following ? '跟随最新消息' : '正在查看历史 · 接收继续'}{discarded > 0 ? ` · 已淘汰 ${discarded} 条旧消息` : ''}</span><span>最多 2,000 条 / 4 MiB 缓存</span></footer>
       </section>
     </div>
+    <ActionToast toast={toast} onDismiss={dismiss} />
   </section>;
 }

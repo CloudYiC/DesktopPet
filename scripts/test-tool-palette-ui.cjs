@@ -24,6 +24,12 @@ function geometry(source, file) {
   const rules = new Map();
   postcss.parse(css).walkDecls((decl) => {
     const prop = decl.prop;
+    // The contextual-feedback release adds only these local error gutters.
+    // Device/action-feedback regressions cover them; all other serial layout
+    // declarations remain under this original paint-only guard.
+    if (file === 'frontend/src/toolbox/SerialDebugger.module.scss'
+      && ((decl.parent.selector === '.connection > .error, .connection > .notice' && prop === 'margin-bottom' && decl.value === '10px')
+        || (decl.parent.selector === '.logPanel > .error' && prop === 'margin' && decl.value === '0 0 8px'))) return;
     if (/^(color|background(?:-color|-image)?|box-shadow|text-shadow|caret-color|accent-color|fill|stroke|opacity|-webkit-text-fill-color)$/.test(prop)
       || /-color$/.test(prop) || /^--(?:tool-|theme-(?:ink|muted|paper|sand)$)/.test(prop)) return;
     let value = decl.value;

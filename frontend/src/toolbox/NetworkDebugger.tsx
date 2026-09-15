@@ -3,7 +3,9 @@ import { requestNetworkInterfaces, requestNetworkPoll, requestNetworkSend, reque
 import type { NetworkDebugEvent, NetworkInterface, NetworkSessionSnapshot, NetworkStartOptions, NetworkMode } from '../types';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { PacketTemplateDialog } from './PacketTemplateDialog';
+import { PacketTemplateEditor } from './PacketTemplateEditor';
 import { ToolWorkspaceHeader } from '../../../shared/tool-workspace/ToolWorkspaceHeader';
+import { ActionToast, useActionToast } from '../../../shared/tool-workspace/ActionToast';
 import type { ToolDefinition } from './catalog';
 import { createDefaultPacketDraft, validatePacketDraft, encodePacketPayload, convertPacketPayloadMode, isMulticastHost, encodeNetworkPayload, packetNetworkMode,
   parsePacketLibrary, serializePacketLibrary, mergePacketLibraries, PACKET_LIBRARY_STORAGE_KEY, MAX_PACKET_LIBRARY_BYTES,
@@ -18,6 +20,9 @@ const localOnly = (address: string) => /^127\./.test(address) || address === 'lo
 type LogEvent = NetworkDebugEvent & { uiId: number };
 class DisconnectedPeerError extends Error {}
 type NetworkAction = 'connect' | 'join' | 'send';
+type NetworkErrorArea = 'connection' | 'send' | 'log';
+const connectionDraftKeys: (keyof PacketSenderDraft)[] = ['protocol', 'networkMode', 'host', 'port', 'localAddress', 'localPort', 'multicastTtl'];
+const sendDraftKeys: (keyof PacketSenderDraft)[] = ['payload', 'dataMode', 'lineEnding', 'intervalMs', 'repeatCount'];
 type NetworkReview = { packet: PacketSenderDraft; count: number | null; action: NetworkAction; changedBinding: boolean; options: NetworkStartOptions; peerIds: string[] };
 const defaultDraft = (): PacketSenderDraft => ({ ...createDefaultPacketDraft(), protocol: 'tcp', networkMode: 'tcp-client' });
 const modeName = (mode: NetworkMode) => mode === 'tcp-server' ? 'TCP 服务端' : mode === 'tcp-client' ? 'TCP 客户端' : 'UDP';
@@ -55,6 +60,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const [search, setSearch] = useState('');
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templateFeedback, setTemplateFeedback] = useState<{ text: string; error: boolean } | null>(null);
+  const [templateEditor, setTemplateEditor] = useState<{ id: string; draft: PacketSenderDraft } | null>(null);
+  const { toast, notify, dismiss } = useActionToast();
   const [adapters, setAdapters] = useState<NetworkInterface[]>([]);
   const [adaptersLoading, setAdaptersLoading] = useState(false);
   const [review, setReview] = useState<NetworkReview | null>(null);
@@ -67,8 +74,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const [follow, setFollow] = useState(true);
   const [unseen, setUnseen] = useState(false);
   const [peerTarget, setPeerTarget] = useState('all');
-  const [error, setError] = useState(initial.error);
-  const [notice, setNotice] = useState('');
+  const [errors, setErrors] = useState({ connection: '', send: '', log: '' });
+  const setError = (area: NetworkErrorArea, text: string) => setErrors((old) => ({ ...old, [area]: text }));
   const [progress, setProgress] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<SavedPacket | null>(null);
   const alive = useRef(true), generation = useRef(0), locked = useRef(false), ownsSession = useRef(false);
@@ -114,8 +121,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
       if (disposed) return;
       const token = generation.current;
       if (ownsSession.current && !locked.current) {
-        try { const next = await poll(token); if (next?.lastError && current(token)) setError(next.lastError); }
-        catch (e) { if (current(token)) setError(errorText(e)); }
+        try { const next = await poll(token); if (next?.lastError && current(token)) setError('connection', next.lastError); }
+        catch (e) { if (current(token)) setError('connection', errorText(e)); }
       }
       if (!disposed) timer = window.setTimeout(tick, 250);
     };
@@ -133,7 +140,7 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const refreshAdapters = async () => {
     const request = ++adapterRequest.current; setAdaptersLoading(true);
     try { const items = await requestNetworkInterfaces(); if (alive.current && request === adapterRequest.current) setAdapters(items); }
-    catch (e) { if (alive.current && request === adapterRequest.current) setError('无法读取网卡：' + errorText(e) + ' 可重试或选择自动网卡。'); }
+    catch (e) { if (alive.current && request === adapterRequest.current) setError('connection', '无法读取网卡：' + errorText(e) + ' 可重试或选择自动网卡。'); }
     finally { if (alive.current && request === adapterRequest.current) setAdaptersLoading(false); }
   };
   useEffect(() => { void refreshAdapters(); }, []);
@@ -159,30 +166,31 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
 
   const submit = (action: NetworkAction, count: number | null = 0) => {
     if (locked.current || !native) return;
+    const errorArea = action === 'send' ? 'send' : 'connection';
     let packet: PacketSenderDraft;
     try {
       packet = validatePacketDraft({ ...draft, payload: action === 'send' ? draft.payload : '',
         repeatCount: count || draft.repeatCount });
       if (action !== 'send') packet.payload = draft.payload;
-    } catch (e) { setError(errorText(e)); return; }
+    } catch (e) { setError(errorArea, errorText(e)); return; }
     const nextMode = packetNetworkMode(packet);
-    if (nextMode === 'tcp-client' && isMulticastHost(packet.host)) { setError('组播目标请使用 UDP 协议，TCP 不支持组播。'); return; }
-    if (action === 'join' && (nextMode !== 'udp' || !isMulticastHost(packet.host))) { setError('请填写有效的 IPv4 组播目标地址。'); return; }
-    if (action === 'send' && !encodeNetworkPayload(packet).byteCount) { setError('请先填写至少 1 字节的发送内容。'); return; }
+    if (nextMode === 'tcp-client' && isMulticastHost(packet.host)) { setError('connection', '组播目标请使用 UDP 协议，TCP 不支持组播。'); return; }
+    if (action === 'join' && (nextMode !== 'udp' || !isMulticastHost(packet.host))) { setError('connection', '请填写有效的 IPv4 组播目标地址。'); return; }
+    if (action === 'send' && !encodeNetworkPayload(packet).byteCount) { setError('send', '请先填写至少 1 字节的发送内容。'); return; }
     const changedBinding = nextMode === 'udp' && isMulticastHost(packet.host) && localOnly(packet.localAddress);
     if (changedBinding) packet = { ...packet, localAddress: '0.0.0.0' };
     if (packet.localAddress !== '0.0.0.0' && !localOnly(packet.localAddress) && !adapters.some((item) => item.address === packet.localAddress)) {
-      setError('保存的网卡当前不可用，请刷新并重新选择发送网卡。'); return;
+      setError('connection', '保存的网卡当前不可用，请刷新并重新选择发送网卡。'); return;
     }
     const options = optionsFor(packet, action === 'join');
     let peerIds: string[] = [];
     if (action === 'send' && nextMode === 'tcp-server') {
       if (!ownsSession.current || !ready(latest.current) || latest.current?.mode !== 'tcp-server' || activeKey.current !== JSON.stringify(options)) {
-        setError('请先按当前配置开始 TCP 监听，再等待客户端连接。'); return;
+        setError('connection', '请先按当前配置开始 TCP 监听，再等待客户端连接。'); return;
       }
       peerIds = peerTarget === 'all' ? latest.current.peers.map((peer) => peer.id) : [peerTarget];
       if (!peerIds.length || peerIds.some((id) => !latest.current!.peers.some((peer) => peer.id === id))) {
-        setError('当前没有可用的目标客户端，请重新选择。'); return;
+        setError('send', '当前没有可用的目标客户端，请重新选择。'); return;
       }
     }
     const pending: NetworkReview = { packet, count, action, changedBinding, options, peerIds };
@@ -196,10 +204,11 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     const bytes = action === 'send' ? encodeNetworkPayload(packet) : null;
     const key = JSON.stringify(options), token = ++generation.current;
     const control = { cancelled: false }; runControl.current = control; lastTrafficError.current = '';
-    locked.current = true; setBusy(true); setSending(action === 'send'); setError(''); setNotice('');
+    locked.current = true; setBusy(true); setSending(action === 'send'); setError(action === 'send' ? 'send' : 'connection', ''); dismiss();
     setProgress(action === 'join' ? '正在加入组播…' : action === 'connect' ? '正在建立会话…' : '准备发送');
     try {
       if (!ownsSession.current || activeKey.current !== key || !ready(latest.current)) {
+        setError('connection', '');
         await requestNetworkStop(); if (!current(token)) return;
         ownsSession.current = true; activeKey.current = key; sessionOptions.current = options; sessionRequestedPort.current = packet.localPort;
         const next = await requestNetworkStart(options); if (!current(token)) return; updateSnapshot(next);
@@ -217,7 +226,7 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
       sessionRequestedPort.current = packet.localPort;
       if (action !== 'send') {
         if (action === 'join' && !latest.current?.multicastJoined) throw new Error('未确认加入组播组，请检查网卡与本地监听端口。');
-        setNotice((action === 'join' ? '已加入 ' + packet.host : modeName(options.mode) + ' 已就绪') +
+        setProgress((action === 'join' ? '已加入 ' + packet.host : modeName(options.mode) + ' 已就绪') +
           '，本地 ' + latest.current!.localHost + ':' + latest.current!.localPort + '；未发送数据。');
         return;
       }
@@ -255,14 +264,14 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
           }
         }
       }
-      if (current(token)) setNotice(control.cancelled ? '后续发送已停止，连接保留，可继续接收回包。' :
+      if (current(token)) setProgress(control.cancelled ? '后续发送已停止，连接保留，可继续接收回包。' :
         '本机已完成 ' + completed + ' 次发送' + (options.mode === 'tcp-server' ? '（每次向 ' + peerIds.length + ' 个选定客户端发送）' : '') +
         '。TX 不代表对方已收到；等待 RX 响应。');
     } catch (e) {
       if (current(token)) {
-        setError(errorText(e)); setProgress('操作已停止');
+        setError(action === 'send' ? 'send' : 'connection', errorText(e)); setProgress('操作已停止');
         if (e instanceof DisconnectedPeerError && options.mode === 'tcp-server' && latest.current?.state === 'listening') {
-          setNotice('本批次已停止，TCP 监听及其他客户端保持连接。');
+          setProgress('本批次已停止，TCP 监听及其他客户端保持连接。');
         } else {
           ownsSession.current = false; activeKey.current = ''; approvedKey.current = ''; sessionOptions.current = null;
           try { const next = await requestNetworkStop(); if (current(token)) updateSnapshot(next); } catch { /* Keep original error. */ }
@@ -281,23 +290,26 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     if (runControl.current) runControl.current.cancelled = true;
     const token = ++generation.current; locked.current = true; setBusy(true); ownsSession.current = false;
     activeKey.current = ''; approvedKey.current = ''; sessionOptions.current = null; sessionRequestedPort.current = null;
-    try { const next = await requestNetworkStop(); if (current(token)) { updateSnapshot(next); setProgress('已停止'); setNotice('已断开会话、释放端口并退出组播。'); } }
-    catch (e) { if (current(token)) setError(errorText(e)); }
+    try { const next = await requestNetworkStop(); if (current(token)) { updateSnapshot(next); setProgress('已断开会话、释放端口并退出组播。'); } }
+    catch (e) { if (current(token)) setError('connection', errorText(e)); }
     finally { stopping.current = false; if (current(token)) { locked.current = false; setBusy(false); setSending(false); runControl.current = null; } }
   };
   const edit = <K extends keyof PacketSenderDraft>(key: K, value: PacketSenderDraft[K]) => {
     if (locked.current) return;
     editRevision.current += 1;
-    setDraft((old) => ({ ...old, [key]: value })); setError(''); setProgress('');
+    setDraft((old) => ({ ...old, [key]: value }));
+    if (connectionDraftKeys.includes(key)) setError('connection', '');
+    if (sendDraftKeys.includes(key)) setError('send', '');
+    setProgress('');
   };
   const changeMode = (dataMode: PacketSenderDraft['dataMode']) => {
     if (locked.current) return;
-    try { const payload = convertPacketPayloadMode(draft, dataMode); editRevision.current += 1; setDraft({ ...draft, dataMode, payload }); setError(''); }
-    catch (e) { setError(errorText(e) + ' 原内容已保留。'); }
+    try { const payload = convertPacketPayloadMode(draft, dataMode); editRevision.current += 1; setDraft({ ...draft, dataMode, payload }); setError('send', ''); }
+    catch (e) { setError('send', errorText(e) + ' 原内容已保留。'); }
   };
   const changeNetworkMode = (networkMode: NetworkMode) => {
     if (locked.current) return;
-    editRevision.current += 1; setPeerTarget('all'); setError('');
+    editRevision.current += 1; setPeerTarget('all'); setError('connection', '');
     setDraft((old) => ({ ...old, networkMode, protocol: networkMode === 'udp' ? 'udp' : 'tcp',
       localPort: networkMode === 'tcp-server' && old.localPort === 0 ? 9000 : old.localPort }));
   };
@@ -310,35 +322,48 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
     if (initial.error) throw new Error('报文模板读取失败，禁止覆盖原数据。请先导出原始备份。');
     const json = serializePacketLibrary(next); localStorage.setItem(PACKET_LIBRARY_STORAGE_KEY, json); libraryRef.current = next; setLibrary(next);
   };
-  const save = () => {
+  const editTemplate = (packet?: SavedPacket, fromCurrent = false) => {
+    if (locked.current) return;
+    const { id: _id, updatedAt: _updatedAt, ...savedDraft } = packet || {} as SavedPacket;
+    setTemplateFeedback(initial.error ? { text: initial.error, error: true } : null);
+    setTemplateEditor({ id: packet?.id || '', draft: packet ? savedDraft : fromCurrent ? { ...draft, name: draft.name ? draft.name + ' 副本' : '' } : { ...defaultDraft(), payload: '' } });
+    if (!templatesOpen) templateReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setTemplatesOpen(true);
+  };
+  const saveTemplate = (edited: PacketSenderDraft) => {
+    if (!templateEditor || locked.current) return;
     try {
-      const packet = validatePacketDraft(draft);
+      const packet = validatePacketDraft(edited);
       if (!packet.name.trim()) throw new Error('保存前请填写模板名称。');
-      const item: SavedPacket = { ...packet, id: selectedId || crypto.randomUUID(), updatedAt: new Date().toISOString() };
-      persist({ schemaVersion: 1, packets: selectedId ? library.packets.map((old) => old.id === selectedId ? item : old) : [...library.packets, item] });
-      setSelectedId(item.id); setNotice('报文模板已保存到本机；保存和载入都不会自动发送。'); setError('');
-    } catch (e) { setError(errorText(e)); }
+      const item: SavedPacket = { ...packet, id: templateEditor.id || crypto.randomUUID(), updatedAt: new Date().toISOString() };
+      persist({ schemaVersion: 1, packets: templateEditor.id ? libraryRef.current.packets.map((old) => old.id === templateEditor.id ? item : old) : [...libraryRef.current.packets, item] });
+      setSearch(''); setTemplateEditor(null); setTemplateFeedback({ text: '模板已保存。点击“应用到发送区”才会填入当前草稿。', error: false });
+      window.requestAnimationFrame(() => templateSearch.current?.focus({ preventScroll: true }));
+    } catch (e) { setTemplateFeedback({ text: errorText(e), error: true }); }
   };
   const load = (packet: SavedPacket) => {
     if (locked.current) return;
     const { id, updatedAt: _updatedAt, ...editable } = packet;
     editRevision.current += 1;
-    setDraft(validatePacketDraft(editable)); setSelectedId(id); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('模板已载入，点击发送才会访问目标。');
+    const applied = validatePacketDraft(editable);
+    if (connectionDraftKeys.some((key) => applied[key] !== draft[key])) setError('connection', '');
+    if (sendDraftKeys.some((key) => applied[key] !== draft[key])) setError('send', '');
+    setDraft(applied); setSelectedId(id); setPeerTarget('all'); approvedKey.current = ''; setProgress(''); notify('模板已应用到发送区，未连接或发送。');
     templateReturnFocus.current = payloadInput.current; setTemplatesOpen(false);
   };
   const importLibrary = async (file?: File) => {
     if (!file || locked.current) return;
-    try { if (file.size > MAX_PACKET_LIBRARY_BYTES) throw new Error('模板文件不能超过 1 MiB。'); const incoming = parsePacketLibrary(await file.text()); if (!alive.current || locked.current) return; persist(mergePacketLibraries(libraryRef.current, incoming)); const text = `已导入 ${incoming.packets.length} 条模板，未执行发送。`; setNotice(text); setTemplateFeedback({ text, error: false }); setError(''); }
-    catch (e) { if (alive.current) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); } }
+    try { if (file.size > MAX_PACKET_LIBRARY_BYTES) throw new Error('模板文件不能超过 1 MiB。'); const incoming = parsePacketLibrary(await file.text()); if (!alive.current || locked.current) return; persist(mergePacketLibraries(libraryRef.current, incoming)); const text = `已导入 ${incoming.packets.length} 条模板，发送区未变更。`; setTemplateFeedback({ text, error: false }); }
+    catch (e) { if (alive.current) setTemplateFeedback({ text: errorText(e), error: true }); }
   };
   const loadFile = async (file?: File) => {
     if (!file || locked.current) return;
     const revision = ++editRevision.current;
-    try { if (file.size > (draft.protocol === 'udp' ? 65507 : 65536)) throw new Error('文件超过单次报文容量。'); const bytes = new Uint8Array(await file.arrayBuffer()); if (!alive.current || locked.current || revision !== editRevision.current) return; setDraft((old) => ({ ...old, dataMode: 'hex', payload: Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(' ') })); setNotice(`已载入 ${file.size} 字节，未发送。`); setError(''); }
-    catch (e) { if (alive.current) setError(errorText(e)); }
+    try { if (file.size > (draft.protocol === 'udp' ? 65507 : 65536)) throw new Error('文件超过单次报文容量。'); const bytes = new Uint8Array(await file.arrayBuffer()); if (!alive.current || locked.current || revision !== editRevision.current) return; setDraft((old) => ({ ...old, dataMode: 'hex', payload: Array.from(bytes, (v) => v.toString(16).padStart(2, '0')).join(' ') })); notify(`已载入 ${file.size} 字节，未发送。`); setError('send', ''); }
+    catch (e) { if (alive.current && !locked.current && revision === editRevision.current) setError('send', errorText(e)); }
   };
-  const exportLibrary = () => { try { download('cloudyi-packets.json', initial.error ? localStorage.getItem(PACKET_LIBRARY_STORAGE_KEY) ?? '' : serializePacketLibrary(library)); } catch (e) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); } };
-  const copyLogs = async () => { try { await navigator.clipboard.writeText(events.map((event) => `${showTime ? new Date(event.timestamp).toISOString() + ' ' : ''}${event.kind} ${event.peerLabel ?? ''} ${event.byteLength} B ${logPayload(event, logMode)}`).join('\n')); setNotice('已复制收发记录。'); } catch (e) { setError(errorText(e)); } };
+  const exportLibrary = () => { try { download('cloudyi-packets.json', initial.error ? localStorage.getItem(PACKET_LIBRARY_STORAGE_KEY) ?? '' : serializePacketLibrary(library)); } catch (e) { setTemplateFeedback({ text: errorText(e), error: true }); } };
+  const copyLogs = async () => { try { await navigator.clipboard.writeText(events.map((event) => `${showTime ? new Date(event.timestamp).toISOString() + ' ' : ''}${event.kind} ${event.peerLabel ?? ''} ${event.byteLength} B ${logPayload(event, logMode)}`).join('\n')); setError('log', ''); notify('已复制收发记录。'); } catch (e) { setError('log', errorText(e)); } };
 
 
   const matchingSession = ownsSession.current && ready(snapshot) && activeKey.current === JSON.stringify(optionsFor(draft, false));
@@ -346,7 +371,7 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
   const disconnectLabel = mode === 'tcp-server' ? '停止监听' : mode === 'udp' ? '解除绑定' : '断开连接';
   return <section className={styles.workspace} data-testid="network-workspace">
     <ToolWorkspaceHeader title={tool.name} onBack={onBack} />
-    {(error || notice) && <p className={error ? styles.error : styles.notice} role={error ? 'alert' : 'status'}>{error || notice}</p>}
+    <ActionToast toast={toast} onDismiss={dismiss} />
     <div className={styles.modeBar}>
       <div className={styles.modeTabs} role="tablist" aria-label="网络模式">{networkModes.map((value, index) => <button key={value} role="tab" aria-selected={mode === value} aria-pressed={mode === value} tabIndex={mode === value ? 0 : -1} disabled={busy} onClick={() => changeNetworkMode(value)} onKeyDown={(event) => {
         const next = event.key === 'ArrowRight' ? (index + 1) % networkModes.length : event.key === 'ArrowLeft' ? (index + networkModes.length - 1) % networkModes.length : event.key === 'Home' ? 0 : event.key === 'End' ? networkModes.length - 1 : -1;
@@ -370,14 +395,14 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
             {multicast && <><div className={styles.multicastRow}><label>组播 TTL<input aria-label="组播 TTL" type="number" min={0} max={255} value={draft.multicastTtl} disabled={busy} onChange={(e) => edit('multicastTtl', Number(e.target.value))} /></label><button disabled={busy} onClick={() => edit('localPort', draft.port)}>同目标端口</button></div><div className={styles.connectionActions}><button disabled={!native || busy} onClick={() => submit('join')}>加入组播</button><button disabled={!snapshot?.multicastJoined || busy} onClick={() => void stop()}>退出组播</button></div></>}
             {multicast && <small className={styles.multicastHint}>发送不必加组；接收组播需加组并监听设备使用的端口。</small>}
             {mode === 'tcp-server' && <div className={styles.peerPanel} aria-label="TCP 客户端列表"><strong>已连接客户端 {peers.length}</strong><div>{peers.length ? peers.map((peer) => <button key={peer.id} disabled={busy} aria-pressed={peerTarget === peer.id} onClick={() => setPeerTarget(peer.id)}>{peer.address}:{peer.port}</button>) : <small>等待客户端连接</small>}</div></div>}
+            {errors.connection && <p className={styles.error} role="alert">{errors.connection}</p>}
           </section>
           <section className={styles.card}>
-            <header><h3>发送数据</h3><button className={styles.templateButton} aria-label="报文模板" aria-haspopup="dialog" onClick={() => { templateReturnFocus.current = null; setTemplateFeedback(initial.error ? { text: initial.error, error: true } : null); setTemplatesOpen(true); }}>报文模板 <span>{library.packets.length}</span></button></header>
+            <header><h3>发送数据</h3><button className={styles.templateButton} aria-label="报文模板" aria-haspopup="dialog" onClick={() => { templateReturnFocus.current = null; setTemplateEditor(null); setTemplateFeedback(initial.error ? { text: initial.error, error: true } : null); setTemplatesOpen(true); }}>报文模板 <span>{library.packets.length}</span></button></header>
 
             <div className={styles.payloadToolbar}><div className={styles.tabs} aria-label="发送数据方式">{([['text', '文本'], ['hex', 'HEX'], ['escaped', '转义字节']] as const).map(([value, label]) => <button key={value} aria-pressed={draft.dataMode === value} disabled={busy} onClick={() => changeMode(value)}>{label}</button>)}</div><span data-testid="packet-byte-count">{preview.value?.byteCount ?? 0} 字节</span><button disabled={busy} onClick={() => payloadFile.current?.click()}>载入文件</button></div>
             <textarea ref={payloadInput} className={styles.payloadInput} aria-label="报文内容" spellCheck={false} value={draft.payload} disabled={busy} onChange={(e) => edit('payload', e.target.value)} onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !e.repeat) { e.preventDefault(); submit('send', 1); } }} />
-            <label className={styles.packetTitle}>模板名称<input aria-label="模板名称" maxLength={80} value={draft.name} disabled={busy} onChange={(e) => edit('name', e.target.value)} /></label>
-            <div className={styles.templateActions}><button disabled={busy} onClick={() => { editRevision.current += 1; setDraft(defaultDraft()); setSelectedId(''); setPeerTarget('all'); approvedKey.current = ''; setError(''); setNotice('新建草稿，未发送。'); }}>新建</button><button disabled={busy} onClick={save}>{selectedId ? '更新模板' : '保存模板'}</button></div>
+            <div className={styles.templateActions}><button disabled={busy || !draft.payload} onClick={() => { edit('payload', ''); notify('发送内容已清空，连接参数保持不变。'); }}>清空内容</button><button disabled={busy} onClick={() => editTemplate(undefined, true)}>另存为模板</button></div>
             {draft.dataMode === 'escaped' && <small>转义字节：\00、\FF、\r、\n、\t、\\；普通文字按 UTF-8 编码。</small>}{preview.error && <p className={styles.warning}>{preview.error}</p>}{!native && <small>网络连接需要 Windows 客户端。</small>}
           </section>
         <section className={styles.sendDock + ' ' + styles.card} data-testid="network-send-actions">
@@ -385,7 +410,8 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
           <div className={styles.sendOptions}><label>行尾<select aria-label="行尾" value={draft.lineEnding ?? 'none'} disabled={busy} onChange={(e) => edit('lineEnding', e.target.value as PacketSenderDraft['lineEnding'])}><option value="none">不添加</option><option value="lf">LF（\n）</option><option value="crlf">CRLF（\r\n）</option></select></label><label>间隔（毫秒）<input aria-label="重发间隔" type="number" min={50} max={86400000} value={draft.intervalMs} disabled={busy} onChange={(e) => edit('intervalMs', Number(e.target.value))} /></label><label>发送次数<input aria-label="重发次数" type="number" min={1} max={1000} value={draft.repeatCount} disabled={busy} onChange={(e) => edit('repeatCount', Number(e.target.value))} /></label></div>
           <div className={styles.sendActions}><button className={styles.primary} disabled={!native || busy || !preview.value?.byteCount} onClick={() => submit('send', 1)}>发送一次</button><button disabled={!native || busy || !preview.value?.byteCount} onClick={() => submit('send', draft.repeatCount)}>重复发送</button><button disabled={!native || busy || !preview.value?.byteCount} onClick={() => submit('send', null)}>持续发送</button></div>
           <div className={styles.stopActions}><button disabled={!sending || stopping.current} onClick={stopSending}>停止发送</button><button className={styles.stop} disabled={!native || stopping.current || (!busy && !ownsSession.current)} onClick={() => void stop()}>停止 / 断开</button></div>
-          {busy && <small className={styles.runProgress}>{progress}</small>}
+          {progress && <small className={styles.runProgress} role="status">{progress}</small>}
+          {errors.send && <p className={styles.error} role="alert">{errors.send}</p>}
         </section>
         </div>
       </div>
@@ -397,13 +423,15 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
           <div className={styles.log} role="log" aria-label="网络收发记录" ref={log} onScroll={(e) => { const node = e.currentTarget; followTail.current = node.scrollHeight - node.scrollTop - node.clientHeight < 36; if (followTail.current) setUnseen(false); }}>
             {events.length ? events.map((event) => <div key={event.uiId} className={styles.logRow} data-kind={event.kind}><div>{showTime && <time>{new Date(event.timestamp).toLocaleTimeString('zh-CN', { hour12: false })}</time>}<b>{event.kind === 'sent' ? 'TX →' : event.kind === 'received' ? 'RX ←' : event.kind === 'error' ? '错误' : '状态'}</b><span>{event.peerLabel} {event.byteLength > 0 ? event.byteLength + ' B' : ''}</span></div><pre>{logPayload(event, logMode)}</pre></div>) : <div className={styles.logEmpty}>等待网络数据</div>}
           </div>
+          {errors.log && <p className={styles.logError} role="alert">{errors.log}<button aria-label="关闭复制错误" onClick={() => setError('log', '')}>×</button></p>}
           {unseen && <button className={styles.newData} onClick={showLatest}>查看最新数据</button>}
           <footer><span>{events.length} 条记录 · 最多保留 5000 条 / 4 MiB</span>{snapshot?.mode !== 'udp' && <span>TCP 接收按数据块显示，不保证应用报文边界</span>}</footer>
         </section>
       </div>
     </div>
-    <PacketTemplateDialog open={templatesOpen} count={library.packets.length} search={search} busy={busy} feedback={templateFeedback} returnFocus={templateReturnFocus} searchRef={templateSearch} onSearch={setSearch} onImport={() => importInput.current?.click()} onExport={exportLibrary} onClose={() => setTemplatesOpen(false)}>
-      {filtered.length ? filtered.map((packet) => <article key={packet.id} data-selected={packet.id === selectedId}><button disabled={busy} onClick={() => load(packet)} title="载入编辑，不会自动发送"><strong>{packet.name}</strong><small>{modeName(packetNetworkMode(packet))} · {packetNetworkMode(packet) === 'tcp-server' ? packet.localAddress + ':' + packet.localPort : packet.host + ':' + packet.port}</small></button><button disabled={busy} onClick={() => load(packet)}>载入</button><button disabled={busy} aria-label={'删除模板 ' + packet.name} onClick={() => setDeleteTarget(packet)}>删除</button></article>) : <p>{library.packets.length ? '没有匹配的模板。' : '还没有报文模板。填写发送内容和模板名称，点击“保存模板”即可添加。'}</p>}
+    <PacketTemplateDialog open={templatesOpen} count={library.packets.length} search={search} busy={busy} feedback={templateFeedback} returnFocus={templateReturnFocus} searchRef={templateSearch} onSearch={setSearch} onNew={() => editTemplate()} onImport={() => importInput.current?.click()} onExport={exportLibrary} onClose={() => { setTemplatesOpen(false); setTemplateEditor(null); }}
+      editor={templateEditor && <PacketTemplateEditor key={templateEditor.id || 'new'} initial={templateEditor.draft} editing={!!templateEditor.id} busy={busy} onSave={saveTemplate} onCancel={() => { setTemplateEditor(null); setTemplateFeedback(initial.error ? { text: initial.error, error: true } : null); window.requestAnimationFrame(() => templateSearch.current?.focus({ preventScroll: true })); }} />}>
+      {filtered.length ? filtered.map((packet) => <article key={packet.id} data-selected={packet.id === selectedId}><button disabled={busy} onClick={() => editTemplate(packet)} title="编辑模板副本，不更改发送区"><strong>{packet.name}</strong><small>{modeName(packetNetworkMode(packet))} · {packetNetworkMode(packet) === 'tcp-server' ? packet.localAddress + ':' + packet.localPort : packet.host + ':' + packet.port}</small></button><button disabled={busy} onClick={() => load(packet)}>应用到发送区</button><button disabled={busy} aria-label={'编辑模板 ' + packet.name} onClick={() => editTemplate(packet)}>编辑</button><button disabled={busy} aria-label={'删除模板 ' + packet.name} onClick={() => setDeleteTarget(packet)}>删除</button></article>) : <p>{library.packets.length ? '没有匹配的模板。' : '还没有报文模板。点击“新建模板”或“导入”添加，再应用到发送区。'}</p>}
       <input ref={importInput} type="file" aria-label="模板导入文件" accept=".json,application/json" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void importLibrary(file); }} />
     </PacketTemplateDialog>
     <input ref={payloadFile} type="file" aria-label="发送内容文件" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void loadFile(file); }} />
@@ -425,9 +453,9 @@ export function NetworkDebugger({ tool, onBack }: { tool: ToolDefinition; onBack
       try {
         persist({ schemaVersion: 1, packets: library.packets.filter((packet) => packet.id !== deleteTarget.id) });
         if (selectedId === deleteTarget.id) setSelectedId('');
-        setDeleteTarget(null); setNotice('已删除模板，编辑区内容保留。'); setTemplateFeedback({ text: '已删除模板，编辑区内容保留。', error: false }); setError('');
+        setDeleteTarget(null); setTemplateFeedback({ text: '已删除模板，发送区内容保留。', error: false });
         window.requestAnimationFrame(() => { if (alive.current) templateSearch.current?.focus({ preventScroll: true }); });
-      } catch (e) { setError(errorText(e)); setTemplateFeedback({ text: errorText(e), error: true }); setDeleteTarget(null); }
+      } catch (e) { setTemplateFeedback({ text: errorText(e), error: true }); setDeleteTarget(null); }
     }}><p>删除“{deleteTarget?.name}”的本机模板。当前编辑内容不会被清空。</p></ConfirmDialog>
   </section>;
 }

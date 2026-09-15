@@ -83,6 +83,8 @@ $line: palette.$line;
 .error, .notice { max-height: 56px; flex-shrink: 0; overflow: auto; margin: 8px 0 0; padding: 7px 10px; border-radius: 6px; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; }
 .error { color: palette.$danger; background: palette.$danger-soft; }
 .notice { color: $deep; background: palette.$teal-soft; }
+.connection > .error, .connection > .notice { margin-bottom: 10px; }
+.logPanel > .error { margin: 0 0 8px; }
 
 // Color-only emphasis leaves the established editing/receiving split unchanged.
 .connection { background: linear-gradient(180deg, palette.$blue-soft, $paper 64px); }

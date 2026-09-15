@@ -90,7 +90,7 @@ const { chromium } = require('playwright');
   };
   const closeTemplates = async () => {
     await templateButton('关闭报文模板').click(); await templateDialog().waitFor({ state: 'hidden' });
-    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文模板');
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文模板' || document.activeElement?.textContent === '另存为模板');
   };
   const log = () => page.getByRole('log', { name: '网络收发记录', exact: true });
   const count = (type) => page.evaluate((type) => window.__packetFixture.requests.filter((request) => request.type === type).length, type);
@@ -149,6 +149,36 @@ const { chromium } = require('playwright');
     assert.ok((await field('发送网卡').innerText()).includes('Synthetic WLAN'), 'available Windows adapter name and IPv4 are visible');
     await field('发送网卡').selectOption('127.0.0.1');
 
+    const draftSnapshot = () => page.evaluate(() => Object.fromEntries(['目标地址', '目标端口', '发送网卡', '发包本地端口', '报文内容', '行尾', '重发间隔', '重发次数'].map((label) => [label, document.querySelector(`[aria-label="${label}"]`)?.value])));
+    const effectSnapshot = async () => [await count('network.start'), await count('network.send'), await count('network.stop')];
+    const libraryJSON = () => page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1'));
+    const initialDraft = await draftSnapshot(), initialEffects = await effectSnapshot();
+    assert.equal(await button('新建').count(), 0, 'send area does not contain the misleading full-reset New action');
+    assert.equal(await workspace().getByLabel('模板名称', { exact: true }).count(), 0, 'send draft is not coupled to template naming');
+    await openTemplates(); await templateButton('新建模板').click();
+    await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '模板名称');
+    await field('模板名称').fill('Independent fixture'); await field('模板报文内容').fill('new template only');
+    await field('模板目标地址').fill('192.0.2.99'); await field('模板目标端口').fill('24680');
+    await templateButton('保存模板').click();
+    assert.deepEqual(await draftSnapshot(), initialDraft, 'new + save in template library cannot mutate the send draft');
+    assert.deepEqual(await effectSnapshot(), initialEffects, 'new + save never starts, sends or stops a native session');
+    const independentStored = await libraryJSON();
+    await templateButton('编辑模板 Independent fixture').click();
+    await field('模板报文内容').fill('cancelled copy'); await field('模板目标地址').fill('bad://host');
+    await templateButton('保存模板').click(); await templateDialog().getByRole('alert').waitFor();
+    assert.equal(await libraryJSON(), independentStored, 'invalid template edits preserve the existing stored library');
+    assert.deepEqual(await draftSnapshot(), initialDraft, 'validation errors cannot leak template edits to live fields');
+    await templateButton('取消编辑').click();
+    assert.equal(await libraryJSON(), independentStored, 'cancel discards the independent edit buffer');
+    await templateButton('编辑模板 Independent fixture').click();
+    assert.equal(await field('模板报文内容').inputValue(), 'new template only');
+    await field('模板报文内容').fill('updated template'); await templateButton('保存模板').click();
+    assert.deepEqual(await draftSnapshot(), initialDraft, 'editing and saving a template never applies it implicitly');
+    await templateButton('删除模板 Independent fixture').click();
+    await page.getByRole('dialog', { name: '删除报文模板？' }).getByRole('button', { name: '删除模板', exact: true }).click();
+    await closeTemplates();
+    assert.deepEqual(await effectSnapshot(), initialEffects, 'new/edit/save/cancel/delete are all native-network-free');
+
     // Editing, local templates and file loading have no native network effects.
     await field('报文内容').fill('云依😀');
     assert.equal(await page.getByTestId('packet-byte-count').innerText(), '10 字节', 'UTF-8 byte count is not character count');
@@ -165,20 +195,41 @@ const { chromium } = require('playwright');
     if (await button('发送一次').isEnabled()) await button('发送一次').click();
     assert.equal(await count('network.start'), 0, 'empty content is rejected before native startup');
     await workspace().locator('[class*="payloadToolbar"]').getByRole('button', { name: 'HEX', exact: true }).click();
-    await field('报文内容').fill('00 ff 41'); await field('模板名称').fill('Fixture alpha');
-    await button('保存模板').click();
-    assert.ok(await page.getByTestId('packet-library-panel').isHidden(), 'saving never opens a permanent right-hand library');
+    await field('报文内容').fill('00 ff 41'); await button('另存为模板').click();
+    await field('模板名称').fill('Fixture alpha'); await templateButton('保存模板').click();
     assert.equal(await page.getByTestId('packet-sender-results').getByTestId('packet-library-panel').count(), 0);
-    await openTemplates();
     assert.equal(await page.getByTestId('packet-library').getByRole('article').count(), 1);
-    await closeTemplates(); await button('新建').click(); await openTemplates();
-    await templateButton('载入').click(); await templateDialog().waitFor({ state: 'hidden' });
+    await closeTemplates(); await button('清空内容').click(); await openTemplates();
+    await templateButton('应用到发送区').click(); await templateDialog().waitFor({ state: 'hidden' });
     await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '报文内容');
     assert.equal(await field('报文内容').inputValue(), '00 ff 41', 'saved template loads without loss');
-    await button('更新模板').click();
+    await openTemplates(); await templateButton('编辑模板 Fixture alpha').click(); await templateButton('保存模板').click();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('cloudyi.packet-sender.library.v1')).packets.length), 1,
       'updating a loaded template replaces its ID instead of duplicating it');
-    await openTemplates(); await templateButton('删除模板 Fixture alpha').click();
+    await closeTemplates();
+    // Success feedback is portal-based, never inserted above the mode bar. New,
+    // clear and apply keep the right console/page geometry exactly unchanged.
+    for (const [width, height, size] of [[1280, 762, 'comfortable'], [1008, 610, 'comfortable'], [1008, 610, 'large'], [1920, 1040, 'large']]) {
+      await page.setViewportSize({ width, height }); await page.evaluate((size) => { document.documentElement.dataset.workspaceTextSize = size; }, size);
+      const main = page.getByRole('main').last(); await main.evaluate((element) => { element.scrollTop = 0; });
+      const base = await box(main), beforeLog = await box(log()), beforeDraft = await draftSnapshot(), effects = await effectSnapshot();
+      await button('清空内容').click();
+      assert.deepEqual(await draftSnapshot(), { ...beforeDraft, '报文内容': '' }, 'clear changes only payload and preserves protocol/host/ports/line ending/repeat');
+      assert.equal(await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).getAttribute('aria-selected'), 'true');
+      await openTemplates(); await templateButton('新建模板').click();
+      for (const focusLabel of ['模板名称', '模板网络模式', '模板报文内容']) { await field(focusLabel).focus(); await page.keyboard.press('Tab'); assert.ok(await templateDialog().evaluate((element) => element.contains(document.activeElement)), 'template editor includes selects and textareas in modal focus handling'); }
+      await templateButton('取消编辑').click(); await templateButton('应用到发送区').click();
+      await templateDialog().waitFor({ state: 'hidden' });
+      await main.evaluate((element) => { element.scrollTop = 0; });
+      assert.equal((await box(main)).scrollHeight, base.scrollHeight, 'new/clear/apply feedback never creates or enlarges the outer page scrollbar');
+      assert.equal((await box(log())).height, beforeLog.height, 'success feedback never reduces the log viewport');
+      assert.equal(await workspace().locator(':scope > [role="status"], :scope > [role="alert"]').count(), 0, 'no global page-top notification blocks');
+      assert.deepEqual(await effectSnapshot(), effects, 'new/cancel/clear/apply do not touch the native network');
+      await page.screenshot({ path: path.join(directory, `template-feedback-${width}-${size}.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1280, height: 762 }); await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
+    await openTemplates();
+    await templateButton('删除模板 Fixture alpha').click();
     const dialog = page.getByRole('dialog', { name: '删除报文模板？' }); await dialog.waitFor();
     const modal = await box(dialog), viewport = page.viewportSize();
     assert.ok(Math.abs((modal.x + modal.right) / 2 - viewport.width / 2) < 2, 'delete confirmation is centered in the entire client');
@@ -191,8 +242,8 @@ const { chromium } = require('playwright');
     await field('模板导入文件').setInputFiles({ name: 'packets.json', mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, packets: [saved('Imported fixture', 'fixture-import')] })) });
     await page.getByTestId('packet-library').getByRole('article').first().waitFor();
-    await templateButton('载入').click(); await templateDialog().waitFor({ state: 'hidden' });
-    assert.equal(await field('模板名称').inputValue(), 'Imported fixture');
+    await templateButton('应用到发送区').click(); await templateDialog().waitFor({ state: 'hidden' });
+    assert.equal(await workspace().getByLabel('模板名称', { exact: true }).count(), 0, 'template naming lives only in the template editor');
     assert.equal(await field('发送网卡').inputValue(), '127.0.0.1', 'legacy 0.13.6 template retains its explicit local binding');
     const libraryBeforeInvalidImport = await page.evaluate(() => localStorage.getItem('cloudyi.packet-sender.library.v1'));
     await openTemplates();
@@ -226,10 +277,10 @@ const { chromium } = require('playwright');
     await page.evaluate(() => { window.__packetFixture.holdTx = true; });
     await button('重复发送').click();
     await page.waitForFunction((expected) => window.__packetFixture.requests.filter((item) => item.type === 'network.send').length === expected, repeatBase + 1);
-    for (const name of ['模板名称', '目标地址', '目标端口', '报文内容', '重发间隔', '重发次数']) assert.ok(await field(name).isDisabled(), `${name} is frozen during a repeat run`);
-    assert.ok(await button('新建').isDisabled());
+    for (const name of ['目标地址', '目标端口', '报文内容', '重发间隔', '重发次数']) assert.ok(await field(name).isDisabled(), `${name} is frozen during a repeat run`);
+    assert.ok(await button('清空内容').isDisabled()); assert.ok(await button('另存为模板').isDisabled());
     await openTemplates();
-    for (const name of ['载入', '导入', '删除模板 Imported fixture']) assert.ok(await templateButton(name).isDisabled(), `${name} cannot alter a frozen repeat draft`);
+    for (const name of ['应用到发送区', '新建模板', '导入', '编辑模板 Imported fixture', '删除模板 Imported fixture']) assert.ok(await templateButton(name).isDisabled(), `${name} cannot alter a frozen repeat draft`);
     assert.ok(await templateButton('导出').isEnabled(), 'read-only template export remains available during a run');
     await closeTemplates();
     await page.waitForTimeout(350); assert.equal(await count('network.send'), repeatBase + 1, 'another packet is not queued before TX acknowledgment');
@@ -346,6 +397,15 @@ const { chromium } = require('playwright');
     assert.equal(await count('network.send'), sendsBeforeJoin + 1);
     assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true);
 
+    const joinedEffects = await effectSnapshot(), joinedDraft = await draftSnapshot();
+    await button('另存为模板').click(); await field('模板名称').fill('Active snapshot template'); await templateButton('保存模板').click();
+    const activeEntry = page.getByTestId('packet-library').getByRole('article').filter({ hasText: 'Active snapshot template' });
+    await activeEntry.getByRole('button', { name: '应用到发送区', exact: true }).click(); await templateDialog().waitFor({ state: 'hidden' });
+    assert.deepEqual(await draftSnapshot(), joinedDraft, 'saving and applying a snapshot preserves all visible active configuration');
+    assert.deepEqual(await effectSnapshot(), joinedEffects, 'save-as/apply while connected neither restarts nor sends nor disconnects');
+    assert.equal(await page.evaluate(() => window.__packetFixture.snapshot.multicastJoined), true, 'applying a template preserves the existing multicast session');
+    await openTemplates(); await templateButton('删除模板 Active snapshot template').click(); await dialog.getByRole('button', { name: '删除模板', exact: true }).click(); await closeTemplates();
+
     // A real-looking active status, including wrapping multicast details, must not
     // steal the console's minimum readable height. All state is fixture-only.
     const layoutStartBase = await count('network.start'), layoutSendBase = await count('network.send');
@@ -442,8 +502,10 @@ const { chromium } = require('playwright');
     assert.equal(await count('network.send'), sendsBeforeJoin + 1);
     assert.equal(await page.getByTestId('packet-multicast-state').count(), 0, 'failed membership is never shown as joined');
     await page.getByRole('main').last().evaluate((element) => { element.scrollTop = 0; });
+    await page.getByRole('alert').scrollIntoViewIfNeeded();
     const errorBounds = await box(page.getByRole('alert'));
-    assert.ok(errorBounds.bottom <= page.viewportSize().height, 'native error is visible without scrolling the editor');
+    assert.ok(errorBounds.bottom <= page.viewportSize().height, 'native error is reachable beside its connection controls');
+    assert.ok(await page.getByRole('alert').evaluate((element) => !!element.closest('[aria-label="连接参数"]')), 'connection failures stay near their own controls');
     await verifyReadableLayout(1280, 762, 'native membership error');
     await page.screenshot({ path: path.join(directory, 'multicast-synthetic-error.png'), fullPage: true });
     // A saved adapter that disappeared is never silently replaced by another route.
@@ -457,7 +519,7 @@ const { chromium } = require('playwright');
     await page.getByRole('alert').filter({ hasText: '网卡当前不可用' }).waitFor();
     assert.equal(await count('network.start'), startsBeforeMissingAdapter, 'missing adapters are blocked, not silently rerouted');
     assert.equal(await consentDialog().count(), 0);
-    await button('新建').click(); await field('发送网卡').selectOption('127.0.0.1');
+    await page.getByRole('tab', { name: 'TCP 客户端', exact: true }).click(); await field('目标地址').fill('127.0.0.1'); await field('目标端口').fill('9000'); await field('发送网卡').selectOption('127.0.0.1');
 
     // Failures cancel the rest of a repeat run without replaying possibly sent data.
     await page.evaluate(() => { window.__packetFixture.failNextSend = 'Synthetic send failure'; });
@@ -467,7 +529,7 @@ const { chromium } = require('playwright');
     assert.ok((await page.getByRole('alert').innerText()).includes('Synthetic send failure'));
 
     // Prioritize legible logs; short/large-text windows may scroll the whole page.
-    await button('新建').click(); await field('发送网卡').selectOption('127.0.0.1');
+    await field('报文内容').fill('00 ff 41'); await field('发送网卡').selectOption('127.0.0.1');
     for (const [width, height] of [[1280, 762], [1024, 640], [1920, 1040], [760, 560]]) {
       await page.setViewportSize({ width, height });
       for (const size of ['comfortable', 'large']) {
@@ -502,8 +564,23 @@ const { chromium } = require('playwright');
     await page.evaluate(() => { window.__packetFixture.holdTx = false; });
     await page.waitForTimeout(400);
     assert.equal(await count('network.send'), sendsBeforeUnmount + 1, 'leaving during pending TX cancels remaining repeat sends');
+    // Corrupt pre-existing storage is never overwritten by new template editing.
+    const corruptLibrary = '{not-valid-json';
+    await page.evaluate((raw) => { localStorage.setItem('cloudyi.packet-sender.library.v1', raw); }, corruptLibrary);
+    await openTool(); const corruptEffects = await effectSnapshot(); await openTemplates();
+    await templateDialog().getByRole('alert').filter({ hasText: '原数据未覆盖' }).waitFor();
+    assert.equal(await workspace().getByRole('alert').count(), 0, 'library errors stay in the template workflow rather than the page top');
+    await templateButton('新建模板').click(); await field('模板名称').fill('Must not overwrite'); await field('模板报文内容').fill('test');
+    await templateButton('保存模板').click(); await templateDialog().getByRole('alert').filter({ hasText: '禁止覆盖' }).waitFor();
+    assert.equal(await libraryJSON(), corruptLibrary, 'save refuses to replace damaged original storage');
+    await templateButton('取消编辑').click();
+    const rawDownloadPromise = page.waitForEvent('download'); await templateButton('导出').click();
+    const rawDownload = await rawDownloadPromise;
+    assert.equal(fs.readFileSync(await rawDownload.path(), 'utf8'), corruptLibrary, 'raw backup export still preserves the damaged source');
+    assert.deepEqual(await effectSnapshot(), corruptEffects, 'corrupt-library handling remains network-free');
+    await closeTemplates();
     assert.deepEqual(errors, [], 'no uncaught application exceptions');
-    console.log('PASS: read-only adapters; no automatic effects; binary-safe UTF-8/HEX/escaped data; UDP/TCP wait for ready and actual TX; frozen repeat/stop; legacy template import/load/update/delete/export; centered 100-template browser/search/internal scrolling/focus; 100-template and 1 MiB import bounds; external consent/cancel; multicast interface/TTL; receive-only join/RX/leave/error; separate ports and ephemeral-to-explicit joined-port reuse; fully scrolling send options; 5000-row bounded logs with 320px usable height; natural vertical overflow, no horizontal clipping; default/1024/maximized split and narrow stack. All traffic is synthetic.');
+    console.log('PASS: independent template new/edit/save/cancel; clear payload preserves connection/settings; explicit apply and active-session save-as have zero native effects; local validation/corrupt-store protection/raw backup; default/125%-equivalent/maximized toast geometry unchanged; read-only adapters; binary-safe UTF-8/HEX/escaped; actual TX serialization/repeat/stop; legacy template import/edit/delete/export; centered 100-template browser/internal scroll/focus; size/count bounds; multicast consent/interface/TTL/receive/join/leave/error; fully scrolling send options; 5000-row bounded logs; responsive layouts. All traffic is synthetic.');
   } catch (error) {
     await page.screenshot({ path: path.join(directory, 'failure.png'), fullPage: true }).catch(() => {}); throw error;
   } finally { await browser.close(); }
