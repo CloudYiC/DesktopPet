@@ -247,6 +247,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.13-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '~', text: 'Fixed redundant whole-page MQTT scrolling at default and scaled desktop sizes by fitting the workspace and message list to available height' },
+      { kind: '~', text: 'Kept left-side settings independently scrollable and right-side message controls stationary, preserving internal history and payload scrolling without changing broker behavior' },
+    ],
+  },
+  {
     version: 'v0.13.12-desktop',
     date: '2026-09-15',
     items: [

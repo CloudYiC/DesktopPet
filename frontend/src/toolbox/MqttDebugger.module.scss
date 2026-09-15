@@ -7,7 +7,7 @@ $sand: palette.$surface;
 $line: palette.$line;
 $teal: palette.$primary;
 
-.workspace { @include palette.workspace; display: flex; min-width: 0; height: calc(100dvh - 28px); min-height: 600px; flex-direction: column; gap: 10px; font-size: .8125rem; }
+.workspace { @include palette.workspace; display: flex; min-width: 0; height: calc(100dvh - 28px); min-height: 0; flex-direction: column; gap: 10px; font-size: .8125rem; }
 .workspace > header { flex-shrink: 0; }
 .workspace button, .workspace input, .workspace select, .workspace textarea { font: inherit; box-sizing: border-box; }
 .workspace button { min-height: 30px; padding: 5px 9px; border: 1px solid $line; border-radius: 6px; color: palette.$deep; background: $paper; cursor: pointer; }
@@ -68,7 +68,7 @@ $teal: palette.$primary;
 .messageBody { position: relative; display: grid; flex: 1; min-width: 0; min-height: 0; grid-template-columns: minmax(0, 1fr); }
 .listPanel { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid $line; border-radius: 7px; overflow: hidden; background: $paper; container-type: inline-size; }
 .listCaption { display: flex; flex-shrink: 0; gap: 8px; justify-content: space-between; padding: 7px 10px; border-bottom: 1px solid $line; color: palette.$blue; background: palette.$blue-soft; font-size: .6875rem; }
-.messageList { position: relative; min-width: 0; min-height: 340px; flex: 1; overflow: auto; overflow-anchor: none; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.messageList { position: relative; min-width: 0; min-height: 0; flex: 1; overflow: auto; overflow-anchor: none; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .workspace .messageRow { display: flex; flex-direction: column; gap: 8px; width: 100%; height: 74px; min-height: 74px; padding: 11px 10px; border: 0; border-bottom: 1px solid $line; border-radius: 0; color: $ink; background: transparent; text-align: left; }
 .workspace .messageRow:hover { background: $sand; }.workspace .messageRow[aria-selected='true'] { background: palette.$blue-soft; box-shadow: inset 3px 0 palette.$blue; }
 .messageTop, .messageBottom { display: flex; min-width: 0; align-items: center; gap: 9px; width: 100%; }

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.12",
+  "latestVersion": "0.13.13",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.12",
-  "releaseNotes": "Improved packet inspector layout for default and scaled desktop windows, keeping protocol navigation and current selection beside byte and field views. Payload-field actions now belong to their corresponding protocol nodes and reveal the focused editor. Byte rows automatically adapt to available width while retaining manual 8/16/32-column choices. Preserves the initial packet start, selected bytes during resizing and ordinary manual scrolling. Clarifies raw-byte integers versus parsed protocol fields; validated sixteen responsive configurations and existing parser/storage regressions.",
-  "publishedAt": "2026-09-15T02:39:57Z",
+  "title": "云依助手 0.13.13",
+  "releaseNotes": "Fixed redundant whole-page MQTT scrolling at default and scaled desktop sizes, including large text. Left-side connection, subscription and publishing controls scroll independently while the right message panel stays within the client. Message history and long payloads retain internal scrolling; narrow stacked layouts retain natural page scrolling. Validated empty, advanced authentication, long error, populated and selected-detail states without changing broker behavior.",
+  "publishedAt": "2026-09-15T03:05:25Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.12.exe",
-      "sha256": "5698437DCF864B2D9CA5C2CF0C82CFF9EBC3E106C01E637BE94FBA7E72FE4473",
-      "size": 23335079,
+      "url": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.13.exe",
+      "sha256": "7B8E5055927AC720A8010962CDC07CE845C31BD3FEAE404B5B58602D01CEBBDC",
+      "size": 23336079,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.12.exe"
+    "windows-amd64": "https://raw.githubusercontent.com/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.13.exe"
   }
 }

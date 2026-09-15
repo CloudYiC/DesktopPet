@@ -133,27 +133,51 @@ const { chromium } = require('playwright');
       }
     }
     await page.evaluate(() => { document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
-    for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1024, height: 640 }, { width: 760, height: 560 }]) {
+    for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1024, height: 640 }, { width: 1008, height: 610 }, { width: 760, height: 560 }]) {
       await page.setViewportSize(viewport);
       for (const textSize of ['comfortable', 'large']) {
         await page.evaluate((value) => { document.documentElement.dataset.workspaceTextSize = value; }, textSize);
         for (const [name, prefix, selector, minHeight] of [['MQTT 调试助手', 'mqtt', '[aria-label="MQTT 消息列表"]', 340], ['Modbus 调试助手', 'modbus', '[data-testid="modbus-data"]', 300]]) {
           await openTool(name);
           const geometry = await page.getByTestId(`${prefix}-workspace`).evaluate((area, { prefix, selector }) => {
-            const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, height: r.height }; };
+            const rect = (el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, height: r.height }; };
             const main = area.closest('main');
-            return { width: main.clientWidth, scrollWidth: main.scrollWidth,
+            return { width: main.clientWidth, scrollWidth: main.scrollWidth, height: main.clientHeight, scrollHeight: main.scrollHeight,
+              workspace: rect(area),
               controls: rect(area.querySelector(`[data-testid="${prefix}-controls"]`)),
               result: rect(area.querySelector(`[data-testid="${prefix === 'mqtt' ? 'mqtt-messages' : 'modbus-results'}"]`)),
               reader: rect(area.querySelector(selector)) };
           }, { prefix, selector });
           const label = `${name}/${viewport.width}x${viewport.height}/${textSize}`;
           assert.ok(geometry.scrollWidth <= geometry.width + 1, `${label}: no page horizontal overflow`);
-          assert.ok(geometry.reader.height >= minHeight, `${label}: browsing area retains a useful minimum height`);
+          // MQTT's reading area fills the available window rather than forcing a
+          // 340px minimum that pushes the whole page below a 125%-scaled client.
+          const usefulHeight = prefix === 'mqtt' && viewport.width > 900 ? Math.min(minHeight, viewport.height * .5) : minHeight;
+          assert.ok(geometry.reader.height >= usefulHeight, `${label}: browsing area retains a useful visible height`);
           assert.ok(geometry.result.right <= viewport.width + 1, `${label}: result actions stay inside the client`);
           if (viewport.width > 900) {
             assert.ok(geometry.result.x >= geometry.controls.right, `${label}: results are beside controls`);
             assert.ok(Math.abs(geometry.result.y - geometry.controls.y) < 2, `${label}: columns align`);
+            if (prefix === 'mqtt') {
+              assert.ok(geometry.scrollHeight <= geometry.height + 1, `${label}: MQTT does not require outer page scrolling`);
+              assert.ok(geometry.workspace.bottom <= viewport.height + 1, `${label}: MQTT workspace fits the available client height`);
+              assert.ok(geometry.result.bottom <= viewport.height + 1, `${label}: MQTT right panel and footer remain visible`);
+              const scrolling = await page.getByTestId('mqtt-controls').evaluate((controls) => {
+                const main = controls.closest('main');
+                const result = main.querySelector('[data-testid="mqtt-messages"]');
+                const before = result.getBoundingClientRect();
+                controls.scrollTop = controls.scrollHeight;
+                const after = result.getBoundingClientRect();
+                return { leftScroll: controls.scrollTop, leftScrollRange: controls.scrollHeight - controls.clientHeight,
+                  leftOverflow: getComputedStyle(controls).overflowY, pageScroll: main.scrollTop, beforeTop: before.top, beforeBottom: before.bottom,
+                  afterTop: after.top, afterBottom: after.bottom };
+              });
+              assert.equal(scrolling.leftOverflow, 'auto', `${label}: left settings retain their own scrolling surface`);
+              if (scrolling.leftScrollRange > 1) assert.ok(scrolling.leftScroll > 0, `${label}: overflowing left settings scroll independently`);
+              assert.equal(scrolling.pageScroll, 0, `${label}: scrolling left settings does not move the page`);
+              assert.equal(scrolling.afterTop, scrolling.beforeTop, `${label}: right message header remains fixed`);
+              assert.equal(scrolling.afterBottom, scrolling.beforeBottom, `${label}: right message footer remains fixed`);
+            }
           }
           await header().getByRole('button', { name: '← 返回工具列表', exact: true }).click();
         }

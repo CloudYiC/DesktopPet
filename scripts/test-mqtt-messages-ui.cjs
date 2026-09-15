@@ -20,6 +20,7 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
   const direction = () => page.getByLabel('MQTT 消息方向', { exact: true });
   const follow = () => page.getByLabel('跟随最新消息', { exact: true });
   const payload = () => page.getByLabel('消息内容', { exact: true });
+  const desktopViewports = [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1008, height: 610 }, { width: 960, height: 640 }];
   const count = (type) => page.evaluate((type) => window.__deviceFixture.requests.filter((request) => request.type === type).length, type);
   const waitRows = (length) => page.waitForFunction((length) => document.querySelectorAll('[aria-label="MQTT 消息列表"] [role="option"]').length === length, length);
   async function inject(entries) {
@@ -35,7 +36,8 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     }, entries);
   }
   async function closeDetail() { if (await detail().count()) await page.getByRole('button', { name: '收起消息详情', exact: true }).click(); }
-  async function dimensions(label) {
+  async function dimensions(label, screenshot = true) {
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     const geometry = await area().evaluate((area) => {
       const rect = (el) => { const box = el.getBoundingClientRect(); return { x: box.x, y: box.y, right: box.right, bottom: box.bottom, width: box.width, height: box.height }; };
       const main = area.closest('main');
@@ -43,7 +45,11 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
       const messages = area.querySelector('[data-testid="mqtt-messages"]');
       const list = area.querySelector('[aria-label="MQTT 消息列表"]');
       return { outerWidth: main.clientWidth, outerScrollWidth: main.scrollWidth,
+        outerHeight: main.clientHeight, outerScrollHeight: main.scrollHeight, outerTop: main.scrollTop,
+        documentHeight: document.scrollingElement.scrollHeight,
         controls: rect(controls), messages: rect(messages), list: rect(list),
+        detail: area.querySelector('[data-testid="mqtt-detail"]') ? rect(area.querySelector('[data-testid="mqtt-detail"]')) : null,
+        content: area.querySelector('[aria-label="消息内容"]') ? rect(area.querySelector('[aria-label="消息内容"]')) : null,
         controlsWidth: controls.clientWidth, controlsScrollWidth: controls.scrollWidth,
         listWidth: list.clientWidth, listScrollWidth: list.scrollWidth };
     });
@@ -51,14 +57,54 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     assert.ok(geometry.outerScrollWidth <= geometry.outerWidth + 1, `${label}: no page horizontal overflow`);
     assert.ok(geometry.controlsScrollWidth <= geometry.controlsWidth + 1, `${label}: controls stay within their column`);
     assert.ok(geometry.listScrollWidth <= geometry.listWidth + 1, `${label}: long topic and payload do not widen messages`);
-    assert.ok(geometry.list.height >= 340, `${label}: at least 340px for browsing messages, actual ${geometry.list.height}`);
+    assert.ok(geometry.list.height >= (viewport.width > 900 ? 160 : 340), `${label}: message viewport remains readable, actual ${geometry.list.height}`);
     assert.ok(geometry.messages.right <= viewport.width + 1, `${label}: message controls fit client width`);
     if (viewport.width > 900) {
       assert.ok(geometry.messages.x >= geometry.controls.right, `${label}: left operations and right messages are side by side`);
       assert.ok(Math.abs(geometry.messages.y - geometry.controls.y) <= 2, `${label}: two columns align`);
+      assert.ok(geometry.outerScrollHeight <= geometry.outerHeight + 1, `${label}: desktop details do not scroll the outer page (${geometry.outerScrollHeight}/${geometry.outerHeight})`);
+      assert.ok(geometry.documentHeight <= viewport.height + 1, `${label}: desktop document does not overflow the client`);
+      assert.equal(geometry.outerTop, 0, `${label}: the outer page remains at its original position`);
+      assert.ok(geometry.messages.bottom <= viewport.height + 1, `${label}: full message panel fits client height`);
+      if (geometry.detail) {
+        assert.ok(geometry.detail.bottom <= geometry.messages.bottom + 1, `${label}: detail remains inside the fixed message panel`);
+        assert.ok(geometry.content.height >= 40, `${label}: selected payload keeps a usable visible area`);
+        assert.ok(geometry.content.bottom <= geometry.detail.bottom + 1, `${label}: selected payload is not clipped below details`);
+      }
+    } else {
+      assert.ok(geometry.outerScrollHeight > geometry.outerHeight, `${label}: narrow stacked layout retains natural page scrolling`);
     }
-    await page.screenshot({ path: path.join(output, `${label}.png`), fullPage: true, animations: 'disabled' });
-    console.log(`PASS MQTT ${label}: ${Math.round(geometry.list.height)}px message viewport, no horizontal overflow.`);
+    if (screenshot) await page.screenshot({ path: path.join(output, `${label}.png`), fullPage: true, animations: 'disabled' });
+    console.log(`PASS MQTT ${label}: ${Math.round(geometry.list.height)}px message viewport, bounded desktop height and no horizontal overflow.`);
+  }
+  async function scrollIsolation(label, hasMessages) {
+    const viewport = page.viewportSize();
+    if (viewport.width <= 900) return;
+    const measurements = await area().evaluate((area) => {
+      const controls = area.querySelector('[data-testid="mqtt-controls"]');
+      const messages = area.querySelector('[data-testid="mqtt-messages"]');
+      controls.scrollTop = 0;
+      const before = messages.getBoundingClientRect();
+      controls.scrollTop = controls.scrollHeight;
+      const after = messages.getBoundingClientRect();
+      return { deltaY: after.y - before.y, deltaHeight: after.height - before.height,
+        scrollTop: controls.scrollTop, scrollHeight: controls.scrollHeight, height: controls.clientHeight };
+    });
+    assert.ok(Math.abs(measurements.deltaY) <= 1 && Math.abs(measurements.deltaHeight) <= 1, `${label}: scrolling operations never moves or resizes messages`);
+    if (measurements.scrollHeight > measurements.height + 1) assert.ok(measurements.scrollTop > 0, `${label}: left controls can scroll independently`);
+    // A long connection error follows the publish card, so locate the button rather than assuming it is the final child.
+    await page.getByRole('region', { name: 'MQTT 发布', exact: true }).getByRole('button', { name: /^发布/ }).scrollIntoViewIfNeeded();
+    const publishVisible = await page.getByRole('region', { name: 'MQTT 发布', exact: true }).getByRole('button', { name: /^发布/ }).evaluate((button) => {
+      const box = button.getBoundingClientRect(); const column = button.closest('[data-testid="mqtt-controls"]').getBoundingClientRect();
+      return box.top >= column.top - 1 && box.bottom <= column.bottom + 1;
+    });
+    assert.ok(publishVisible, `${label}: the publish action remains reachable within the left scroll area`);
+    if (hasMessages) {
+      const internal = await list().evaluate((el) => { el.scrollTop = 0; el.scrollTop = Math.min(500, el.scrollHeight - el.clientHeight); return { top: el.scrollTop, height: el.clientHeight, scrollHeight: el.scrollHeight }; });
+      assert.ok(internal.scrollHeight > internal.height && internal.top > 0, `${label}: many messages retain an internal scrollbar`);
+    }
+    await page.getByTestId('mqtt-controls').evaluate((el) => { el.scrollTop = 0; });
+    await dimensions(`${label}-scroll-isolation`, false);
   }
 
   try {
@@ -68,6 +114,27 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     assert.equal(await count('mqtt.start'), 0, 'opening the tool does not connect');
     assert.equal(await count('mqtt.publish'), 0, 'opening the tool never publishes');
     assert.equal(await detail().count(), 0, 'no empty detail pane competes with message list');
+    // The 1008x610 viewport represents a default client at 125% display scaling.
+    // Empty messages, advanced authentication and unbroken native errors must all
+    // remain inside the left scroll column rather than adding a page scrollbar.
+    for (const viewport of desktopViewports) {
+      await page.setViewportSize(viewport);
+      for (const textSize of ['comfortable', 'large']) {
+        await page.evaluate((value) => { document.documentElement.dataset.workspaceTextSize = value; }, textSize);
+        const label = `${viewport.width}x${viewport.height}-${textSize}-empty`;
+        await dimensions(label);
+        await area().getByRole('button', { name: /认证与 TLS/ }).click();
+        await page.evaluate(() => { window.__deviceFixture.mqtt.lastError = `布局回归模拟错误：${'BROKER_CONNECTION_ERROR_'.repeat(50)}`; });
+        await page.getByRole('alert').filter({ hasText: '布局回归模拟错误' }).waitFor();
+        await dimensions(`${label}-advanced-error`);
+        await scrollIsolation(`${label}-advanced-error`, false);
+        await area().getByRole('button', { name: /认证与 TLS/ }).click();
+      }
+    }
+    await page.evaluate(() => { window.__deviceFixture.mqtt.lastError = ''; document.documentElement.dataset.workspaceTextSize = 'comfortable'; });
+    await page.setViewportSize({ width: 1280, height: 762 });
+    assert.equal(await count('mqtt.start'), 0, 'layout checks do not connect');
+    assert.equal(await count('mqtt.publish'), 0, 'scrolling to publishing controls never publishes');
     await area().getByRole('button', { name: '连接 Broker', exact: true }).click();
     await area().getByRole('button', { name: '断开连接', exact: true }).waitFor();
 
@@ -154,12 +221,13 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     await filter().fill(''); await waitRows(646); await closeDetail();
 
     // All desktop sizes retain a useful list viewport. Small screens may scroll vertically.
-    for (const viewport of [{ width: 1280, height: 762 }, { width: 1920, height: 1040 }, { width: 1024, height: 640 }, { width: 760, height: 560 }]) {
+    for (const viewport of [...desktopViewports, { width: 760, height: 560 }]) {
       await page.setViewportSize(viewport);
       for (const textSize of ['comfortable', 'large']) {
         await page.evaluate((value) => { document.documentElement.dataset.workspaceTextSize = value; }, textSize);
         const label = `${viewport.width}x${viewport.height}-${textSize}`;
         await dimensions(label);
+        await scrollIsolation(label, true);
         await rows().first().click(); await detail().waitFor();
         const main = await page.getByRole('main').last().evaluate((el) => ({ width: el.clientWidth, scroll: el.scrollWidth }));
         assert.ok(main.scroll <= main.width + 1, `${label}: expanded detail cannot cause horizontal scrolling`);
@@ -173,7 +241,19 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
         await detail().getByRole('button', { name: '上一条 MQTT 消息', exact: true }).click();
         assert.equal(await list().locator('[role="option"][aria-selected="true"]').getAttribute('data-message-id'), firstSelectedId, `${label}: previous message restores the original selection`);
         await page.screenshot({ path: path.join(output, `${label}-detail.png`), fullPage: true, animations: 'disabled' });
+        await dimensions(`${label}-detail-height`, false);
+        await area().getByRole('button', { name: /认证与 TLS/ }).click();
+        await dimensions(`${label}-detail-advanced`, false);
+        await scrollIsolation(`${label}-detail-advanced`, true);
+        await area().getByRole('button', { name: /认证与 TLS/ }).click();
         await closeDetail();
+        await filter().fill('FULL_PAYLOAD_SEARCH_SUFFIX'); await waitRows(1); await rows().first().click();
+        await detail().getByRole('button', { name: '文本', exact: true }).click();
+        await dimensions(`${label}-long-topic-detail`);
+        assert.ok((await payload().innerText()).endsWith('FULL_PAYLOAD_SEARCH_SUFFIX'), `${label}: full payload remains accessible with a long topic`);
+        const detailOverflow = await detail().evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight }));
+        assert.ok(detailOverflow.scroll <= detailOverflow.client + 1, `${label}: detail controls and payload fit without a second panel scrollbar`);
+        await closeDetail(); await filter().fill(''); await waitRows(646);
       }
     }
     await page.setViewportSize({ width: 1280, height: 762 });
@@ -255,7 +335,7 @@ const { addFixture } = require('./test-device-debuggers-ui.cjs');
     await page.locator('header[aria-label="工具详情导航"]').getByRole('button', { name: '← 返回工具列表', exact: true }).click();
     await page.waitForFunction(() => window.__deviceFixture.mqtt.state === 'stopped');
     assert.deepEqual(errors, [], 'no unhandled browser or React errors');
-    console.log('PASS MQTT message-first browsing: payload previews, topic/content/direction filters, explicit stable selection, binary/empty Retain, follow without reception loss, history position, bounded 2000/4 MiB history and 8 responsive layouts. All broker traffic synthetic.');
+    console.log('PASS MQTT message-first browsing: payload previews, topic/content/direction filters, explicit stable selection, binary/empty Retain, follow without reception loss, history position, bounded 2000/4 MiB history and 10 responsive layouts. Desktop empty, advanced/error, populated and selected-detail states retain fixed messages with independent controls/message scrolling. All broker traffic synthetic.');
   } catch (error) { await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true }).catch(() => {}); throw error; }
   finally { await context.close(); await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });
