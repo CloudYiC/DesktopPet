@@ -72,7 +72,7 @@ export function AppSidebar(props: AppSidebarProps) {
     <aside className={styles.sidebar}>
       <div className={styles.brand}>
         <div className={styles.brandMark}>依</div>
-        <div><strong>云依助手</strong><span>{props.petName} · 本地工具箱</span></div>
+        <div><strong>云依助手</strong></div>
       </div>
 
       <div className={styles.scrollArea}>

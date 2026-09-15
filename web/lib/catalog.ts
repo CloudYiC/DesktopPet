@@ -247,6 +247,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v0.13.16-desktop',
+    date: '2026-09-15',
+    items: [
+      { kind: '-', text: 'Removed the toolbox home introduction banner and sidebar brand subtitle while retaining category navigation, search and direct tool access' },
+      { kind: '~', text: 'Restored centered reminder placards while the workspace is open or minimized, including the ten-second test; active reminders remain visible when opening the workspace and idle visibility is restored after returning' },
+      { kind: '~', text: 'Center reminders on the visible workspace monitor without stealing focus and prevent replay when closing the workspace; retain full offline Windows prerequisites' },
+      { kind: '~', text: 'Restore the desktop pet when the workspace is closed, hidden or minimized; separate manual hiding from temporary suppression and synchronize WebView2 visibility when reopening' },
+      { kind: '~', text: 'Fix idle edge-tucking after reminder presentation and keep part of the character visible instead of exposing only transparent padding; test all idle-time thresholds using a pure C policy' },
+    ],
+  },
+  {
     version: 'v0.13.15-desktop',
     date: '2026-09-15',
     items: [

@@ -24,10 +24,7 @@ $teal-dark: var(--theme-primary-deep);
 
   > div:last-child { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 
-  strong,
-  span { display: block; }
-  strong { color: $ink; font-size: 0.9375rem; letter-spacing: 0.04em; }
-  span { margin-top: 3px; color: $muted; font-size: 0.75rem; line-height: 1.4; word-break: keep-all; }
+  strong { display: block; color: $ink; font-size: 0.9375rem; letter-spacing: 0.04em; }
 }
 
 .brandMark {

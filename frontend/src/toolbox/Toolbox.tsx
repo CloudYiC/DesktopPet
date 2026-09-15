@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   categoryById,
-  READY_TOOL_COUNT,
   TOOL_CATEGORIES,
   TOOL_DEFINITIONS,
   resolveToolId,
@@ -112,20 +111,6 @@ export function Toolbox({ category, onOpenCategory, onWorkspaceChange }: Toolbox
 
   return (
     <section className={styles.toolbox}>
-      {!selectedCategory && (
-        <div className={styles.toolboxHero}>
-          <div>
-            <span>CLOUDYI TOOLBOX · LOCAL FIRST</span>
-            <h2>常用开发工具，现在和可爱依依住在一起。</h2>
-            <p>首批工具已经通过 C++11 桥接原有 C 核心；高权限功能会在确认前保持关闭。</p>
-          </div>
-          <div className={styles.heroStats}>
-            <strong>{READY_TOOL_COUNT}</strong>
-            <span>个工具可直接使用</span>
-          </div>
-        </div>
-      )}
-
       {!selectedCategory && (
         <div className={styles.categoryStrip}>
           {TOOL_CATEGORIES.map((item) => (

@@ -63,6 +63,7 @@ add_library(cloudyi_core_c STATIC
   c_core/src/modbus_protocol.c
   c_core/src/mqtt_codec.c
   c_core/src/packet_inspector.c
+  c_core/src/pet_behavior.c
   c_core/src/sha256.c
   c_core/src/store_tools.c
   c_core/src/url_encode.c
@@ -196,6 +197,14 @@ set_property(TARGET MiloDesktopPet PROPERTY
 )
 
 if(BUILD_TESTING)
+  # Pure policy checks need no windows, real reminders or installed app state.
+  add_executable(MiloPetBehaviorTests tests/PetBehaviorTests.c)
+  target_link_libraries(MiloPetBehaviorTests PRIVATE cloudyi_core_c)
+  if(MSVC)
+    target_compile_options(MiloPetBehaviorTests PRIVATE /W4 /utf-8)
+  endif()
+  add_test(NAME MiloPetBehaviorTests COMMAND MiloPetBehaviorTests)
+
   add_executable(MiloCharacterImageTests
     tests/CharacterImageTests.cpp
     src/CharacterImage.cpp

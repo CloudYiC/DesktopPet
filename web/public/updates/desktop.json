@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.15",
+  "latestVersion": "0.13.16",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.15 · 完整离线安装包",
-  "releaseNotes": "Full offline Windows x64 setup includes the complete Microsoft WebView2 Evergreen Standalone Installer and Visual C++ redistributable. Copy this single EXE via USB to a Windows 10/11 x64 computer; prerequisite installation requires no internet download. Existing runtimes are retained, missing components are installed and rechecked, failures stop setup and restart requirements are reported. Administrator permission and company application policies still apply.",
-  "publishedAt": "2026-09-15T07:52:36Z",
+  "title": "云依助手 0.13.16 · 桌面依依恢复与举牌修复",
+  "releaseNotes": "Removed the toolbox introduction banner and sidebar subtitle. Restored centered reminder placards, including the ten-second test while the workspace is open. Closing, hiding or minimizing the workspace restores the desktop pet; reopening restores minimized windows and synchronizes WebView2 visibility. Manual hiding is kept separate. Idle edge-tucking follows the configured system inactivity threshold, works after reminder presentation, and retains visible character content. Full offline WebView2 and VC++ prerequisites remain included for Windows 10/11 x64 USB distribution.",
+  "publishedAt": "2026-09-15T11:20:48Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.15.exe",
-      "sha256": "2CE2FA8C648AEE722E74FBC9E2ECBEE7B37BAC1B2BADC2F82080A375D1329C40",
-      "size": 237276551,
+      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.16.exe",
+      "sha256": "61F67CA8E775F3CD28CA9A2C5E1B106750FB53F88E07D5DECC913223AE269AF0",
+      "size": 237265241,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.15.exe"
+    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.16.exe"
   }
 }

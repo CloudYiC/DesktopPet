@@ -21,6 +21,7 @@
 #include "Milo/Utils.h"
 #include "cloudyi/file_dialog.h"
 #include "cloudyi/icon_file.h"
+#include "cloudyi/pet_behavior.h"
 #include "resource.h"
 
 namespace milo {
@@ -581,7 +582,7 @@ int Application::Run(int) {
   petWindow_->Show();
   if (showDashboardOnStart_) {
     ShowDashboard();
-    const std::string marker = "CuteYiyiDesktopPet 0.13.15";
+    const std::string marker = "CuteYiyiDesktopPet 0.13.16";
     WriteBinaryFile(onboardingMarker_, marker.data(), marker.size());
   }
 
@@ -637,7 +638,7 @@ void Application::HandleWebMessage(WebViewWindow& source,
       return;
     }
     if (type == "window.hidePet") {
-      petWindow_->Hide();
+      SetPetHiddenByUser(true);
       return;
     }
     if (type == "app.quit") {
@@ -1741,20 +1742,17 @@ void Application::HandleTimer() {
     // TakeDue atomically claims occurrences before any UI or audio side effect.
     const std::vector<Reminder> due =
         reminders_.TakeDue(UnixTimeMilliseconds());
-    const bool dashboardVisible =
-        dashboardWindow_ != nullptr &&
-        IsWindowVisible(dashboardWindow_->Handle());
+    const bool dashboardVisible = IsDashboardOnDesktop();
     for (const Reminder& reminder : due) {
-      // Keep the workspace distraction-free. The reminder still reaches the
-      // dashboard, tray and audio channels, and the pet can present it after
-      // the dashboard has been closed.
-      if (!dashboardVisible) {
-        petWindow_->Show();
-        petWindow_->BeginReminderPresentation(reminder.priority);
-      }
+      // Due reminders are an explicit interruption, including the ten-second
+      // test inside the workspace. Idle-pet hiding must never suppress them.
+      // The native return callback hides the pet again if the workspace is open.
+      suppressCurrentPresentation_ = false;
+      petWindow_->BeginReminderPresentation(
+          reminder.priority,
+          dashboardVisible ? dashboardWindow_->Handle() : nullptr);
       presentedReminderId_ = reminder.id;
       hasPresentedReminder_ = true;
-      presentedReminderPriority_ = reminder.priority;
       PlayReminderAlert(reminder);
       ShowNativeNotification(reminder);
       Broadcast({{"type", "reminder.triggered"},
@@ -1764,16 +1762,16 @@ void Application::HandleTimer() {
       SendState();
     }
 
+    SyncPetVisibility();
     // Windows' system-wide last-input tick includes activity outside this app,
     // matching the user's expectation of "no computer operation".
     LASTINPUTINFO lastInput{sizeof(lastInput)};
     if (GetLastInputInfo(&lastInput)) {
       const DWORD idleMilliseconds = GetTickCount() - lastInput.dwTime;
-      const bool shouldTuck =
-          autoHideEnabled_ && !hasPresentedReminder_ &&
-          !dashboardVisible &&
-          idleMilliseconds >=
-              static_cast<DWORD>(autoHideMinutes_ * 60 * 1000);
+      const bool shouldTuck = cloudyi_pet_should_tuck(
+          autoHideEnabled_, dashboardVisible, petManuallyHidden_,
+          petWindow_->IsReminderPresenting(), idleMilliseconds,
+          autoHideMinutes_) != 0;
       petWindow_->SetAutoTucked(shouldTuck);
     }
   } catch (const std::exception& error) {
@@ -1795,20 +1793,8 @@ void Application::HandleTrayMessage(LPARAM event) {
 
 void Application::ShowDashboard() {
   EnsureDashboard();
-  const bool dashboardVisible =
-      IsWindowVisible(dashboardWindow_->Handle()) != FALSE;
-  const bool petVisible =
-      petWindow_ != nullptr &&
-      IsWindowVisible(petWindow_->Handle()) != FALSE;
-  if (!dashboardVisible) {
-    // Only restore a pet that this dashboard transition actually hid. This
-    // preserves an explicit "temporarily hide" choice made from the tray.
-    restorePetAfterDashboard_ = petVisible;
-  }
-  if (petVisible) {
-    petWindow_->Hide();
-  }
   dashboardWindow_->Show();
+  SyncPetVisibility();
   SendState(dashboardWindow_.get());
 }
 
@@ -1823,14 +1809,46 @@ void Application::CloseDashboard() {
   if (dashboardWindow_ != nullptr) {
     dashboardWindow_->Hide();
   }
-  if (!quitting_ && restorePetAfterDashboard_ && petWindow_ != nullptr &&
-      !IsWindowVisible(petWindow_->Handle())) {
-    petWindow_->Show();
-    if (hasPresentedReminder_) {
-      petWindow_->BeginReminderPresentation(presentedReminderPriority_);
-    }
+  SyncPetVisibility();
+}
+
+void Application::OnReminderPresentationFinished() {
+  // Called after the return animation, for timeout as well as complete/snooze.
+  // Opening/closing the workspace during the animation uses its current state;
+  // it never replays a reminder that has already been presented.
+  suppressCurrentPresentation_ = false;
+  SyncPetVisibility();
+}
+
+bool Application::IsDashboardOnDesktop() const {
+  return dashboardWindow_ != nullptr &&
+         IsWindowVisible(dashboardWindow_->Handle()) &&
+         !IsIconic(dashboardWindow_->Handle());
+}
+
+void Application::SyncPetVisibility() {
+  if (quitting_ || petWindow_ == nullptr || petWindow_->Handle() == nullptr) {
+    return;
   }
-  restorePetAfterDashboard_ = false;
+  const bool shouldShow = cloudyi_pet_should_show(
+      IsDashboardOnDesktop(), petManuallyHidden_,
+      petWindow_->IsReminderPresenting() && !suppressCurrentPresentation_) != 0;
+  const bool visible = IsWindowVisible(petWindow_->Handle()) != FALSE;
+  // Only apply transitions: repeated timer/resize events must not reset tucking.
+  if (shouldShow && !visible) petWindow_->Show();
+  if (!shouldShow && visible) petWindow_->Hide();
+}
+
+void Application::SetPetHiddenByUser(bool hidden) {
+  petManuallyHidden_ = hidden;
+  suppressCurrentPresentation_ = hidden;
+  if (hidden && petWindow_->IsReminderPresenting()) {
+    petWindow_->EndReminderPresentation();
+    // Manual hide is not reminder dismissal, but React must leave placard mode
+    // so a later tray "show" restores the normal-sized character and bubble.
+    petWindow_->PostJson(R"({"type":"presentation.ended"})");
+  }
+  SyncPetVisibility();
 }
 
 void Application::SavePetPosition(HWND window) {
@@ -1848,7 +1866,6 @@ void Application::SavePetPosition(HWND window) {
 void Application::Quit() {
   quitting_ = true;
   CancelSoftwareScan(true);
-  restorePetAfterDashboard_ = false;
   networkDebugService_.Stop();
   serialDebugService_.Stop();
   mqttDebugService_.Stop();
@@ -1903,9 +1920,7 @@ void Application::ShowTrayMenu() {
   HMENU menu = CreatePopupMenu();
   AppendMenuW(menu, MF_STRING, kOpenDashboardCommand, L"打开云依助手");
   const std::wstring petName = Utf8ToWide(petName_);
-  const bool dashboardVisible =
-      dashboardWindow_ != nullptr &&
-      IsWindowVisible(dashboardWindow_->Handle()) != FALSE;
+  const bool dashboardVisible = IsDashboardOnDesktop();
   const std::wstring visibilityLabel =
       dashboardVisible
           ? petName + L"会在关闭云依助手后回来"
@@ -1928,9 +1943,9 @@ void Application::ShowTrayMenu() {
       break;
     case kHidePetCommand:
       if (IsWindowVisible(petWindow_->Handle())) {
-        petWindow_->Hide();
+        SetPetHiddenByUser(true);
       } else {
-        petWindow_->Show();
+        SetPetHiddenByUser(false);
       }
       break;
     case kQuitCommand:

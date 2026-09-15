@@ -59,8 +59,12 @@ class Application final {
   void HandleTrayMessage(LPARAM event);
   /// Opens or foregrounds the reminder dashboard.
   void ShowDashboard();
-  /// Closes the dashboard surface and restores the pet when it opened it.
+  /// Closes the dashboard surface and restores the user's desktop-pet state.
   void CloseDashboard();
+  /// Restores workspace-only visibility once the reminder has returned home.
+  void OnReminderPresentationFinished();
+  /// Reconciles pet visibility after workspace show/hide/minimize events.
+  void SyncPetVisibility();
   /// Persists the pet window position after a drag or display change.
   void SavePetPosition(HWND window);
   /// Closes all windows and exits the process.
@@ -107,6 +111,8 @@ class Application final {
                          const std::string& planToken = std::string());
   void CancelSoftwareScan(bool waitForWorker = false);
   void DrainSoftwareScan();
+  bool IsDashboardOnDesktop() const;
+  void SetPetHiddenByUser(bool hidden);
 
   // Character wardrobe persistence.
   void LoadCharacters();
@@ -147,8 +153,6 @@ class Application final {
   bool hasPetPosition_{};
   std::int64_t presentedReminderId_{};
   bool hasPresentedReminder_{};
-  /// Priority retained when a reminder arrives while the dashboard is open.
-  std::string presentedReminderPriority_{"normal"};
   std::string petName_{"可爱依依"};
   std::vector<CharacterProfile> characters_;
   std::string activeCharacterId_{"builtin"};
@@ -169,8 +173,10 @@ class Application final {
   HICON activeLargeIcon_{};
   HICON activeSmallIcon_{};
   bool showDashboardOnStart_{};
-  /// Remembers whether opening the dashboard temporarily displaced the pet.
-  bool restorePetAfterDashboard_{};
+  /// Explicit user choice is separate from temporary workspace suppression.
+  bool petManuallyHidden_{};
+  /// Hiding during a reminder must not be undone by the next scheduler tick.
+  bool suppressCurrentPresentation_{};
   /// Prevents window-close callbacks from reviving the pet during shutdown.
   bool quitting_{};
 };

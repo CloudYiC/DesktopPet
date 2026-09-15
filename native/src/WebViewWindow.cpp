@@ -194,15 +194,18 @@ void WebViewWindow::Show() {
     SetWindowPos(window_, HWND_TOPMOST, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
   } else {
-    ShowWindow(window_, SW_SHOW);
+    ShowWindow(window_, IsIconic(window_) ? SW_RESTORE : SW_SHOW);
     SetForegroundWindow(window_);
   }
+  ResizeWebView();
+  SyncWebViewVisibility();
 }
 
 void WebViewWindow::Hide() {
   if (window_ != nullptr) {
     ResetAutoTuck(true);
     ShowWindow(window_, SW_HIDE);
+    SyncWebViewVisibility();
   }
 }
 
@@ -253,7 +256,8 @@ void WebViewWindow::EndDrag() {
   application_.SavePetPosition(window_);
 }
 
-void WebViewWindow::BeginReminderPresentation(const std::string& priority) {
+void WebViewWindow::BeginReminderPresentation(const std::string& priority,
+                                              HWND anchorWindow) {
   if (window_ == nullptr || kind_ != WindowKind::Pet) {
     return;
   }
@@ -268,8 +272,15 @@ void WebViewWindow::BeginReminderPresentation(const std::string& priority) {
   }
   presentationPriority_ = priority;
 
+  // A reminder tested from the workspace belongs on that screen. A minimized
+  // or closed workspace falls back to the pet's current monitor.
+  const HWND monitorWindow =
+      anchorWindow != nullptr && IsWindowVisible(anchorWindow) &&
+              !IsIconic(anchorWindow)
+          ? anchorWindow
+          : window_;
   const HMONITOR monitor =
-      MonitorFromWindow(window_, MONITOR_DEFAULTTONEAREST);
+      MonitorFromWindow(monitorWindow, MONITOR_DEFAULTTONEAREST);
   MONITORINFO monitorInfo{sizeof(monitorInfo)};
   if (!GetMonitorInfoW(monitor, &monitorInfo)) {
     return;
@@ -308,6 +319,10 @@ void WebViewWindow::EndReminderPresentation() {
   StartPresentationReturn(false);
 }
 
+bool WebViewWindow::IsReminderPresenting() const {
+  return presentationState_ != PresentationState::Idle;
+}
+
 void WebViewWindow::SetAutoTucked(bool tucked) {
   if (window_ == nullptr || kind_ != WindowKind::Pet ||
       presentationState_ != PresentationState::Idle ||
@@ -336,19 +351,19 @@ void WebViewWindow::SetAutoTucked(bool tucked) {
     if (!GetMonitorInfoW(monitor, &monitorInfo)) {
       return;
     }
-    // Leave a narrow visible strip so the pet can still be discovered while
-    // inactive. Choose the nearest horizontal edge to avoid crossing the screen.
-    constexpr LONG kVisibleStrip = 42;
+    // The centered character has transparent padding. A 42px host strip can
+    // contain no visible pixels; half of the host keeps part of either layout.
     const LONG width = current.right - current.left;
     const LONG height = current.bottom - current.top;
+    const LONG visibleStrip = (std::max)(LONG{1}, width / 2);
     const LONG leftDistance =
         std::abs(current.left - monitorInfo.rcWork.left);
     const LONG rightDistance =
         std::abs(monitorInfo.rcWork.right - current.right);
     const LONG targetX =
         leftDistance <= rightDistance
-            ? monitorInfo.rcWork.left - width + kVisibleStrip
-            : monitorInfo.rcWork.right - kVisibleStrip;
+            ? monitorInfo.rcWork.left - width + visibleStrip
+            : monitorInfo.rcWork.right - visibleStrip;
     const LONG targetY = ClampValue(
         current.top, monitorInfo.rcWork.top,
         monitorInfo.rcWork.bottom - height);
@@ -407,6 +422,12 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
 
     case WM_SIZE:
       ResizeWebView();
+      SyncWebViewVisibility();
+      if (kind_ == WindowKind::Dashboard) application_.SyncPetVisibility();
+      return 0;
+
+    case WM_SHOWWINDOW:
+      if (kind_ == WindowKind::Dashboard) application_.SyncPetVisibility();
       return 0;
 
     case WM_DPICHANGED: {
@@ -467,8 +488,7 @@ LRESULT WebViewWindow::HandleMessage(UINT message, WPARAM wParam,
 
     case WM_CLOSE:
       if (kind_ == WindowKind::Dashboard) {
-        // Treat the close button/Alt+F4 as leaving the workspace. Minimizing
-        // only sends WM_SIZE, so it deliberately keeps the pet hidden.
+        // Close/Alt+F4 hides the workspace; minimize is handled through WM_SIZE.
         application_.CloseDashboard();
       } else {
         application_.Quit();
@@ -519,6 +539,7 @@ void WebViewWindow::InitializeWebView() {
                   controller_->get_CoreWebView2(&webView_);
                   ConfigureWebView();
                   ResizeWebView();
+                  SyncWebViewVisibility();
                   return S_OK;
                 });
 
@@ -653,6 +674,12 @@ void WebViewWindow::ResizeWebView() {
   RECT bounds{};
   GetClientRect(window_, &bounds);
   controller_->put_Bounds(bounds);
+}
+
+void WebViewWindow::SyncWebViewVisibility() {
+  if (controller_ != nullptr && window_ != nullptr) {
+    controller_->put_IsVisible(IsWindowVisible(window_) && !IsIconic(window_));
+  }
 }
 
 void WebViewWindow::SnapPetToWorkArea() {
@@ -798,8 +825,7 @@ void WebViewWindow::UpdatePresentationAnimation() {
   const LONG width = Interpolate(startWidth, endWidth, progress);
   const LONG height = Interpolate(startHeight, endHeight, progress);
 
-  // Do not force visibility here: the dashboard may have deliberately hidden
-  // the pet while this timer finishes its presentation state transition.
+  // Do not force visibility on every frame: an explicit hide remains respected.
   SetWindowPos(window_, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE);
 
   if (rawProgress < 1.0) {
@@ -816,6 +842,7 @@ void WebViewWindow::UpdatePresentationAnimation() {
   } else {
     presentationState_ = PresentationState::Idle;
     KillTimer(window_, kPresentationTimerId);
+    application_.OnReminderPresentationFinished();
   }
 }
 

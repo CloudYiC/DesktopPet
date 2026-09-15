@@ -44,9 +44,12 @@ class WebViewWindow final {
   /// Finishes custom dragging, snaps to the work area and saves the position.
   void EndDrag();
   /// Animates an expanded reminder window into the monitor work area.
-  void BeginReminderPresentation(const std::string& priority);
+  void BeginReminderPresentation(const std::string& priority,
+                                 HWND anchorWindow = nullptr);
   /// Returns the presentation window to its saved desktop position.
   void EndReminderPresentation();
+  /// True through move-in, holding and return; an open dashboard must not hide it.
+  bool IsReminderPresenting() const;
   /// Slides the idle pet to/from the nearest monitor edge.
   void SetAutoTucked(bool tucked);
   /// Sends a serialized JSON event to the hosted React application.
@@ -65,6 +68,7 @@ class WebViewWindow final {
   // WebView2 and native host setup.
   void InitializeWebView();
   void ResizeWebView();
+  void SyncWebViewVisibility();
   void ConfigureWebView();
   void ConfigureTransparentHost();
   void SnapPetToWorkArea();

@@ -1,8 +1,8 @@
-# 完整离线 Windows 安装包（0.13.15）
+# 完整离线 Windows 安装包（0.13.16）
 
 ## 内网电脑如何使用
 
-在能下载文件的电脑取得 `CloudYiAssistant-Setup-0.13.15.exe`，通过 U 盘复制到目标电脑，
+在能下载文件的电脑取得 `CloudYiAssistant-Setup-0.13.16.exe`，通过 U 盘复制到目标电脑，
 双击并按向导安装。只需这一个文件，无需源码、界面目录或另行下载运行库。
 系统范围仍为 Windows 10/11 x64，需要管理员权限、临时目录/安装目录可写及足够空间。
 这不是免安装版，也不增加 Windows 7、XP 或 macOS 支持，不绕过公司的应用控制策略。
@@ -54,7 +54,7 @@
 
 ```powershell
 node scripts/test-offline-installer.cjs
-./scripts/test-offline-payload.ps1 -Installer ./out/dist/CloudYiAssistant-Setup-0.13.15.exe -SevenZipPath 'C:/Program Files/7-Zip/7z.exe'
+./scripts/test-offline-payload.ps1 -Installer ./out/dist/CloudYiAssistant-Setup-0.13.16.exe -SevenZipPath 'C:/Program Files/7-Zip/7z.exe'
 ```
 
 第二条命令只测试和解包到新建的 `out/verification` 子目录，不执行包内程序；同时核对
