@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { RunnableToolId } from '../../../lib/runnableTools'
 import * as wasm from '../../../lib/wasmNative'
-import { PacketInspector } from './PacketInspector'
 import styles from './ToolRunner.module.scss'
 
 // Web runners mirror the desktop utility plugins, but call wasmNative directly
@@ -38,7 +37,6 @@ export function ToolRunner({ toolId }: ToolRunnerProps) {
   if (toolId === 'jwt') return <JwtRunner />
   if (toolId === 'regex') return <RegexRunner />
   if (toolId === 'diff') return <DiffRunner />
-  if (toolId === 'packet-inspector') return <PacketInspector />
   return null
 }
 

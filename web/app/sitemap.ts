@@ -8,7 +8,7 @@ const releaseDates = CHANGELOG.map((entry) => new Date(entry.date).getTime()).fi
   Number.isFinite,
 )
 const latestReleaseDate =
-  releaseDates.length > 0 ? new Date(Math.max(...releaseDates)) : new Date('2026-06-15')
+  releaseDates.length > 0 ? new Date(Math.max(...releaseDates)) : undefined
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [

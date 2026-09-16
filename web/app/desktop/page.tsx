@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CHANGELOG } from '../../lib/catalog'
 import { SITE_NAME_EN, SITE_NAME_ZH } from '../../lib/site'
+import desktopRelease from '../../public/updates/desktop.json'
 import styles from './desktop.module.scss'
 
 export const metadata: Metadata = {
@@ -109,16 +110,16 @@ export default function DesktopPage() {
       <section className={styles.section} id="downloads">
         <div className={styles.downloadGrid}>
           <DownloadCard
-            os="Windows"
+            os="Windows 离线版"
             recommended
             icon="WIN"
             arch="x64"
-            file=".exe"
-            size="release"
+            file={`.exe · v${desktopRelease.latestVersion}`}
+            size={`${(desktopRelease.packages['windows-amd64'].size / 1000000).toFixed(1)} MB`}
             cmdLabel="build"
             cmd=".\scripts\build-installer.ps1"
-            requires="Windows 10 / 11 x64"
-            downloadUrl="https://github.com/CloudYiC/DesktopPet/releases"
+            requires="Windows 10 / 11 x64 · 安装无需外网"
+            downloadUrl={desktopRelease.packages['windows-amd64'].url}
           />
           <DownloadCard
             os="macOS"
@@ -173,7 +174,7 @@ export default function DesktopPage() {
         </div>
       </section>
 
-      <section className={styles.section}>
+      {recentLog.length > 0 && <section className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.h2}>What is new</h2>
           <Link className={styles.sectionLink} href="/changelog">
@@ -208,7 +209,7 @@ export default function DesktopPage() {
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
       <section className={styles.cta}>
         <div className={styles.ctaInner}>

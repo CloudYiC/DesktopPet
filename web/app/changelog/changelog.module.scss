@@ -27,18 +27,15 @@
   letter-spacing: 0;
 }
 
-.subtitle {
+.empty {
   margin: 0;
+  padding: var(--cy-space-6);
+  border: 1px solid var(--site-border);
+  border-radius: 8px;
+  background: var(--site-surface);
   color: var(--cy-text-secondary);
   font-size: var(--cy-font-size-md);
   line-height: var(--cy-line-height-relaxed);
-
-  .kindAdd,
-  .kindFix,
-  .kindRemove {
-    font-family: var(--cy-font-mono);
-    font-weight: 800;
-  }
 }
 
 .list {

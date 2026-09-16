@@ -1,11 +1,15 @@
-# 完整离线 Windows 安装包（0.13.17）
+# 完整离线 Windows 安装包（v1.0.0）
 
 ## 内网电脑如何使用
 
-在能下载文件的电脑取得 `CloudYiAssistant-Setup-0.13.17.exe`，通过 U 盘复制到目标电脑，
+在能下载文件的电脑取得 `CloudYiAssistant-Setup-1.0.0.exe`，通过 U 盘复制到目标电脑，
 双击并按向导安装。只需这一个文件，无需源码、界面目录或另行下载运行库。
 系统范围仍为 Windows 10/11 x64，需要管理员权限、临时目录/安装目录可写及足够空间。
 这不是免安装版，也不增加 Windows 7、XP 或 macOS 支持，不绕过公司的应用控制策略。
+
+当前 v1.0.0 正式构建只提供完整离线安装包。历史 `0.13.14` 联网包约 23.34 MB，
+包含 VC++ 运行库和 WebView2 下载引导程序；缺少 WebView2 时需要联网，因此不适合
+内网分发。历史包保持原版本和链接，不通过重命名冒充 v1.0.0；两种安装方式也不是两个项目。
 
 ## 包内包含什么
 
@@ -30,7 +34,7 @@
 
 构建脚本校验两个前置安装程序的 Microsoft Authenticode 签名；WebView2 另检查完整包文件名
 和体积下限，防止缓存旧 Bootstrapper 被误用。下载中断时只留下 `.partial`，不冒充有效缓存。
-并生成 `CloudYiAssistant-Setup-0.13.17.exe.manifest.json`，记录最终 EXE 和两项前置组件的
+并生成 `CloudYiAssistant-Setup-1.0.0.exe.manifest.json`，记录最终 EXE 和两项前置组件的
 实际大小、SHA-256、安装器包装版本及签名主体；包装版本不等于内部浏览器版本。
 
 完整离线 EXE 超过 GitHub 普通 Git 文件限制，使用 Git LFS 保存本版二进制；旧版本不迁移。
@@ -54,8 +58,14 @@
 
 ```powershell
 node scripts/test-offline-installer.cjs
-./scripts/test-offline-payload.ps1 -Installer ./out/dist/CloudYiAssistant-Setup-0.13.17.exe -SevenZipPath 'C:/Program Files/7-Zip/7z.exe'
+./scripts/test-offline-payload.ps1 -Installer ./out/dist/CloudYiAssistant-Setup-1.0.0.exe -SevenZipPath 'C:/Program Files/7-Zip/7z.exe'
 ```
 
 第二条命令只测试和解包到新建的 `out/verification` 子目录，不执行包内程序；同时核对
 同目录 `.exe.manifest.json` 和 `out/installer/prerequisites` 内两个构建源文件。
+
+v1.0.0 验证：前端生产构建、Release 原生构建和 13 项 CTest 通过，桌面报文工作台
+12 项模型测试及 21 项合成安装分支通过。安装包为 237,271,505 字节；实际解包的
+9 个程序/界面文件与 Release 哈希一致，两个微软前置程序与发布清单一致，程序内部
+版本为 1.0.0。Web 生产构建和 7 项范围/页面回归通过，保留 11 个浏览器工具且日志为空。
+这些验证不包含实机安装或卸载。

@@ -13,7 +13,6 @@ export const TYPESCRIPT_TOOL_IDS = [
   'json-format',
   'regex',
   'diff',
-  'packet-inspector',
 ] as const
 
 export const RUNNABLE_TOOL_IDS = [...WASM_NATIVE_TOOL_IDS, ...TYPESCRIPT_TOOL_IDS] as const

@@ -1,21 +1,21 @@
 {
-  "latestVersion": "0.13.17",
+  "latestVersion": "1.0.0",
   "minimumVersion": "0.11.1",
   "mandatory": false,
-  "title": "云依助手 0.13.17 · 依依快捷入口与位置修复",
-  "releaseNotes": "Centered the desktop character and drag frame across display scales. Removed automatic edge-tucking and its wait setting. Replaced the desktop interaction menu with Toolbox, My Finance and Personal Learning shortcuts, with editable local HTTP(S) website settings and default-browser opening. Unconfigured shortcuts lead to settings without visiting a placeholder site. Preserved reminder placards, completion, snooze and manual hiding; protected reminder positioning during dragging and display-scale changes. Full offline WebView2 and VC++ prerequisites remain included for Windows 10/11 x64 USB distribution.",
-  "publishedAt": "2026-09-15T14:18:56Z",
+  "title": "云依助手 v1.0.0",
+  "releaseNotes": "",
+  "publishedAt": "2026-09-16T02:40:11Z",
   "pageUrl": "https://github.com/CloudYiC/DesktopPet/releases",
   "packages": {
     "windows-amd64": {
-      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.17.exe",
-      "sha256": "58E6202FA407454989FB343EB4FD8A648C211C5703EE983E713A7E890E449032",
-      "size": 237272465,
+      "url": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-1.0.0.exe",
+      "sha256": "5E275EAEE5C690C0824E8C62E3EBE7C1C7A979F58DDE9D3D723A48AADE10F312",
+      "size": 237271505,
       "installerType": "exe",
       "installArgs": []
     }
   },
   "downloads": {
-    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-0.13.17.exe"
+    "windows-amd64": "https://media.githubusercontent.com/media/CloudYiC/DesktopPet/main/out/dist/CloudYiAssistant-Setup-1.0.0.exe"
   }
 }
